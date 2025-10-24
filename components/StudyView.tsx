@@ -14,7 +14,15 @@ const StudyView: React.FC = () => {
 
 
     if (!context) return null;
-    const { notebooks, setNotebooks, activeNotebookId, searchTerm, setSearchTerm } = context;
+    const { 
+        notebooks, 
+        activeNotebookId, 
+        searchTerm, 
+        setSearchTerm, 
+        addScenario, 
+        updateScenario, 
+        deleteScenario 
+    } = context;
 
     const activeNotebook = useMemo(() => {
         return notebooks.find(n => n.id === activeNotebookId);
@@ -64,29 +72,17 @@ const StudyView: React.FC = () => {
             callText: '',
             notes: '',
         };
-        setNotebooks(notebooks.map(n => 
-            n.id === activeNotebookId 
-            ? { ...n, scenarios: [...(n.scenarios || []), newScenario] } 
-            : n
-        ));
+        addScenario(activeNotebook.id, newScenario);
     };
 
-    const updateScenario = (updatedScenario: Scenario) => {
+    const handleUpdateScenario = (updatedScenario: Scenario) => {
         if (!activeNotebook) return;
-        setNotebooks(notebooks.map(n => 
-            n.id === activeNotebookId
-            ? { ...n, scenarios: (n.scenarios || []).map(s => s.id === updatedScenario.id ? updatedScenario : s) }
-            : n
-        ));
+        updateScenario(activeNotebook.id, updatedScenario);
     };
     
-    const deleteScenario = (scenarioId: string) => {
+    const handleDeleteScenario = (scenarioId: string) => {
         if (!activeNotebook) return;
-        setNotebooks(notebooks.map(n => 
-            n.id === activeNotebookId
-            ? { ...n, scenarios: (n.scenarios || []).filter(s => s.id !== scenarioId) }
-            : n
-        ));
+        deleteScenario(activeNotebook.id, scenarioId);
     };
 
     const toggleCompare = (scenarioId: string) => {
@@ -234,8 +230,8 @@ const StudyView: React.FC = () => {
                     <ScenarioEditor
                         key={scenario.id}
                         scenario={scenario}
-                        onUpdate={updateScenario}
-                        onDelete={deleteScenario}
+                        onUpdate={handleUpdateScenario}
+                        onDelete={handleDeleteScenario}
                         isSelectedForCompare={scenariosToCompare.has(scenario.id)}
                         onToggleCompare={toggleCompare}
                         isCollapsed={collapsedScenarios.has(scenario.id)}

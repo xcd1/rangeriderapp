@@ -1,6 +1,5 @@
 import React, { useContext, useState } from 'react';
 import { AppContext } from '../App';
-import type { Notebook } from '../types';
 
 const FolderIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-3 h-5 w-5 text-yellow-400"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"></path></svg>
@@ -18,25 +17,42 @@ const LogoutIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2 h-4 w-4"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
 );
 
+const TrashIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+);
 
 const Sidebar: React.FC = () => {
   const context = useContext(AppContext);
   const [newNotebookName, setNewNotebookName] = useState('');
 
   if (!context) return null;
-  const { notebooks, setNotebooks, activeNotebookId, setActiveNotebookId, searchTerm, setSearchTerm, user, logout } = context;
+  const { notebooks, addNotebook, deleteNotebook, activeNotebookId, setActiveNotebookId, searchTerm, setSearchTerm, user, logout } = context;
 
-  const handleAddNotebook = () => {
+  const handleAddNotebook = async () => {
     if (newNotebookName.trim() === '') return;
-    const newNotebook: Notebook = {
-      id: crypto.randomUUID(),
-      name: newNotebookName.trim(),
-      scenarios: [],
-    };
-    setNotebooks(prev => [...prev, newNotebook]);
-    setNewNotebookName('');
-    setActiveNotebookId(newNotebook.id);
+    try {
+        await addNotebook(newNotebookName.trim());
+        setNewNotebookName('');
+        // setActiveNotebookId will be set by the hook's return value eventually
+    } catch(e) {
+        console.error("Failed to add notebook:", e);
+    }
   };
+
+  const handleDeleteNotebook = async (e: React.MouseEvent, notebookId: string, notebookName: string) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if(window.confirm(`Tem certeza que deseja excluir o caderno "${notebookName}"? Esta ação não pode ser desfeita.`)) {
+        try {
+            await deleteNotebook(notebookId);
+            if (activeNotebookId === notebookId) {
+                setActiveNotebookId(null);
+            }
+        } catch(e) {
+            console.error("Failed to delete notebook", e);
+        }
+    }
+  }
   
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -80,16 +96,25 @@ const Sidebar: React.FC = () => {
       <nav className="flex-grow overflow-y-auto">
         <ul>
           {notebooks.map(notebook => (
-            <li key={notebook.id} className="mb-1">
+            <li key={notebook.id} className="mb-1 group">
               <a
                 href="#"
                 onClick={(e) => { e.preventDefault(); setActiveNotebookId(notebook.id); }}
-                className={`flex items-center p-2 text-sm rounded-md transition-colors ${
+                className={`flex items-center justify-between p-2 text-sm rounded-md transition-colors ${
                   activeNotebookId === notebook.id ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-700'
                 }`}
               >
-                <FolderIcon />
-                <span className="truncate">{notebook.name}</span>
+                <div className="flex items-center truncate">
+                    <FolderIcon />
+                    <span className="truncate">{notebook.name}</span>
+                </div>
+                <button 
+                    onClick={(e) => handleDeleteNotebook(e, notebook.id, notebook.name)}
+                    className="text-gray-400 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity p-1"
+                    title={`Excluir caderno ${notebook.name}`}
+                >
+                    <TrashIcon />
+                </button>
               </a>
             </li>
           ))}

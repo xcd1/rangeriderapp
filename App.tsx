@@ -1,7 +1,7 @@
 import React, { useState, createContext, useMemo, useCallback } from 'react';
-import type { Notebook } from './types';
+import type { Notebook, Scenario } from './types';
 import type { User } from 'firebase/auth';
-import useLocalStorage from './hooks/useLocalStorage';
+import useFirestoreNotebooks from './hooks/useFirestoreNotebooks';
 import Sidebar from './components/Sidebar';
 import StudyView from './components/StudyView';
 import LoginView from './components/LoginView';
@@ -9,13 +9,17 @@ import { useAuth } from './contexts/AuthContext';
 
 interface AppContextType {
   notebooks: Notebook[];
-  setNotebooks: React.Dispatch<React.SetStateAction<Notebook[]>>;
   activeNotebookId: string | null;
   setActiveNotebookId: React.Dispatch<React.SetStateAction<string | null>>;
   searchTerm: string;
   setSearchTerm: React.Dispatch<React.SetStateAction<string>>;
   user: User;
   logout: () => void;
+  addNotebook: (name: string) => Promise<void>;
+  deleteNotebook: (notebookId: string) => Promise<void>;
+  addScenario: (notebookId: string, scenario: Scenario) => Promise<void>;
+  updateScenario: (notebookId: string, scenario: Scenario) => Promise<void>;
+  deleteScenario: (notebookId: string, scenarioId: string) => Promise<void>;
 }
 
 export const AppContext = createContext<AppContextType | null>(null);
@@ -28,12 +32,17 @@ const LoadingSpinner: React.FC = () => (
 
 
 const App: React.FC = () => {
-  const { user, logout, loading } = useAuth();
+  const { user, logout, loading: authLoading } = useAuth();
+  const { 
+    notebooks, 
+    loading: notebooksLoading, 
+    addNotebook,
+    deleteNotebook,
+    addScenario,
+    updateScenario,
+    deleteScenario
+  } = useFirestoreNotebooks(user?.uid);
 
-  const [notebooks, setNotebooks] = useLocalStorage<Notebook[]>(
-    user ? `range-rider-notebooks-${user.uid}` : null, 
-    []
-  );
   const [activeNotebookId, setActiveNotebookId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -42,7 +51,6 @@ const App: React.FC = () => {
         await logout();
         setActiveNotebookId(null);
         setSearchTerm('');
-        // setNotebooks is not needed as useLocalStorage will reset on key change
     } catch (error) {
         console.error("Failed to log out:", error);
     }
@@ -52,17 +60,21 @@ const App: React.FC = () => {
     if (!user) return null;
     return {
         notebooks,
-        setNotebooks,
         activeNotebookId,
         setActiveNotebookId,
         searchTerm,
         setSearchTerm,
         user,
         logout: handleLogout,
+        addNotebook,
+        deleteNotebook,
+        addScenario,
+        updateScenario,
+        deleteScenario,
     }
-  }, [notebooks, setNotebooks, activeNotebookId, searchTerm, user, handleLogout]);
+  }, [notebooks, activeNotebookId, searchTerm, user, handleLogout, addNotebook, deleteNotebook, addScenario, updateScenario, deleteScenario]);
   
-  if (loading) {
+  if (authLoading || (user && notebooksLoading)) {
       return <LoadingSpinner />;
   }
 

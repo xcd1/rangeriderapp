@@ -1,5 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
+
 // TODO: Substitua o seguinte objeto pela configuração do seu projeto Firebase.
 // Você pode encontrar isso nas configurações do seu projeto no console do Firebase:
 // https://console.firebase.google.com/
@@ -17,3 +19,5 @@ import { getAuth } from 'firebase/auth';
 const app = initializeApp(firebaseConfig);
 // Inicializa o Firebase Authentication e obtém uma referência para o serviço
 export const auth = getAuth(app);
+// Inicializa o Cloud Firestore e obtém uma referência para o serviço
+export const db = getFirestore(app);
