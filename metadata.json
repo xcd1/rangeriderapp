@@ -1,0 +1,5 @@
+{
+  "name": "Range Rider",
+  "description": "An application for professional poker players to study and compare poker ranges for various tournament scenarios. Users can create virtual notebooks, import range images, frequencies, text files, and notes to build their own queryable database.",
+  "requestFramePermissions": []
+}
