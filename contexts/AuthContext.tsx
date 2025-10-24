@@ -8,19 +8,19 @@ import {
   signInWithPopup,
   GoogleAuthProvider,
   signOut,
-  // Fix: Import UserCredential to use in type definitions.
   UserCredential,
+  setPersistence,
+  browserLocalPersistence,
+  browserSessionPersistence,
 } from 'firebase/auth';
 import { auth } from '../firebase';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  // Fix: Correctly type signup and login to expect 2 arguments (email, password)
-  // as the `auth` object is handled within the context provider.
-  signup: (email: string, password: string) => Promise<UserCredential>;
-  login: (email: string, password: string) => Promise<UserCredential>;
-  loginWithGoogle: () => Promise<any>;
+  signup: (email: string, password: string, rememberMe: boolean) => Promise<UserCredential>;
+  login: (email: string, password: string, rememberMe: boolean) => Promise<UserCredential>;
+  loginWithGoogle: (rememberMe: boolean) => Promise<any>;
   logout: () => Promise<void>;
 }
 
@@ -51,16 +51,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return () => unsubscribe();
   }, []);
   
-  const loginWithGoogle = () => {
+  const signup = async (email: string, password: string, rememberMe: boolean) => {
+    const persistence = rememberMe ? browserLocalPersistence : browserSessionPersistence;
+    await setPersistence(auth, persistence);
+    return createUserWithEmailAndPassword(auth, email, password);
+  }
+
+  const login = async (email: string, password: string, rememberMe: boolean) => {
+    const persistence = rememberMe ? browserLocalPersistence : browserSessionPersistence;
+    await setPersistence(auth, persistence);
+    return signInWithEmailAndPassword(auth, email, password);
+  }
+
+  const loginWithGoogle = async (rememberMe: boolean) => {
       const provider = new GoogleAuthProvider();
+      const persistence = rememberMe ? browserLocalPersistence : browserSessionPersistence;
+      await setPersistence(auth, persistence);
       return signInWithPopup(auth, provider);
   }
 
   const value = {
     user,
     loading,
-    signup: (email, password) => createUserWithEmailAndPassword(auth, email, password),
-    login: (email, password) => signInWithEmailAndPassword(auth, email, password),
+    signup,
+    login,
     loginWithGoogle,
     logout: () => signOut(auth),
   };

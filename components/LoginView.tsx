@@ -10,6 +10,7 @@ const LoginView: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const { signup, login, loginWithGoogle } = useAuth();
 
   const handleAuthAction = async (action: 'login' | 'signup') => {
@@ -21,9 +22,9 @@ const LoginView: React.FC = () => {
     setError('');
     try {
       if (action === 'login') {
-        await login(email, password);
+        await login(email, password, rememberMe);
       } else {
-        await signup(email, password);
+        await signup(email, password, rememberMe);
       }
     } catch (err) {
       const isFirebaseError = err && typeof err === 'object' && 'code' in err;
@@ -62,7 +63,7 @@ const LoginView: React.FC = () => {
     setIsLoading(true);
     setError('');
     try {
-      await loginWithGoogle();
+      await loginWithGoogle(rememberMe);
     } catch (err) {
       const isFirebaseError = err && typeof err === 'object' && 'code' in err;
       if (isFirebaseError) {
@@ -92,26 +93,26 @@ const LoginView: React.FC = () => {
   }
 
   return (
-    <div className="flex items-center justify-center h-screen bg-gray-900">
-      <div className="w-full max-w-sm p-8 space-y-6 bg-gray-800 rounded-lg shadow-lg">
+    <div className="flex items-center justify-center h-screen bg-brand-bg">
+      <div className="w-full max-w-sm p-8 space-y-6 bg-brand-primary rounded-lg shadow-lg">
         <div className="text-center">
-          <h1 className="text-4xl font-bold text-white">Range Rider</h1>
-          <p className="mt-2 text-gray-400">Seu banco de dados de poker pessoal.</p>
+          <h1 className="text-4xl font-bold text-brand-secondary">range rider</h1>
+          <p className="mt-2 text-brand-text-muted">Improve your learning skills.</p>
         </div>
         <div className="space-y-4">
           <button
               onClick={handleGoogleLogin}
               disabled={isLoading}
-              className="w-full inline-flex items-center justify-center py-2 px-4 border border-gray-600 rounded-md shadow-sm bg-white text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-blue-500 disabled:opacity-50"
+              className="w-full inline-flex items-center justify-center py-2 px-4 border border-gray-600 rounded-md shadow-sm bg-white text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-brand-primary focus:ring-brand-secondary disabled:opacity-50"
             >
               <GoogleIcon />
               Entrar com o Google
             </button>
         </div>
         <div className="relative flex py-2 items-center">
-            <div className="flex-grow border-t border-gray-600"></div>
-            <span className="flex-shrink mx-4 text-gray-400 text-xs">OU</span>
-            <div className="flex-grow border-t border-gray-600"></div>
+            <div className="flex-grow border-t border-brand-bg"></div>
+            <span className="flex-shrink mx-4 text-brand-text-muted text-xs">OU</span>
+            <div className="flex-grow border-t border-brand-bg"></div>
         </div>
         <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
           <input
@@ -120,7 +121,7 @@ const LoginView: React.FC = () => {
             onChange={(e) => setEmail(e.target.value)}
             placeholder="E-mail"
             required
-            className="w-full px-3 py-2 text-white bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 text-brand-text bg-brand-bg border border-brand-bg rounded-md focus:outline-none focus:ring-2 focus:ring-brand-secondary"
           />
           <input
             type="password"
@@ -128,26 +129,42 @@ const LoginView: React.FC = () => {
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Senha (mín. 6 caracteres)"
             required
-            className="w-full px-3 py-2 text-white bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 text-brand-text bg-brand-bg border border-brand-bg rounded-md focus:outline-none focus:ring-2 focus:ring-brand-secondary"
           />
+          <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                  <input 
+                      id="remember-me" 
+                      name="remember-me" 
+                      type="checkbox" 
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      className="h-4 w-4 text-brand-secondary bg-brand-bg border-brand-bg rounded focus:ring-brand-secondary" 
+                  />
+                  <label htmlFor="remember-me" className="ml-2 block text-sm text-brand-text-muted">
+                      Salvar neste dispositivo
+                  </label>
+              </div>
+          </div>
           {error && <p className="text-red-400 text-sm text-center">{error}</p>}
-          <div className="flex gap-4">
+          <div className="flex gap-4 pt-2">
             <button
               onClick={() => handleAuthAction('login')}
               disabled={isLoading}
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-gray-500 disabled:opacity-50"
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-brand-text bg-brand-bg hover:brightness-125 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-brand-primary focus:ring-gray-500 disabled:opacity-50"
             >
               {isLoading ? 'Entrando...' : 'Entrar'}
             </button>
             <button
               onClick={() => handleAuthAction('signup')}
               disabled={isLoading}
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-blue-500 disabled:opacity-50"
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-brand-primary bg-brand-secondary hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-brand-primary focus:ring-brand-secondary disabled:opacity-50 font-bold"
             >
               {isLoading ? 'Criando...' : 'Criar Conta'}
             </button>
           </div>
         </form>
+         <p className="text-xs text-brand-text-muted text-center pt-2">powered by xcd1</p>
       </div>
     </div>
   );

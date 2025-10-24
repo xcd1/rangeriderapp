@@ -4,8 +4,23 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Range Rider</title>
+    <title>range rider</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              'brand-primary': '#2c5a6d', // Dark Teal
+              'brand-secondary': '#f5c339', // Yellow
+              'brand-bg': '#20424f', // Darker Teal for BG
+              'brand-text': '#f0f0f0',
+              'brand-text-muted': '#a0b0b5',
+            }
+          }
+        }
+      }
+    </script>
   <script type="importmap">
 {
   "imports": {
@@ -21,7 +36,7 @@
 </script>
 <link rel="stylesheet" href="/index.css">
 </head>
-  <body class="bg-gray-900 text-gray-100">
+  <body class="bg-brand-bg text-brand-text">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>

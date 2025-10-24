@@ -1,69 +1,69 @@
-import React, { useContext, useState, useMemo } from 'react';
-import { AppContext } from '../App';
+import React, { useContext, useState, useMemo, useEffect } from 'react';
+import { AppContext, useHistory } from '../App';
 import type { SpotType, Scenario } from '../types';
 import { SPOT_TYPES } from '../constants';
 import ScenarioEditor from './ScenarioEditor';
 import ComparisonView from './ComparisonView';
+import ConfirmationModal from './ConfirmationModal';
+
+const PlusIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+);
 
 const StudyView: React.FC = () => {
     const context = useContext(AppContext);
+    const { pushToHistory } = useHistory();
     const [activeSpot, setActiveSpot] = useState<SpotType | null>(null);
     const [scenariosToCompare, setScenariosToCompare] = useState<Set<string>>(new Set());
     const [isComparing, setIsComparing] = useState(false);
     const [collapsedScenarios, setCollapsedScenarios] = useState<Set<string>>(new Set());
+    const [isDeleteAllModalOpen, setIsDeleteAllModalOpen] = useState(false);
+    const [isDeleteSelectionModalOpen, setIsDeleteSelectionModalOpen] = useState(false);
 
 
     if (!context) return null;
     const { 
         notebooks, 
         activeNotebookId, 
-        searchTerm, 
-        setSearchTerm, 
+        setActiveNotebookId,
         addScenario, 
         updateScenario, 
-        deleteScenario 
+        deleteScenario,
+        addMultipleScenarios,
+        deleteMultipleScenarios
     } = context;
 
     const activeNotebook = useMemo(() => {
         return notebooks.find(n => n.id === activeNotebookId);
     }, [notebooks, activeNotebookId]);
-
-    const searchedScenarios = useMemo(() => {
-        if (!activeNotebook || !searchTerm.trim()) {
-            return [];
-        }
-
-        const lowercasedQuery = searchTerm.toLowerCase();
-
-        return (activeNotebook.scenarios || []).filter(scenario => {
-            const searchableFields = [
-                scenario.spotType,
-                scenario.rangeAction,
-                scenario.raiserPos,
-                scenario.heroPos,
-                scenario.gameScenario,
-                scenario.notes,
-                scenario.raiseSmallText,
-                scenario.raiseBigText,
-                scenario.callText,
-            ].filter(Boolean) as string[];
-
-            return searchableFields.some(field =>
-                field.toLowerCase().includes(lowercasedQuery)
-            );
-        });
-    }, [searchTerm, activeNotebook]);
     
-    const filteredScenarios = activeNotebook?.scenarios?.filter(s => s.spotType === activeSpot) || [];
+    // Quando o caderno ativo muda, volta para a tela de seleção de spots
+    const [previousNotebookId, setPreviousNotebookId] = useState(activeNotebookId);
+    useEffect(() => {
+        if(activeNotebookId !== previousNotebookId) {
+            setActiveSpot(null);
+            setPreviousNotebookId(activeNotebookId);
+        }
+    }, [activeNotebookId, previousNotebookId]);
 
-    const handleAddScenario = () => {
+    const filteredScenarios = useMemo(() => {
+        if (!activeNotebook) return [];
+        
+        return activeNotebook.scenarios
+            .filter(s => s.spotType === activeSpot)
+    }, [activeNotebook, activeSpot]);
+
+    const handleAddNewScenario = () => {
         if (!activeNotebook || !activeSpot) return;
+
         const newScenario: Scenario = {
             id: crypto.randomUUID(),
             spotType: activeSpot,
             rangeAction: null,
             raiserPos: null,
             heroPos: null,
+            blindWarPosition: null,
+            blindWarAction: null,
             gameScenario: null,
             rangeImage: null,
             frequenciesImage: null,
@@ -73,6 +73,7 @@ const StudyView: React.FC = () => {
             notes: '',
         };
         addScenario(activeNotebook.id, newScenario);
+        pushToHistory(() => deleteScenario(activeNotebook.id, newScenario.id));
     };
 
     const handleUpdateScenario = (updatedScenario: Scenario) => {
@@ -82,7 +83,36 @@ const StudyView: React.FC = () => {
     
     const handleDeleteScenario = (scenarioId: string) => {
         if (!activeNotebook) return;
-        deleteScenario(activeNotebook.id, scenarioId);
+        const scenarioToDelete = activeNotebook.scenarios.find(s => s.id === scenarioId);
+        if (scenarioToDelete) {
+            deleteScenario(activeNotebook.id, scenarioId);
+            pushToHistory(() => addScenario(activeNotebook.id, scenarioToDelete));
+        }
+    };
+    
+    const handleDeleteAll = () => {
+        if (!activeNotebook || filteredScenarios.length === 0) return;
+        
+        const scenariosToDelete = [...filteredScenarios];
+        const scenarioIdsToDelete = scenariosToDelete.map(s => s.id);
+        
+        deleteMultipleScenarios(activeNotebook.id, scenarioIdsToDelete);
+        pushToHistory(() => addMultipleScenarios(activeNotebook.id, scenariosToDelete));
+        
+        setIsDeleteAllModalOpen(false);
+    };
+    
+    const handleDeleteSelection = () => {
+        if (!activeNotebook || scenariosToCompare.size === 0) return;
+
+        const scenariosToDelete = activeNotebook.scenarios.filter(s => scenariosToCompare.has(s.id));
+        const scenarioIdsToDelete = Array.from(scenariosToCompare);
+
+        deleteMultipleScenarios(activeNotebook.id, scenarioIdsToDelete);
+        pushToHistory(() => addMultipleScenarios(activeNotebook.id, scenariosToDelete));
+
+        setScenariosToCompare(new Set()); // Clear selection
+        setIsDeleteSelectionModalOpen(false);
     };
 
     const toggleCompare = (scenarioId: string) => {
@@ -117,49 +147,23 @@ const StudyView: React.FC = () => {
         setCollapsedScenarios(new Set());
     };
 
-    const handleGoToScenario = (scenario: Scenario) => {
-        setSearchTerm('');
-        setActiveSpot(scenario.spotType);
+    const handleClearCompare = () => {
+        setScenariosToCompare(new Set());
+    };
+
+    const handleSelectAll = () => {
+        const allScenarioIds = new Set(filteredScenarios.map(s => s.id));
+        setScenariosToCompare(allScenarioIds);
     };
 
     const scenariosForComparisonView = activeNotebook?.scenarios?.filter(s => scenariosToCompare.has(s.id)) || [];
 
     if (!activeNotebook) {
         return (
-            <div className="flex items-center justify-center h-full text-gray-500">
+            <div className="flex items-center justify-center h-full text-brand-text-muted">
                 <p>Selecione ou crie um caderno para começar.</p>
             </div>
         );
-    }
-
-    if (searchTerm.trim()) {
-        return (
-            <div>
-                <h2 className="text-2xl font-bold text-white mb-6">Resultados da Pesquisa: <span className="text-blue-400">"{searchTerm}"</span></h2>
-                {searchedScenarios.length > 0 ? (
-                    <div className="space-y-3">
-                        {searchedScenarios.map(scenario => {
-                             const scenarioTitle = scenario.raiserPos && scenario.heroPos && scenario.gameScenario && scenario.rangeAction
-                                ? `${scenario.rangeAction}: ${scenario.heroPos} vs ${scenario.raiserPos} [${scenario.gameScenario}]`
-                                : "Cenário Incompleto";
-                            return (
-                                <div key={scenario.id} className="bg-gray-800 rounded-lg p-3 border border-gray-700 flex justify-between items-center hover:border-blue-500 transition-colors">
-                                    <div>
-                                        <p className="font-semibold text-white">{scenarioTitle}</p>
-                                        <p className="text-sm text-gray-400">{scenario.spotType}</p>
-                                    </div>
-                                    <button onClick={() => handleGoToScenario(scenario)} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-1 px-3 rounded-md text-sm transition-colors">
-                                        Ver Cenário
-                                    </button>
-                                </div>
-                            )
-                        })}
-                    </div>
-                ) : (
-                    <p className="text-gray-400">Nenhum cenário encontrado para "{searchTerm}".</p>
-                )}
-            </div>
-        )
     }
     
     if (isComparing) {
@@ -169,14 +173,14 @@ const StudyView: React.FC = () => {
     if (!activeSpot) {
         return (
             <div className="text-center">
-                <h2 className="text-3xl font-bold mb-6 text-white">{activeNotebook.name}</h2>
-                <p className="text-lg text-gray-400 mb-8">Selecione o tipo de spot a ser estudado:</p>
+                <h2 className="text-3xl font-bold mb-6 text-brand-text">{activeNotebook.name}</h2>
+                <p className="text-lg text-brand-text-muted mb-8">Selecione o tipo de spot a ser estudado:</p>
                 <div className="flex justify-center gap-6">
                     {SPOT_TYPES.map(spot => (
                         <button
                             key={spot}
                             onClick={() => setActiveSpot(spot)}
-                            className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-4 px-8 rounded-lg text-xl transition-transform transform hover:scale-105"
+                            className="bg-brand-primary hover:bg-brand-primary/80 text-brand-text font-bold py-4 px-8 rounded-lg text-xl transition-transform transform hover:scale-105"
                         >
                             {spot}
                         </button>
@@ -188,45 +192,90 @@ const StudyView: React.FC = () => {
 
     return (
         <div>
-            <div className="mb-4">
-                <button onClick={() => setActiveSpot(null)} className="text-sm text-blue-400 hover:underline mb-2 inline-block">&larr; Voltar para Spots</button>
-                <h2 className="text-3xl font-bold text-white">{activeNotebook.name} / {activeSpot}</h2>
-            </div>
-
-            <div className="flex items-center gap-4 mb-6">
-                <button
-                    onClick={handleAddScenario}
-                    className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-md transition-colors flex items-center"
-                >
-                    Adicionar Novo Cenário
-                </button>
-                <button
-                    onClick={() => setIsComparing(true)}
-                    disabled={scenariosToCompare.size < 2}
-                    className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed disabled:text-gray-400"
-                >
-                    Comparar ({scenariosToCompare.size})
-                </button>
-                {filteredScenarios.length > 1 && (
-                    <>
-                        <button
-                            onClick={handleCollapseAll}
-                            className="bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-md transition-colors text-sm"
-                        >
-                            Recolher todos
-                        </button>
-                        <button
-                            onClick={handleExpandAll}
-                            className="bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-md transition-colors text-sm"
-                        >
-                            Expandir todos
-                        </button>
-                    </>
-                )}
+            <div className="flex justify-between items-start mb-4">
+                <div>
+                    <button onClick={() => { setActiveSpot(null); setScenariosToCompare(new Set()); }} className="text-sm font-bold text-brand-secondary hover:underline mb-2 inline-block">&larr; Voltar para Spots</button>
+                    <h2 className="text-2xl font-bold text-brand-text">{activeNotebook.name} / {activeSpot}</h2>
+                </div>
             </div>
             
+            {filteredScenarios.length > 0 && (
+                <div className="flex items-center flex-wrap gap-4 mb-6 border-y border-brand-primary py-3">
+                    <button
+                        onClick={() => setIsComparing(true)}
+                        disabled={scenariosToCompare.size < 2}
+                        className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors disabled:bg-brand-secondary/50 disabled:cursor-not-allowed disabled:text-brand-primary/70"
+                    >
+                        Comparar ({scenariosToCompare.size})
+                    </button>
+                    {filteredScenarios.length > 1 && (
+                        <button
+                            onClick={handleSelectAll}
+                            className="bg-brand-primary hover:bg-brand-primary/80 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm"
+                        >
+                            Selecionar todos
+                        </button>
+                    )}
+                    {scenariosToCompare.size > 0 && (
+                            <button
+                            onClick={handleClearCompare}
+                            className="bg-brand-primary hover:bg-brand-primary/80 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm"
+                        >
+                            Desmarcar todos
+                        </button>
+                    )}
+                    
+                    {scenariosToCompare.size > 0 && (
+                        <button
+                            onClick={() => setIsDeleteSelectionModalOpen(true)}
+                            className="bg-red-800 hover:bg-red-900 text-white font-semibold py-2 px-4 rounded-md transition-colors text-sm"
+                            title="Excluir os cenários selecionados"
+                        >
+                            Excluir Seleção
+                        </button>
+                    )}
+
+                    {filteredScenarios.length > 0 && (
+                        <button
+                            onClick={() => setIsDeleteAllModalOpen(true)}
+                            className="bg-red-800 hover:bg-red-900 text-white font-semibold py-2 px-4 rounded-md transition-colors text-sm"
+                            title="Excluir todos os cenários visíveis"
+                        >
+                            Excluir tudo
+                        </button>
+                    )}
+                    
+                    <div className="ml-auto flex items-center gap-4">
+                        {filteredScenarios.length > 1 && (
+                            <>
+                                <button
+                                    onClick={handleCollapseAll}
+                                    className="bg-brand-primary hover:bg-brand-primary/80 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm"
+                                >
+                                    Recolher todos
+                                </button>
+                                <button
+                                    onClick={handleExpandAll}
+                                    className="bg-brand-primary hover:bg-brand-primary/80 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm"
+                                >
+                                    Expandir todos
+                                </button>
+                            </>
+                        )}
+                        <button
+                            onClick={handleAddNewScenario}
+                            className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors flex items-center gap-2"
+                        >
+                            <PlusIcon />
+                            Novo Cenário
+                        </button>
+                    </div>
+                </div>
+            )}
+            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {filteredScenarios.map(scenario => (
+                {filteredScenarios
+                 .map(scenario => (
                     <ScenarioEditor
                         key={scenario.id}
                         scenario={scenario}
@@ -239,6 +288,51 @@ const StudyView: React.FC = () => {
                     />
                 ))}
             </div>
+
+            {filteredScenarios.length === 0 && (
+                <div className="text-center py-16 text-brand-text-muted">
+                    <p>Nenhum cenário para este spot.</p>
+                     <button
+                        onClick={handleAddNewScenario}
+                        className="mt-4 bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors flex items-center gap-2 mx-auto"
+                    >
+                        <PlusIcon />
+                        Clique aqui para começar
+                    </button>
+                </div>
+            )}
+            
+            <ConfirmationModal
+                isOpen={isDeleteAllModalOpen}
+                onClose={() => setIsDeleteAllModalOpen(false)}
+                onConfirm={handleDeleteAll}
+                title="Confirmar Exclusão de Cenários"
+                message={
+                  <>
+                    Deseja realmente excluir <strong>{filteredScenarios.length}</strong> cenário(s) para este spot?
+                    <br />
+                    <span className="text-sm">Esta ação não pode ser desfeita.</span>
+                  </>
+                }
+                confirmText="Sim, excluir tudo"
+                cancelText="Cancelar"
+            />
+
+            <ConfirmationModal
+                isOpen={isDeleteSelectionModalOpen}
+                onClose={() => setIsDeleteSelectionModalOpen(false)}
+                onConfirm={handleDeleteSelection}
+                title="Confirmar Exclusão da Seleção"
+                message={
+                  <>
+                    Deseja realmente excluir <strong>{scenariosToCompare.size}</strong> cenário(s) selecionado(s)?
+                    <br />
+                    <span className="text-sm">Esta ação não pode ser desfeita.</span>
+                  </>
+                }
+                confirmText="Sim, excluir seleção"
+                cancelText="Cancelar"
+            />
         </div>
     );
 };

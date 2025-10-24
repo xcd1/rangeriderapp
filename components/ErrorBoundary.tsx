@@ -25,13 +25,13 @@ class ErrorBoundary extends Component<Props, State> {
   public render() {
     if (this.state.hasError) {
       return (
-        <div className="flex items-center justify-center h-screen bg-gray-900 text-white">
-            <div className="text-center bg-gray-800 p-8 rounded-lg shadow-lg">
+        <div className="flex items-center justify-center h-screen bg-brand-bg text-brand-text">
+            <div className="text-center bg-brand-primary p-8 rounded-lg shadow-lg">
                 <h1 className="text-2xl font-bold text-red-400 mb-4">Oops! Algo deu errado.</h1>
-                <p className="text-gray-300 mb-6">Ocorreu um erro inesperado no aplicativo.</p>
+                <p className="text-brand-text-muted mb-6">Ocorreu um erro inesperado no aplicativo.</p>
                 <button
                     onClick={() => window.location.reload()}
-                    className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-md transition-colors"
+                    className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors"
                 >
                     Recarregar a página
                 </button>
