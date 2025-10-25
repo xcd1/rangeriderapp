@@ -1,5 +1,6 @@
-const CACHE_NAME = 'range-rider-cache-v1';
-const STATIC_ASSETS = [
+const CACHE_NAME = 'range-rider-cache-v2'; // Increment version to force update
+
+const LOCAL_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
@@ -28,13 +29,28 @@ const STATIC_ASSETS = [
   '/hooks/useLocalStorage.ts'
 ];
 
-// Install: Cache static assets
+const CDN_ASSETS = [
+    'https://cdn.tailwindcss.com',
+    'https://aistudiocdn.com/react@^19.2.0',
+    'https://aistudiocdn.com/react-dom@^19.2.0/client',
+    'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js',
+    'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js',
+    'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js'
+];
+
+const ALL_ASSETS_TO_CACHE = [...LOCAL_ASSETS, ...CDN_ASSETS];
+
+
+// Install: Cache all static and CDN assets
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
-        console.log('Opened cache');
-        return cache.addAll(STATIC_ASSETS);
+        console.log('Opened cache and caching all assets');
+        return cache.addAll(ALL_ASSETS_TO_CACHE);
+      })
+      .catch(error => {
+        console.error('Failed to cache assets during install:', error);
       })
   );
 });
@@ -47,6 +63,7 @@ self.addEventListener('activate', event => {
       return Promise.all(
         cacheNames.map(cacheName => {
           if (cacheWhitelist.indexOf(cacheName) === -1) {
+            console.log('Deleting old cache:', cacheName);
             return caches.delete(cacheName);
           }
         })
@@ -55,8 +72,13 @@ self.addEventListener('activate', event => {
   );
 });
 
-// Fetch: Stale-while-revalidate strategy for dynamic content, cache-first for static assets
+// Fetch: Stale-while-revalidate strategy for dynamic content, cache-first for assets
 self.addEventListener('fetch', event => {
+  // Don't cache firestore requests to avoid data sync issues
+  if (event.request.url.includes('firestore.googleapis.com')) {
+      return;
+  }
+    
   event.respondWith(
     caches.match(event.request)
       .then(response => {
@@ -65,20 +87,14 @@ self.addEventListener('fetch', event => {
           return response;
         }
 
-        // Clone the request to use it both for fetch and cache
+        // Not in cache, fetch from network
         const fetchRequest = event.request.clone();
 
         return fetch(fetchRequest).then(
           networkResponse => {
             // Check if we received a valid response
-            if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
-                // Don't cache unsuccessful or opaque responses
+            if (!networkResponse || networkResponse.status !== 200) {
               return networkResponse;
-            }
-            
-            // Don't cache firestore requests to avoid data sync issues
-            if (event.request.url.includes('firestore.googleapis.com')) {
-                return networkResponse;
             }
 
             // Clone the response to use it both for browser and cache
