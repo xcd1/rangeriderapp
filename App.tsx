@@ -58,6 +58,7 @@ interface AppContextType {
   logout: () => void;
   addNotebook: (name: string) => Promise<void>;
   deleteNotebook: (notebookId: string) => Promise<void>;
+  updateNotebookName: (notebookId: string, newName: string) => Promise<void>;
   addScenario: (notebookId: string, scenario: Scenario) => Promise<void>;
   updateScenario: (notebookId: string, scenario: Scenario) => Promise<void>;
   deleteScenario: (notebookId: string, scenarioId: string) => Promise<void>;
@@ -84,6 +85,7 @@ const AppContent: React.FC = () => {
     loading: dataLoading, 
     addNotebook,
     deleteNotebook,
+    updateNotebookName,
     addScenario,
     updateScenario,
     deleteScenario,
@@ -124,13 +126,14 @@ const AppContent: React.FC = () => {
         logout: handleLogout,
         addNotebook,
         deleteNotebook,
+        updateNotebookName,
         addScenario,
         updateScenario,
         deleteScenario,
         addMultipleScenarios,
         deleteMultipleScenarios,
     }
-  }, [notebooks, activeNotebookId, user, handleLogout, addNotebook, deleteNotebook, addScenario, updateScenario, deleteScenario, addMultipleScenarios, deleteMultipleScenarios]);
+  }, [notebooks, activeNotebookId, user, handleLogout, addNotebook, deleteNotebook, updateNotebookName, addScenario, updateScenario, deleteScenario, addMultipleScenarios, deleteMultipleScenarios]);
   
   if (authLoading || (user && dataLoading)) {
       return <LoadingSpinner />;

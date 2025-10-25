@@ -1,0 +1,21 @@
+{
+  "short_name": "Range Rider",
+  "name": "Range Rider Poker Study",
+  "description": "An application for professional poker players to study and compare poker ranges.",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#20424f",
+  "background_color": "#20424f"
+}

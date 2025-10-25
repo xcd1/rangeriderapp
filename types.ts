@@ -1,8 +1,9 @@
 
+
 export type Position = 'UTG' | 'EP' | 'LJ' | 'HJ' | 'CO' | 'BTN' | 'SB' | 'BB';
-export type GameScenario = 'CEv' | 'Bounty CVD' | 'Bounty CVN' | 'Vanilla CVD' | 'Vanilla CVN';
-export type SpotType = 'Blind War' | 'Facing 2bet';
-export type RangeAction = 'RFI' | 'F2bet';
+export type GameScenario = 'CEv' | 'Bounty CVD' | 'Bounty CVN' | 'Vanilla CVD' | 'Vanilla CVN' | 'Turbo' | 'Hyper' | 'Mistery';
+export type SpotType = 'Blind War' | 'Facing 2bet' | 'HRC Enviroment' | 'Rfi';
+export type RangeAction = 'RFI' | 'F2bet' | 'F3bet' | 'F4bet' | 'F5bet' | 'FCC' | 'FSQZ';
 export type BlindWarAction = 'vs. Limp' | 'vs. raise' | 'vs. ISO' | 'vs. 3bet';
 export type BlindWarPosition = 'SB' | 'BB';
 
@@ -10,7 +11,7 @@ export interface Scenario {
   id: string;
   spotType: SpotType;
 
-  // Facing 2bet specific
+  // Facing 2bet & HRC Enviroment specific
   rangeAction: RangeAction | null;
   raiserPos: Position | null;
   heroPos: Position | null;
@@ -18,6 +19,12 @@ export interface Scenario {
   // Blind War specific
   blindWarPosition: BlindWarPosition | null;
   blindWarAction: BlindWarAction | null;
+
+  // HRC Enviroment specific
+  coldCallerPos: Position | null;
+  aggressorPos: Position | null; // For 3bettor, 4bettor, etc.
+  printSpotImage: string | null; // For HRC "Print Spot" image
+  rpImage: string | null; // For HRC "RP" image
 
   gameScenario: GameScenario | null;
   rangeImage: string | null; // base64 string

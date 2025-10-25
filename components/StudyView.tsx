@@ -1,3 +1,5 @@
+
+
 import React, { useContext, useState, useMemo, useEffect } from 'react';
 import { AppContext, useHistory } from '../App';
 import type { SpotType, Scenario } from '../types';
@@ -64,6 +66,10 @@ const StudyView: React.FC = () => {
             heroPos: null,
             blindWarPosition: null,
             blindWarAction: null,
+            coldCallerPos: null,
+            aggressorPos: null,
+            printSpotImage: null,
+            rpImage: null,
             gameScenario: null,
             rangeImage: null,
             frequenciesImage: null,
@@ -157,6 +163,11 @@ const StudyView: React.FC = () => {
     };
 
     const scenariosForComparisonView = activeNotebook?.scenarios?.filter(s => scenariosToCompare.has(s.id)) || [];
+    
+    const handleSelectSpot = (spot: SpotType) => {
+        setActiveSpot(spot);
+        setScenariosToCompare(new Set());
+    };
 
     if (!activeNotebook) {
         return (
@@ -167,7 +178,7 @@ const StudyView: React.FC = () => {
     }
     
     if (isComparing) {
-        return <ComparisonView scenarios={scenariosForComparisonView} onBack={() => setIsComparing(false)} />;
+        return <ComparisonView scenarios={scenariosForComparisonView} onBack={() => setIsComparing(false)} spotType={activeSpot} />;
     }
 
     if (!activeSpot) {
@@ -175,12 +186,12 @@ const StudyView: React.FC = () => {
             <div className="text-center">
                 <h2 className="text-3xl font-bold mb-6 text-brand-text">{activeNotebook.name}</h2>
                 <p className="text-lg text-brand-text-muted mb-8">Selecione o tipo de spot a ser estudado:</p>
-                <div className="flex justify-center gap-6">
+                <div className="grid grid-cols-2 gap-6 max-w-md mx-auto">
                     {SPOT_TYPES.map(spot => (
                         <button
                             key={spot}
-                            onClick={() => setActiveSpot(spot)}
-                            className="bg-brand-primary hover:bg-brand-primary/80 text-brand-text font-bold py-4 px-8 rounded-lg text-xl transition-transform transform hover:scale-105"
+                            onClick={() => handleSelectSpot(spot)}
+                            className="bg-brand-primary hover:bg-brand-primary/80 text-brand-text font-bold py-8 px-4 rounded-lg text-xl transition-transform transform hover:scale-105 flex items-center justify-center"
                         >
                             {spot}
                         </button>

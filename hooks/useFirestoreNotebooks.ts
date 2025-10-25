@@ -1,3 +1,5 @@
+
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { db } from '../firebase';
 import {
@@ -20,6 +22,7 @@ interface FirestoreNotebooksResult {
     loading: boolean;
     addNotebook: (name: string) => Promise<void>;
     deleteNotebook: (notebookId: string) => Promise<void>;
+    updateNotebookName: (notebookId: string, newName: string) => Promise<void>;
     addScenario: (notebookId: string, scenario: Scenario) => Promise<void>;
     updateScenario: (notebookId: string, scenario: Scenario) => Promise<void>;
     deleteScenario: (notebookId: string, scenarioId: string) => Promise<void>;
@@ -46,6 +49,12 @@ const cleanScenario = (scenario: any): Scenario => {
         heroPos: isValidValue(s.heroPos, POSITIONS) ? s.heroPos : null,
         blindWarPosition: isValidValue(s.blindWarPosition, BLIND_WAR_POSITIONS) ? s.blindWarPosition : null,
         blindWarAction: isValidValue(s.blindWarAction, BLIND_WAR_ACTIONS) ? s.blindWarAction : null,
+        
+        coldCallerPos: isValidValue(s.coldCallerPos, POSITIONS) ? s.coldCallerPos : null,
+        aggressorPos: isValidValue(s.aggressorPos, POSITIONS) ? s.aggressorPos : null,
+        printSpotImage: typeof s.printSpotImage === 'string' ? s.printSpotImage : null,
+        rpImage: typeof s.rpImage === 'string' ? s.rpImage : null,
+
         gameScenario: isValidValue(s.gameScenario, GAME_SCENARIOS) ? s.gameScenario : null,
         
         rangeImage: typeof s.rangeImage === 'string' ? s.rangeImage : null,
@@ -138,6 +147,15 @@ const useFirestoreNotebooks = (uid: string | undefined, activeNotebookId: string
         });
     }, [uid]);
 
+    const updateNotebookName = useCallback(async (notebookId: string, newName: string) => {
+        if (!uid) throw new Error("User not authenticated");
+        if (!newName.trim()) throw new Error("Notebook name cannot be empty");
+        const notebookRef = doc(db, 'users', uid, 'notebooks', notebookId);
+        await updateDoc(notebookRef, {
+            name: newName.trim()
+        });
+    }, [uid]);
+
     const deleteNotebook = useCallback(async (notebookId: string) => {
         if (!uid) throw new Error("User not authenticated");
         const notebookRef = doc(db, 'users', uid, 'notebooks', notebookId);
@@ -193,7 +211,7 @@ const useFirestoreNotebooks = (uid: string | undefined, activeNotebookId: string
         await batch.commit();
     }, [uid]);
 
-    return { notebooks, loading: loadingNotebooks || loadingScenarios, addNotebook, deleteNotebook, addScenario, updateScenario, deleteScenario, addMultipleScenarios, deleteMultipleScenarios };
+    return { notebooks, loading: loadingNotebooks || loadingScenarios, addNotebook, deleteNotebook, updateNotebookName, addScenario, updateScenario, deleteScenario, addMultipleScenarios, deleteMultipleScenarios };
 };
 
 export default useFirestoreNotebooks;

@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useCallback } from 'react';
 import { AppContext } from '../App';
 import ConfirmationModal from './ConfirmationModal';
 
@@ -18,6 +18,10 @@ const TrashIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
 );
 
+const PencilIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+);
+
 const SpinnerIcon = () => (
     <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -31,9 +35,11 @@ const Sidebar: React.FC = () => {
   const [newNotebookName, setNewNotebookName] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [notebookToDelete, setNotebookToDelete] = useState<{id: string; name: string} | null>(null);
+  const [editingNotebookId, setEditingNotebookId] = useState<string | null>(null);
+  const [editedName, setEditedName] = useState('');
 
   if (!context) return null;
-  const { notebooks, addNotebook, deleteNotebook, activeNotebookId, setActiveNotebookId, user, logout } = context;
+  const { notebooks, addNotebook, deleteNotebook, updateNotebookName, activeNotebookId, setActiveNotebookId, user, logout } = context;
   
   const handleAddNotebook = async () => {
     if (newNotebookName.trim() === '') return;
@@ -72,6 +78,40 @@ const Sidebar: React.FC = () => {
     }
   }
 
+  const handleStartEditing = useCallback((notebook: {id: string, name: string}) => {
+      setEditingNotebookId(notebook.id);
+      setEditedName(notebook.name);
+  }, []);
+
+  const handleCancelEditing = useCallback(() => {
+      setEditingNotebookId(null);
+      setEditedName('');
+  }, []);
+
+  const handleSaveName = useCallback(async () => {
+      if (!editingNotebookId) return;
+      const originalNotebook = notebooks.find(n => n.id === editingNotebookId);
+      if (originalNotebook && editedName.trim() && editedName.trim() !== originalNotebook.name) {
+          try {
+              await updateNotebookName(editingNotebookId, editedName.trim());
+          } catch (e) {
+              console.error("Failed to update notebook name:", e);
+              alert("Falha ao atualizar o nome do caderno.");
+          }
+      }
+      handleCancelEditing();
+  }, [editingNotebookId, editedName, notebooks, updateNotebookName, handleCancelEditing]);
+
+  const handleNameInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter') {
+          e.preventDefault();
+          handleSaveName();
+      } else if (e.key === 'Escape') {
+          e.preventDefault();
+          handleCancelEditing();
+      }
+  };
+
   return (
     <>
       <aside className="w-64 bg-brand-primary p-4 border-r border-brand-bg flex flex-col">
@@ -105,29 +145,60 @@ const Sidebar: React.FC = () => {
               <li 
                 key={notebook.id}
                 className={`group flex items-center justify-between p-2 text-sm rounded-md transition-colors ${
-                  activeNotebookId === notebook.id ? 'bg-brand-secondary text-brand-primary font-bold' : 'text-brand-text hover:bg-brand-bg'
+                  activeNotebookId === notebook.id && editingNotebookId !== notebook.id ? 'bg-brand-secondary text-brand-primary font-bold' : 'text-brand-text hover:bg-brand-bg'
                 }`}
               >
-                <div
-                  onClick={() => deletingId !== notebook.id && setActiveNotebookId(notebook.id)}
-                  className={`flex items-center truncate flex-grow ${deletingId === notebook.id ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                >
-                  <FolderIcon />
-                  <span className="truncate pr-2">{notebook.name}</span>
-                </div>
-                
-                <button 
-                  onClick={() => setNotebookToDelete({ id: notebook.id, name: notebook.name })}
-                  disabled={!!deletingId}
-                  className={`ml-2 flex-shrink-0 p-1 rounded-full transition-opacity flex items-center justify-center w-6 h-6 disabled:opacity-50 disabled:cursor-not-allowed ${
-                      activeNotebookId === notebook.id
-                      ? 'opacity-100 text-brand-primary/70 hover:text-red-500'
-                      : 'opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500'
-                  }`}
-                  title={`Excluir caderno ${notebook.name}`}
-                >
-                  {deletingId === notebook.id ? <SpinnerIcon /> : <TrashIcon />}
-                </button>
+                {editingNotebookId === notebook.id ? (
+                  <>
+                    <FolderIcon />
+                    <input
+                      type="text"
+                      value={editedName}
+                      onChange={(e) => setEditedName(e.target.value)}
+                      onKeyDown={handleNameInputKeyDown}
+                      onBlur={handleSaveName}
+                      autoFocus
+                      className="flex-grow bg-brand-bg text-brand-text rounded-md px-2 py-0.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-secondary mx-2 w-full"
+                    />
+                  </>
+                ) : (
+                  <>
+                    <div
+                      onClick={() => deletingId !== notebook.id && setActiveNotebookId(notebook.id)}
+                      className={`flex items-center truncate flex-grow ${deletingId === notebook.id ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                    >
+                      <FolderIcon />
+                      <span className="truncate pr-2">{notebook.name}</span>
+                    </div>
+                    
+                    <div className="flex-shrink-0 flex items-center">
+                        <button 
+                          onClick={() => handleStartEditing(notebook)}
+                          disabled={!!deletingId}
+                          className={`p-1 rounded-full transition-opacity flex items-center justify-center w-6 h-6 disabled:opacity-50 disabled:cursor-not-allowed ${
+                              activeNotebookId === notebook.id
+                              ? 'opacity-100 text-brand-primary/70 hover:text-blue-500'
+                              : 'opacity-0 group-hover:opacity-100 text-gray-400 hover:text-blue-500'
+                          }`}
+                          title={`Editar nome do caderno ${notebook.name}`}
+                        >
+                          <PencilIcon />
+                        </button>
+                        <button 
+                          onClick={() => setNotebookToDelete({ id: notebook.id, name: notebook.name })}
+                          disabled={!!deletingId}
+                          className={`ml-1 p-1 rounded-full transition-opacity flex items-center justify-center w-6 h-6 disabled:opacity-50 disabled:cursor-not-allowed ${
+                              activeNotebookId === notebook.id
+                              ? 'opacity-100 text-brand-primary/70 hover:text-red-500'
+                              : 'opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500'
+                          }`}
+                          title={`Excluir caderno ${notebook.name}`}
+                        >
+                          {deletingId === notebook.id ? <SpinnerIcon /> : <TrashIcon />}
+                        </button>
+                    </div>
+                  </>
+                )}
               </li>
             ))}
           </ul>
