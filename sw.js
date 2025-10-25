@@ -2,10 +2,30 @@ const CACHE_NAME = 'range-rider-cache-v1';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
-  '/index.tsx',
   '/manifest.json',
   '/icon-192.png',
-  '/icon-512.png'
+  '/icon-512.png',
+  // JS/TS files
+  '/index.tsx',
+  '/App.tsx',
+  '/types.ts',
+  '/constants.ts',
+  '/firebase.ts',
+  // components
+  '/components/Sidebar.tsx',
+  '/components/StudyView.tsx',
+  '/components/ScenarioEditor.tsx',
+  '/components/ImageUploader.tsx',
+  '/components/ComparisonView.tsx',
+  '/components/LoginView.tsx',
+  '/components/ErrorBoundary.tsx',
+  '/components/FilterBar.tsx',
+  '/components/ConfirmationModal.tsx',
+  // contexts
+  '/contexts/AuthContext.tsx',
+  // hooks
+  '/hooks/useFirestoreNotebooks.ts',
+  '/hooks/useLocalStorage.ts'
 ];
 
 // Install: Cache static assets
