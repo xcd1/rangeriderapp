@@ -2,6 +2,7 @@ const CACHE_NAME = 'range-rider-cache-v1';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
+  '/index.tsx',
   '/manifest.json',
   '/icon-192.png',
   '/icon-512.png'
