@@ -6,15 +6,13 @@ import { getFirestore } from 'firebase/firestore';
 // Você pode encontrar isso nas configurações do seu projeto no console do Firebase:
 // https://console.firebase.google.com/
 const firebaseConfig = {
-  
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
-
+    apiKey: "AIzaSyBCPAPx1uHDOHXABxWBefd5GhmxyBT70IE",
+    authDomain: "rangerider-a0411.firebaseapp.com",
+    projectId: "rangerider-a0411",
+    storageBucket: "rangerider-a0411.firebasestorage.app",
+    messagingSenderId: "10265683345",
+    appId: "1:10265683345:web:702a9aa42994307fd42630",
+    measurementId: "G-TFNXJYZPC6"
   };
 
 
