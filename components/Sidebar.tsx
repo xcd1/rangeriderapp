@@ -42,9 +42,24 @@ const Sidebar: React.FC = () => {
   const { notebooks, addNotebook, deleteNotebook, updateNotebookName, activeNotebookId, setActiveNotebookId, user, logout } = context;
   
   const handleAddNotebook = async () => {
-    if (newNotebookName.trim() === '') return;
+    let notebookNameToAdd = newNotebookName.trim();
+
+    if (notebookNameToAdd === '') {
+      let maxNumber = 0;
+      notebooks.forEach(notebook => {
+        const match = notebook.name.match(/^Caderno (\d+)$/);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (num > maxNumber) {
+            maxNumber = num;
+          }
+        }
+      });
+      notebookNameToAdd = `Caderno ${maxNumber + 1}`;
+    }
+    
     try {
-        await addNotebook(newNotebookName.trim());
+        await addNotebook(notebookNameToAdd);
         setNewNotebookName('');
     } catch(e) {
         console.error("Failed to add notebook:", e);

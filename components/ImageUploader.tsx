@@ -5,14 +5,20 @@ interface ImageUploaderProps {
     imageData: string | null;
     onUpload: (data: string | null) => void;
     className?: string;
+    size?: 'normal' | 'small';
 }
 
-const PlusIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8 text-brand-text-muted mb-2 mx-auto"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+const PlusIcon = ({ isSmall }: { isSmall: boolean }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" 
+        className={`${isSmall ? 'w-5 h-5 mb-1' : 'w-8 h-8 mb-2'} text-brand-text-muted mx-auto`}>
+        <line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line>
+    </svg>
 );
 
-const ImageUploader: React.FC<ImageUploaderProps> = ({ title, imageData, onUpload, className = '' }) => {
+
+const ImageUploader: React.FC<ImageUploaderProps> = ({ title, imageData, onUpload, className = '', size = 'normal' }) => {
     const inputRef = useRef<HTMLInputElement>(null);
+    const isSmall = size === 'small';
 
     const handleFile = (file: File | null) => {
         if (file && file.type.startsWith('image/')) {
@@ -87,16 +93,16 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ title, imageData, onUploa
                     </button>
                 </>
             ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center text-brand-text-muted pointer-events-none">
+                <div className="w-full h-full flex flex-col items-center justify-center text-brand-text-muted pointer-events-none overflow-hidden">
                     <div 
                         onClick={triggerFileUpload}
-                        className="pointer-events-auto cursor-pointer p-4 rounded-lg hover:bg-brand-primary/50 transition-colors"
+                        className={`pointer-events-auto cursor-pointer rounded-lg hover:bg-brand-primary/50 transition-colors ${isSmall ? 'p-1' : 'p-4'}`}
                     >
-                        <PlusIcon />
-                        <span className="text-sm font-semibold">{title}</span>
-                        <p className="text-xs mt-1">Clique para carregar</p>
+                        <PlusIcon isSmall={isSmall} />
+                        <span className={`font-semibold block ${isSmall ? 'text-xs' : 'text-sm'}`}>{title}</span>
+                        {!isSmall && <p className="text-xs mt-1">Clique para carregar</p>}
                     </div>
-                     <p className="text-xs mt-2">ou cole a imagem (Ctrl+V)</p>
+                     <p className={`leading-tight ${isSmall ? 'text-[10px] mt-0.5' : 'text-xs mt-2'}`}>ou cole a imagem (Ctrl+V)</p>
                 </div>
             )}
         </div>

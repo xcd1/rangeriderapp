@@ -185,7 +185,7 @@ const StudyView: React.FC = () => {
         return (
             <div className="text-center">
                 <h2 className="text-3xl font-bold mb-6 text-brand-text">{activeNotebook.name}</h2>
-                <p className="text-lg text-brand-text-muted mb-8">Selecione o tipo de spot a ser estudado:</p>
+                <p className="text-lg text-brand-text-muted mb-8">What do you wanna master?</p>
                 <div className="grid grid-cols-2 gap-6 max-w-md mx-auto">
                     {SPOT_TYPES.map(spot => (
                         <button

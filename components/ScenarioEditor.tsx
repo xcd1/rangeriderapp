@@ -163,6 +163,13 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
     useEffect(() => {
         scenarioRef.current = scenario;
     }, [scenario]);
+
+    useEffect(() => {
+        // For RFI spots, the action is always RFI. This sets it automatically.
+        if (scenario.spotType === 'Rfi' && scenario.rangeAction !== 'RFI') {
+            onUpdate({ ...scenario, rangeAction: 'RFI' });
+        }
+    }, [scenario, onUpdate]); // Depends on scenario to re-evaluate if props change
     
     const handleUpdate = <K extends keyof Scenario,>(key: K, value: Scenario[K]) => {
         const oldScenarioState = { ...scenario };
@@ -449,7 +456,7 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
                                 <div className="grid grid-cols-1 lg:grid-cols-10 gap-4">
                                     <div className="lg:col-span-7 space-y-4">
                                         <ImageUploader title="Range" imageData={scenario.rangeImage} onUpload={(data) => handleUpdate('rangeImage', data)} className="aspect-[20/17]" />
-                                        <ImageUploader title="Frequências" imageData={scenario.frequenciesImage} onUpload={(data) => handleUpdate('frequenciesImage', data)} className="aspect-[6/1]" />
+                                        <ImageUploader title="Frequências" imageData={scenario.frequenciesImage} onUpload={(data) => handleUpdate('frequenciesImage', data)} className="aspect-[6/1]" size="small" />
                                         <div className="grid grid-cols-3 gap-2">
                                             <textarea defaultValue={scenario.raiseSmallText} onBlur={e => handleTextUpdate('raiseSmallText', e.target.value)} placeholder="raise small" className="h-12 bg-brand-bg text-xs rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-secondary w-full resize-none"></textarea>
                                             <textarea defaultValue={scenario.raiseBigText} onBlur={e => handleTextUpdate('raiseBigText', e.target.value)} placeholder="raise big" className="h-12 bg-brand-bg text-xs rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-secondary w-full resize-none"></textarea>
@@ -467,16 +474,18 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
                         {(scenario.spotType === 'Facing 2bet' || scenario.spotType === 'Rfi') && (
                         <>
                                 <div className="flex flex-wrap items-start gap-x-6 gap-y-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-brand-text-muted mb-2">Action</label>
-                                        <div className="flex gap-2 flex-wrap">
-                                            {FACING_2BET_ACTIONS.map(action => (
-                                                <button key={action} onClick={() => handleUpdate('rangeAction', action)} className={`px-3.5 py-1.5 text-sm rounded-md ${scenario.rangeAction === action ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'}`}>{action}</button>
-                                            ))}
+                                    {scenario.spotType === 'Facing 2bet' && (
+                                        <div>
+                                            <label className="block text-sm font-medium text-brand-text-muted mb-2">Action</label>
+                                            <div className="flex gap-2 flex-wrap">
+                                                {FACING_2BET_ACTIONS.map(action => (
+                                                    <button key={action} onClick={() => handleUpdate('rangeAction', action)} className={`px-3.5 py-1.5 text-sm rounded-md ${scenario.rangeAction === action ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'}`}>{action}</button>
+                                                ))}
+                                            </div>
                                         </div>
-                                    </div>
+                                    )}
                                     <div>
-                                        <label className="block text-sm font-medium text-brand-text-muted mb-2">
+                                        <label className={`block text-sm font-medium text-brand-text-muted mb-2 ${scenario.spotType === 'Rfi' ? 'text-center' : ''}`}>
                                         {scenario.rangeAction === 'RFI' ? 'Posição' : 'First Raiser Position'}
                                         </label>
                                         <div className="flex gap-2 flex-wrap">
@@ -496,7 +505,7 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
                                         </div>
                                     )}
                                     <div>
-                                        <label className="block text-sm font-medium text-brand-text-muted mb-2">Cenário</label>
+                                        <label className={`block text-sm font-medium text-brand-text-muted mb-2 ${scenario.spotType === 'Rfi' ? 'text-center' : ''}`}>Cenário</label>
                                         <div className="flex gap-2 flex-wrap">
                                             {GAME_SCENARIOS.map(gs => (
                                                 <button key={gs} onClick={() => handleUpdate('gameScenario', gs)} className={`px-3.5 py-1.5 text-sm rounded-md ${scenario.gameScenario === gs ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'}`}>{gs}</button>
@@ -508,7 +517,7 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
                                 <div className="grid grid-cols-1 lg:grid-cols-10 gap-4">
                                     <div className="lg:col-span-7 space-y-4">
                                         <ImageUploader title="Range" imageData={scenario.rangeImage} onUpload={(data) => handleUpdate('rangeImage', data)} className="aspect-[20/17]" />
-                                        <ImageUploader title="Frequências" imageData={scenario.frequenciesImage} onUpload={(data) => handleUpdate('frequenciesImage', data)} className="aspect-[6/1]" />
+                                        <ImageUploader title="Frequências" imageData={scenario.frequenciesImage} onUpload={(data) => handleUpdate('frequenciesImage', data)} className="aspect-[6/1]" size="small" />
                                         <div className="grid grid-cols-3 gap-2">
                                             <textarea defaultValue={scenario.raiseSmallText} onBlur={e => handleTextUpdate('raiseSmallText', e.target.value)} placeholder="raise small" className="h-12 bg-brand-bg text-xs rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-secondary w-full resize-none"></textarea>
                                             <textarea defaultValue={scenario.raiseBigText} onBlur={e => handleTextUpdate('raiseBigText', e.target.value)} placeholder="raise big" className="h-12 bg-brand-bg text-xs rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-secondary w-full resize-none"></textarea>
