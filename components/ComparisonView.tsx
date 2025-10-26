@@ -3,6 +3,10 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { Scenario, SpotType } from '../types';
 
 const getScenarioTitle = (scenario: Scenario): string => {
+    if (scenario.manualTitle) {
+        return scenario.manualTitle;
+    }
+
     const { spotType, gameScenario } = scenario;
     const gsSuffix = gameScenario ? ` [${gameScenario}]` : '';
 
@@ -273,10 +277,21 @@ const ComparisonView: React.FC<ComparisonViewProps> = ({ scenarios, onBack, spot
 
     // State for reordering functionality
     const [orderedScenarios, setOrderedScenarios] = useState(scenarios);
-    const [originalOrder] = useState(scenarios);
+    const [originalOrder, setOriginalOrder] = useState(scenarios);
     const [history, setHistory] = useState<Scenario[][]>([]);
     const dragItem = useRef<string | null>(null);
     const [placeholderIndex, setPlaceholderIndex] = useState<number | null>(null);
+
+    // FIX: This effect synchronizes the component's internal state with the `scenarios`
+    // prop. This is crucial because the prop may initially be an empty or incomplete
+    // array while data is loading asynchronously. Without this, the component would
+    // hold onto stale data, causing issues like missing images when restoring a session.
+    useEffect(() => {
+        setOrderedScenarios(scenarios);
+        setOriginalOrder(scenarios);
+        setHistory([]); // Reset history when the source data changes
+    }, [scenarios]);
+
 
     // Undo handler
     const handleUndo = useCallback(() => {

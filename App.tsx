@@ -1,4 +1,5 @@
 
+
 import React, { useState, createContext, useMemo, useCallback, ReactNode, useContext, useEffect, useRef } from 'react';
 import type { Notebook, Scenario, Folder } from './types';
 import type { User } from 'firebase/auth';
@@ -91,6 +92,7 @@ const AppContent: React.FC = () => {
     return Math.max(200, Math.min(width, 500)); // Constrain width on initial load
   });
   const isResizing = useRef(false);
+  const hasRestoredSession = useRef(false);
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (isResizing.current) {
@@ -137,6 +139,39 @@ const AppContent: React.FC = () => {
     addMultipleScenarios,
     deleteMultipleScenarios
   } = useFirestoreNotebooks(user?.uid);
+  
+    // --- Session Persistence Effects ---
+    useEffect(() => {
+        // Restore session: Runs once when user data is loaded.
+        if (user && !dataLoading && notebooks.length > 0 && !hasRestoredSession.current) {
+            const lastId = localStorage.getItem(`lastActiveNotebookId-${user.uid}`);
+            // Check if the notebook still exists before setting it as active
+            if (lastId && notebooks.some(n => n.id === lastId)) {
+                setActiveNotebookId(lastId);
+            }
+            hasRestoredSession.current = true;
+        }
+
+        // Reset the restoration flag on logout.
+        if (!user) {
+            hasRestoredSession.current = false;
+        }
+    }, [user, dataLoading, notebooks]);
+
+
+    useEffect(() => {
+        // Save session: Runs whenever the active notebook changes.
+        // Only starts saving after the initial session has been restored.
+        if (user?.uid && hasRestoredSession.current) {
+            if (activeNotebookId) {
+                localStorage.setItem(`lastActiveNotebookId-${user.uid}`, activeNotebookId);
+            } else {
+                localStorage.removeItem(`lastActiveNotebookId-${user.uid}`);
+            }
+        }
+    }, [activeNotebookId, user?.uid]);
+    // --- End Session Persistence ---
+
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {

@@ -7,12 +7,13 @@ import ComparisonView from './ComparisonView';
 import ConfirmationModal from './ConfirmationModal';
 
 const PlusIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 flex-shrink-0"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 flex-shrink-0"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
 );
 
-const getLastActiveSpots = (): Record<string, SpotType> => {
+const getLastActiveSpots = (uid: string): Record<string, SpotType> => {
+    if (!uid) return {};
     try {
-        const item = localStorage.getItem('lastActiveSpots');
+        const item = localStorage.getItem(`lastActiveSpots-${uid}`);
         return item ? JSON.parse(item) : {};
     } catch (error) {
         console.error("Error reading lastActiveSpots from localStorage", error);
@@ -20,29 +21,28 @@ const getLastActiveSpots = (): Record<string, SpotType> => {
     }
 };
 
-const setLastActiveSpot = (notebookId: string, spot: SpotType | null) => {
+const setLastActiveSpot = (uid: string, notebookId: string, spot: SpotType | null) => {
+    if (!uid) return;
     try {
-        const spots = getLastActiveSpots();
+        const spots = getLastActiveSpots(uid);
         if (spot) {
             spots[notebookId] = spot;
         } else {
             delete spots[notebookId];
         }
-        localStorage.setItem('lastActiveSpots', JSON.stringify(spots));
+        localStorage.setItem(`lastActiveSpots-${uid}`, JSON.stringify(spots));
     } catch (error) {
         console.error("Error writing lastActiveSpots to localStorage", error);
     }
 };
 
-// --- Lógica de Estado da Comparação Aprimorada ---
-
 type ComparisonStateObject = { scenarioIds: string[]; fromSpot: SpotType | null };
 type ComparisonState = Record<string, ComparisonStateObject>;
 
-
-const getComparisonState = (): ComparisonState => {
+const getComparisonState = (uid: string): ComparisonState => {
+    if (!uid) return {};
     try {
-        const item = localStorage.getItem('comparisonState');
+        const item = localStorage.getItem(`comparisonState-${uid}`);
         return item ? JSON.parse(item) : {};
     } catch (error) {
         console.error("Error reading comparisonState from localStorage", error);
@@ -50,15 +50,16 @@ const getComparisonState = (): ComparisonState => {
     }
 };
 
-const setComparisonState = (notebookId: string, scenarioIds: string[], fromSpot: SpotType | null) => {
+const setComparisonState = (uid: string, notebookId: string, scenarioIds: string[], fromSpot: SpotType | null) => {
+    if (!uid) return;
     try {
-        const state = getComparisonState();
+        const state = getComparisonState(uid);
         if (scenarioIds.length > 0) {
             state[notebookId] = { scenarioIds, fromSpot };
         } else {
             delete state[notebookId];
         }
-        localStorage.setItem('comparisonState', JSON.stringify(state));
+        localStorage.setItem(`comparisonState-${uid}`, JSON.stringify(state));
     } catch (error) {
         console.error("Error writing comparisonState to localStorage", error);
     }
@@ -81,6 +82,7 @@ const StudyView: React.FC = () => {
     const { 
         notebooks, 
         activeNotebookId, 
+        user,
         addScenario, 
         updateScenario, 
         deleteScenario,
@@ -88,33 +90,38 @@ const StudyView: React.FC = () => {
         deleteMultipleScenarios
     } = context;
 
+    const uid = user?.uid;
+
     const activeNotebook = useMemo(() => {
         return notebooks.find(n => n.id === activeNotebookId);
     }, [notebooks, activeNotebookId]);
     
     useEffect(() => {
-        if (activeNotebookId) {
-            const comparisonStates = getComparisonState();
-            const savedComparison = comparisonStates[activeNotebookId];
+        // This effect handles restoring the view state (active spot or comparison view)
+        // for the currently active notebook. It now depends on `activeNotebook` to ensure
+        // it only runs when the notebook data is actually loaded, fixing a race condition.
+        if (activeNotebook && uid) {
+            const comparisonStates = getComparisonState(uid);
+            const savedComparison = comparisonStates[activeNotebook.id];
 
             if (savedComparison && savedComparison.scenarioIds.length > 0) {
-                // Se um estado de comparação salvo for encontrado, vá direto para a tela de comparação.
+                // If a saved comparison state is found, go directly to the comparison screen.
                 setActiveSpot(null);
                 setComparisonOriginSpot(savedComparison.fromSpot);
                 setScenariosToCompare(new Set(savedComparison.scenarioIds));
                 setIsComparing(true);
                 setCollapsedScenarios(new Set());
             } else {
-                // Caso contrário, carregue o último spot ativo.
+                // Otherwise, load the last active spot for this notebook.
                 setIsComparing(false);
                 setComparisonOriginSpot(null);
-                const lastSpot = getLastActiveSpots()[activeNotebookId];
+                const lastSpot = getLastActiveSpots(uid)[activeNotebook.id];
                 setActiveSpot(lastSpot || null);
                 setScenariosToCompare(new Set());
                 
                 if (lastSpot) {
                     try {
-                        const key = `collapsedScenarios-${activeNotebookId}-${lastSpot}`;
+                        const key = `collapsedScenarios-${uid}-${activeNotebook.id}-${lastSpot}`;
                         const saved = localStorage.getItem(key);
                         const savedCollapsedSet = saved ? new Set(JSON.parse(saved)) : new Set();
                         setCollapsedScenarios(savedCollapsedSet);
@@ -127,23 +134,25 @@ const StudyView: React.FC = () => {
                 }
             }
         } else {
-            // Reseta o estado se nenhum caderno estiver ativo
+            // Reset state if no notebook is active or if it's still loading.
             setActiveSpot(null);
             setIsComparing(false);
             setComparisonOriginSpot(null);
+            setScenariosToCompare(new Set());
+            setCollapsedScenarios(new Set());
         }
-    }, [activeNotebookId]);
+    }, [activeNotebook, uid]); // Depends on the notebook object itself, not just the ID.
 
     useEffect(() => {
-        if (activeNotebookId && activeSpot) {
+        if (activeNotebookId && activeSpot && uid) {
             try {
-                const key = `collapsedScenarios-${activeNotebookId}-${activeSpot}`;
+                const key = `collapsedScenarios-${uid}-${activeNotebookId}-${activeSpot}`;
                 localStorage.setItem(key, JSON.stringify(Array.from(collapsedScenarios)));
             } catch(e) {
                 console.error("Failed to save collapsed scenarios:", e);
             }
         }
-    }, [collapsedScenarios, activeNotebookId, activeSpot]);
+    }, [collapsedScenarios, activeNotebookId, activeSpot, uid]);
 
 
     const filteredScenarios = useMemo(() => {
@@ -214,7 +223,7 @@ const StudyView: React.FC = () => {
     };
     
     const handleDeleteAll = () => {
-        if (!activeNotebook || filteredScenarios.length === 0) return;
+        if (!activeNotebook || filteredScenarios.length === 0 || !uid) return;
         
         const scenariosToDelete = [...filteredScenarios];
         const scenarioIdsToDelete = scenariosToDelete.map(s => s.id);
@@ -222,13 +231,13 @@ const StudyView: React.FC = () => {
         deleteMultipleScenarios(activeNotebook.id, scenarioIdsToDelete);
         pushToHistory(() => addMultipleScenarios(activeNotebook.id, scenariosToDelete));
         
-        setLastActiveSpot(activeNotebook.id, null);
+        setLastActiveSpot(uid, activeNotebook.id, null);
         setActiveSpot(null); // Go back to spot selection
         setIsDeleteAllModalOpen(false);
     };
     
     const handleDeleteSelection = () => {
-        if (!activeNotebook || scenariosToCompare.size === 0) return;
+        if (!activeNotebook || scenariosToCompare.size === 0 || !uid) return;
 
         const scenariosToDelete = activeNotebook.scenarios.filter(s => scenariosToCompare.has(s.id));
         const scenarioIdsToDelete = Array.from(scenariosToCompare);
@@ -241,7 +250,7 @@ const StudyView: React.FC = () => {
 
         const remainingScenarios = filteredScenarios.filter(s => !scenarioIdsToDelete.includes(s.id));
         if (remainingScenarios.length === 0) {
-            setLastActiveSpot(activeNotebook.id, null);
+            setLastActiveSpot(uid, activeNotebook.id, null);
             setActiveSpot(null); // Go back to spot selection
         }
     };
@@ -291,35 +300,36 @@ const StudyView: React.FC = () => {
     
     const handleSelectSpot = (spot: SpotType) => {
         setActiveSpot(spot);
-        if (activeNotebookId) {
-            setLastActiveSpot(activeNotebookId, spot);
+        if (activeNotebookId && uid) {
+            setLastActiveSpot(uid, activeNotebookId, spot);
         }
         setScenariosToCompare(new Set());
     };
     
     const handleBackToSpots = () => {
-        if (activeNotebookId) {
-            setLastActiveSpot(activeNotebookId, null); // Clear the stored spot
+        if (activeNotebookId && uid) {
+            setLastActiveSpot(uid, activeNotebookId, null); // Clear the stored spot
         }
         setActiveSpot(null);
         setScenariosToCompare(new Set());
     };
 
     const handleStartComparison = () => {
-        if (activeNotebookId && scenariosToCompare.size >= 2) {
-            setComparisonState(activeNotebookId, Array.from(scenariosToCompare), activeSpot);
+        if (activeNotebookId && uid && scenariosToCompare.size >= 2) {
+            setComparisonState(uid, activeNotebookId, Array.from(scenariosToCompare), activeSpot);
             setIsComparing(true);
         }
     };
 
     const handleBackFromComparison = () => {
-        if (activeNotebookId) {
-            setComparisonState(activeNotebookId, [], null); // Limpa o estado salvo
-        }
         setIsComparing(false);
-        // Recarregue o último spot ativo para voltar à visualização de estudo
-        const lastSpot = getLastActiveSpots()[activeNotebookId!];
-        setActiveSpot(lastSpot || null);
+        if (activeNotebookId && uid) {
+            setComparisonState(uid, activeNotebookId, [], null); // Limpa o estado salvo
+            const lastSpot = getLastActiveSpots(uid)[activeNotebookId];
+            setActiveSpot(lastSpot || null);
+        } else {
+            setActiveSpot(null);
+        }
     };
 
 

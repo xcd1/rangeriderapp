@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 
 const GoogleIcon = () => (
@@ -13,6 +13,13 @@ const LoginView: React.FC = () => {
   const [rememberMe, setRememberMe] = useState(true);
   const { signup, login, loginWithGoogle } = useAuth();
 
+  useEffect(() => {
+      const lastEmail = localStorage.getItem('lastLoggedInEmail');
+      if (lastEmail) {
+          setEmail(lastEmail);
+      }
+  }, []);
+
   const handleAuthAction = async (action: 'login' | 'signup') => {
     if (!email || !password) {
       setError("Por favor, preencha o e-mail e a senha.");
@@ -22,7 +29,10 @@ const LoginView: React.FC = () => {
     setError('');
     try {
       if (action === 'login') {
-        await login(email, password, rememberMe);
+        const userCredential = await login(email, password, rememberMe);
+        if(userCredential.user.email) {
+            localStorage.setItem('lastLoggedInEmail', userCredential.user.email);
+        }
       } else {
         await signup(email, password, rememberMe);
       }
@@ -55,7 +65,8 @@ const LoginView: React.FC = () => {
         console.error("Unexpected Auth Error:", err);
         setError('Ocorreu um erro inesperado.');
       }
-      setIsLoading(false);
+    } finally {
+        setIsLoading(false);
     }
   };
 
@@ -63,7 +74,10 @@ const LoginView: React.FC = () => {
     setIsLoading(true);
     setError('');
     try {
-      await loginWithGoogle(rememberMe);
+      const result = await loginWithGoogle(rememberMe);
+      if(result.user.email) {
+          localStorage.setItem('lastLoggedInEmail', result.user.email);
+      }
     } catch (err) {
       const isFirebaseError = err && typeof err === 'object' && 'code' in err;
       if (isFirebaseError) {
@@ -88,6 +102,7 @@ const LoginView: React.FC = () => {
         console.error("Unexpected Google Login Error:", err);
         setError('Ocorreu um erro inesperado.');
       }
+    } finally {
       setIsLoading(false);
     }
   }

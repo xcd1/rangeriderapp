@@ -42,6 +42,7 @@ const cleanScenario = (scenario: any): Scenario => {
     return {
         id: typeof s.id === 'string' && s.id ? s.id : crypto.randomUUID(),
         spotType: isValidValue(s.spotType, SPOT_TYPES) ? s.spotType : 'Facing 2bet',
+        manualTitle: typeof s.manualTitle === 'string' ? s.manualTitle : null,
         
         rangeAction: isValidValue(s.rangeAction, RANGE_ACTIONS) ? s.rangeAction : null,
         raiserPos: isValidValue(s.raiserPos, POSITIONS) ? s.raiserPos : null,

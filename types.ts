@@ -10,6 +10,7 @@ export type BlindWarPosition = 'SB' | 'BB';
 export interface Scenario {
   id: string;
   spotType: SpotType;
+  manualTitle?: string | null;
 
   // Facing 2bet & HRC Enviroment specific
   rangeAction: RangeAction | null;
