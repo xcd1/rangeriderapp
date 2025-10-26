@@ -1,5 +1,3 @@
-
-
 import React, { useContext, useState, useMemo, useEffect } from 'react';
 import { AppContext, useHistory } from '../App';
 import type { SpotType, Scenario } from '../types';
@@ -9,8 +7,63 @@ import ComparisonView from './ComparisonView';
 import ConfirmationModal from './ConfirmationModal';
 
 const PlusIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 flex-shrink-0"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
 );
+
+const getLastActiveSpots = (): Record<string, SpotType> => {
+    try {
+        const item = localStorage.getItem('lastActiveSpots');
+        return item ? JSON.parse(item) : {};
+    } catch (error) {
+        console.error("Error reading lastActiveSpots from localStorage", error);
+        return {};
+    }
+};
+
+const setLastActiveSpot = (notebookId: string, spot: SpotType | null) => {
+    try {
+        const spots = getLastActiveSpots();
+        if (spot) {
+            spots[notebookId] = spot;
+        } else {
+            delete spots[notebookId];
+        }
+        localStorage.setItem('lastActiveSpots', JSON.stringify(spots));
+    } catch (error) {
+        console.error("Error writing lastActiveSpots to localStorage", error);
+    }
+};
+
+// --- Lógica de Estado da Comparação Aprimorada ---
+
+type ComparisonStateObject = { scenarioIds: string[]; fromSpot: SpotType | null };
+type ComparisonState = Record<string, ComparisonStateObject>;
+
+
+const getComparisonState = (): ComparisonState => {
+    try {
+        const item = localStorage.getItem('comparisonState');
+        return item ? JSON.parse(item) : {};
+    } catch (error) {
+        console.error("Error reading comparisonState from localStorage", error);
+        return {};
+    }
+};
+
+const setComparisonState = (notebookId: string, scenarioIds: string[], fromSpot: SpotType | null) => {
+    try {
+        const state = getComparisonState();
+        if (scenarioIds.length > 0) {
+            state[notebookId] = { scenarioIds, fromSpot };
+        } else {
+            delete state[notebookId];
+        }
+        localStorage.setItem('comparisonState', JSON.stringify(state));
+    } catch (error) {
+        console.error("Error writing comparisonState to localStorage", error);
+    }
+};
+
 
 const StudyView: React.FC = () => {
     const context = useContext(AppContext);
@@ -18,6 +71,7 @@ const StudyView: React.FC = () => {
     const [activeSpot, setActiveSpot] = useState<SpotType | null>(null);
     const [scenariosToCompare, setScenariosToCompare] = useState<Set<string>>(new Set());
     const [isComparing, setIsComparing] = useState(false);
+    const [comparisonOriginSpot, setComparisonOriginSpot] = useState<SpotType | null>(null);
     const [collapsedScenarios, setCollapsedScenarios] = useState<Set<string>>(new Set());
     const [isDeleteAllModalOpen, setIsDeleteAllModalOpen] = useState(false);
     const [isDeleteSelectionModalOpen, setIsDeleteSelectionModalOpen] = useState(false);
@@ -27,7 +81,6 @@ const StudyView: React.FC = () => {
     const { 
         notebooks, 
         activeNotebookId, 
-        setActiveNotebookId,
         addScenario, 
         updateScenario, 
         deleteScenario,
@@ -39,20 +92,66 @@ const StudyView: React.FC = () => {
         return notebooks.find(n => n.id === activeNotebookId);
     }, [notebooks, activeNotebookId]);
     
-    // Quando o caderno ativo muda, volta para a tela de seleção de spots
-    const [previousNotebookId, setPreviousNotebookId] = useState(activeNotebookId);
     useEffect(() => {
-        if(activeNotebookId !== previousNotebookId) {
+        if (activeNotebookId) {
+            const comparisonStates = getComparisonState();
+            const savedComparison = comparisonStates[activeNotebookId];
+
+            if (savedComparison && savedComparison.scenarioIds.length > 0) {
+                // Se um estado de comparação salvo for encontrado, vá direto para a tela de comparação.
+                setActiveSpot(null);
+                setComparisonOriginSpot(savedComparison.fromSpot);
+                setScenariosToCompare(new Set(savedComparison.scenarioIds));
+                setIsComparing(true);
+                setCollapsedScenarios(new Set());
+            } else {
+                // Caso contrário, carregue o último spot ativo.
+                setIsComparing(false);
+                setComparisonOriginSpot(null);
+                const lastSpot = getLastActiveSpots()[activeNotebookId];
+                setActiveSpot(lastSpot || null);
+                setScenariosToCompare(new Set());
+                
+                if (lastSpot) {
+                    try {
+                        const key = `collapsedScenarios-${activeNotebookId}-${lastSpot}`;
+                        const saved = localStorage.getItem(key);
+                        const savedCollapsedSet = saved ? new Set(JSON.parse(saved)) : new Set();
+                        setCollapsedScenarios(savedCollapsedSet);
+                    } catch (e) {
+                        console.error("Failed to load collapsed scenarios:", e);
+                        setCollapsedScenarios(new Set());
+                    }
+                } else {
+                    setCollapsedScenarios(new Set());
+                }
+            }
+        } else {
+            // Reseta o estado se nenhum caderno estiver ativo
             setActiveSpot(null);
-            setPreviousNotebookId(activeNotebookId);
+            setIsComparing(false);
+            setComparisonOriginSpot(null);
         }
-    }, [activeNotebookId, previousNotebookId]);
+    }, [activeNotebookId]);
+
+    useEffect(() => {
+        if (activeNotebookId && activeSpot) {
+            try {
+                const key = `collapsedScenarios-${activeNotebookId}-${activeSpot}`;
+                localStorage.setItem(key, JSON.stringify(Array.from(collapsedScenarios)));
+            } catch(e) {
+                console.error("Failed to save collapsed scenarios:", e);
+            }
+        }
+    }, [collapsedScenarios, activeNotebookId, activeSpot]);
+
 
     const filteredScenarios = useMemo(() => {
         if (!activeNotebook) return [];
         
         return activeNotebook.scenarios
             .filter(s => s.spotType === activeSpot)
+            .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
     }, [activeNotebook, activeSpot]);
 
     const handleAddNewScenario = () => {
@@ -70,6 +169,8 @@ const StudyView: React.FC = () => {
             aggressorPos: null,
             printSpotImage: null,
             rpImage: null,
+            tableViewImage: null,
+            plusInfoImage: null,
             gameScenario: null,
             rangeImage: null,
             frequenciesImage: null,
@@ -77,23 +178,39 @@ const StudyView: React.FC = () => {
             raiseBigText: '',
             callText: '',
             notes: '',
+            createdAt: Date.now(),
         };
         addScenario(activeNotebook.id, newScenario);
         pushToHistory(() => deleteScenario(activeNotebook.id, newScenario.id));
     };
 
     const handleUpdateScenario = (updatedScenario: Scenario) => {
-        if (!activeNotebook) return;
+        if (!activeNotebook || !activeSpot) return;
         updateScenario(activeNotebook.id, updatedScenario);
     };
     
     const handleDeleteScenario = (scenarioId: string) => {
-        if (!activeNotebook) return;
+        if (!activeNotebook || !activeSpot) return;
         const scenarioToDelete = activeNotebook.scenarios.find(s => s.id === scenarioId);
         if (scenarioToDelete) {
             deleteScenario(activeNotebook.id, scenarioId);
             pushToHistory(() => addScenario(activeNotebook.id, scenarioToDelete));
         }
+    };
+    
+    const handleDuplicateScenario = (scenarioId: string) => {
+        if (!activeNotebook || !activeSpot) return;
+        const scenarioToDuplicate = activeNotebook.scenarios.find(s => s.id === scenarioId);
+        if (!scenarioToDuplicate) return;
+
+        const duplicatedScenario: Scenario = {
+            ...scenarioToDuplicate,
+            id: crypto.randomUUID(),
+            createdAt: Date.now(),
+        };
+
+        addScenario(activeNotebook.id, duplicatedScenario);
+        pushToHistory(() => deleteScenario(activeNotebook.id, duplicatedScenario.id));
     };
     
     const handleDeleteAll = () => {
@@ -105,6 +222,8 @@ const StudyView: React.FC = () => {
         deleteMultipleScenarios(activeNotebook.id, scenarioIdsToDelete);
         pushToHistory(() => addMultipleScenarios(activeNotebook.id, scenariosToDelete));
         
+        setLastActiveSpot(activeNotebook.id, null);
+        setActiveSpot(null); // Go back to spot selection
         setIsDeleteAllModalOpen(false);
     };
     
@@ -117,8 +236,14 @@ const StudyView: React.FC = () => {
         deleteMultipleScenarios(activeNotebook.id, scenarioIdsToDelete);
         pushToHistory(() => addMultipleScenarios(activeNotebook.id, scenariosToDelete));
 
-        setScenariosToCompare(new Set()); // Clear selection
+        setScenariosToCompare(new Set());
         setIsDeleteSelectionModalOpen(false);
+
+        const remainingScenarios = filteredScenarios.filter(s => !scenarioIdsToDelete.includes(s.id));
+        if (remainingScenarios.length === 0) {
+            setLastActiveSpot(activeNotebook.id, null);
+            setActiveSpot(null); // Go back to spot selection
+        }
     };
 
     const toggleCompare = (scenarioId: string) => {
@@ -166,8 +291,37 @@ const StudyView: React.FC = () => {
     
     const handleSelectSpot = (spot: SpotType) => {
         setActiveSpot(spot);
+        if (activeNotebookId) {
+            setLastActiveSpot(activeNotebookId, spot);
+        }
         setScenariosToCompare(new Set());
     };
+    
+    const handleBackToSpots = () => {
+        if (activeNotebookId) {
+            setLastActiveSpot(activeNotebookId, null); // Clear the stored spot
+        }
+        setActiveSpot(null);
+        setScenariosToCompare(new Set());
+    };
+
+    const handleStartComparison = () => {
+        if (activeNotebookId && scenariosToCompare.size >= 2) {
+            setComparisonState(activeNotebookId, Array.from(scenariosToCompare), activeSpot);
+            setIsComparing(true);
+        }
+    };
+
+    const handleBackFromComparison = () => {
+        if (activeNotebookId) {
+            setComparisonState(activeNotebookId, [], null); // Limpa o estado salvo
+        }
+        setIsComparing(false);
+        // Recarregue o último spot ativo para voltar à visualização de estudo
+        const lastSpot = getLastActiveSpots()[activeNotebookId!];
+        setActiveSpot(lastSpot || null);
+    };
+
 
     if (!activeNotebook) {
         return (
@@ -176,9 +330,9 @@ const StudyView: React.FC = () => {
             </div>
         );
     }
-    
+
     if (isComparing) {
-        return <ComparisonView scenarios={scenariosForComparisonView} onBack={() => setIsComparing(false)} spotType={activeSpot} />;
+        return <ComparisonView scenarios={scenariosForComparisonView} onBack={handleBackFromComparison} spotType={comparisonOriginSpot} />;
     }
 
     if (!activeSpot) {
@@ -191,7 +345,7 @@ const StudyView: React.FC = () => {
                         <button
                             key={spot}
                             onClick={() => handleSelectSpot(spot)}
-                            className="bg-brand-primary hover:bg-brand-primary/80 text-brand-text font-bold py-8 px-4 rounded-lg text-xl transition-transform transform hover:scale-105 flex items-center justify-center"
+                            className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-8 px-4 rounded-lg text-xl transition-transform transform hover:scale-105 flex items-center justify-center"
                         >
                             {spot}
                         </button>
@@ -205,93 +359,103 @@ const StudyView: React.FC = () => {
         <div>
             <div className="flex justify-between items-start mb-4">
                 <div>
-                    <button onClick={() => { setActiveSpot(null); setScenariosToCompare(new Set()); }} className="text-sm font-bold text-brand-secondary hover:underline mb-2 inline-block">&larr; Voltar para Spots</button>
+                    <button onClick={handleBackToSpots} className="text-sm font-bold text-brand-secondary hover:underline mb-2 inline-block">&larr; Voltar para Spots</button>
                     <h2 className="text-2xl font-bold text-brand-text">{activeNotebook.name} / {activeSpot}</h2>
                 </div>
             </div>
             
             {filteredScenarios.length > 0 && (
                 <div className="flex items-center flex-wrap gap-4 mb-6 border-y border-brand-primary py-3">
-                    <button
-                        onClick={() => setIsComparing(true)}
-                        disabled={scenariosToCompare.size < 2}
-                        className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors disabled:bg-brand-secondary/50 disabled:cursor-not-allowed disabled:text-brand-primary/70"
-                    >
-                        Comparar ({scenariosToCompare.size})
-                    </button>
-                    {filteredScenarios.length > 1 && (
+                    {/* LEFT GROUP */}
+                    <div className="flex items-center flex-wrap gap-4">
                         <button
-                            onClick={handleSelectAll}
-                            className="bg-brand-primary hover:bg-brand-primary/80 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm"
+                            onClick={handleStartComparison}
+                            disabled={scenariosToCompare.size < 2}
+                            className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors disabled:bg-brand-secondary/50 disabled:cursor-not-allowed disabled:text-brand-primary/70"
                         >
-                            Selecionar todos
+                            Comparar ({scenariosToCompare.size})
                         </button>
-                    )}
-                    {scenariosToCompare.size > 0 && (
+                        {filteredScenarios.length > 1 && (
                             <button
-                            onClick={handleClearCompare}
-                            className="bg-brand-primary hover:bg-brand-primary/80 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm"
-                        >
-                            Desmarcar todos
-                        </button>
-                    )}
-                    
-                    {scenariosToCompare.size > 0 && (
-                        <button
-                            onClick={() => setIsDeleteSelectionModalOpen(true)}
-                            className="bg-red-800 hover:bg-red-900 text-white font-semibold py-2 px-4 rounded-md transition-colors text-sm"
-                            title="Excluir os cenários selecionados"
-                        >
-                            Excluir Seleção
-                        </button>
-                    )}
-
-                    {filteredScenarios.length > 0 && (
-                        <button
-                            onClick={() => setIsDeleteAllModalOpen(true)}
-                            className="bg-red-800 hover:bg-red-900 text-white font-semibold py-2 px-4 rounded-md transition-colors text-sm"
-                            title="Excluir todos os cenários visíveis"
-                        >
-                            Excluir tudo
-                        </button>
-                    )}
-                    
-                    <div className="ml-auto flex items-center gap-4">
+                                onClick={handleSelectAll}
+                                className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors text-sm"
+                            >
+                                Selecionar todos
+                            </button>
+                        )}
+                        {scenariosToCompare.size > 0 && (
+                                <button
+                                onClick={handleClearCompare}
+                                className="bg-brand-primary hover:bg-brand-primary/80 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm"
+                            >
+                                Desmarcar todos
+                            </button>
+                        )}
+                        
                         {filteredScenarios.length > 1 && (
                             <>
+                                <button
+                                    onClick={handleExpandAll}
+                                    className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors text-sm"
+                                >
+                                    Expandir todos
+                                </button>
                                 <button
                                     onClick={handleCollapseAll}
                                     className="bg-brand-primary hover:bg-brand-primary/80 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm"
                                 >
                                     Recolher todos
                                 </button>
-                                <button
-                                    onClick={handleExpandAll}
-                                    className="bg-brand-primary hover:bg-brand-primary/80 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm"
-                                >
-                                    Expandir todos
-                                </button>
                             </>
                         )}
-                        <button
-                            onClick={handleAddNewScenario}
-                            className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors flex items-center gap-2"
-                        >
-                            <PlusIcon />
-                            Novo Cenário
-                        </button>
+                    </div>
+
+                    <div className="flex-grow" />
+
+                    {/* CENTER BUTTON */}
+                    <button
+                        onClick={handleAddNewScenario}
+                        className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors flex items-center gap-2"
+                    >
+                        <PlusIcon />
+                        Novo Cenário
+                    </button>
+
+                    <div className="flex-grow" />
+
+                    {/* RIGHT GROUP */}
+                    <div className="flex items-center gap-4">
+                        {scenariosToCompare.size > 0 && (
+                            <button
+                                onClick={() => setIsDeleteSelectionModalOpen(true)}
+                                className="bg-orange-700 hover:bg-orange-800 text-white font-semibold py-2 px-4 rounded-md transition-colors text-sm"
+                                title="Excluir os cenários selecionados"
+                            >
+                                Excluir Seleção
+                            </button>
+                        )}
+
+                        {filteredScenarios.length > 0 && (
+                            <button
+                                onClick={() => setIsDeleteAllModalOpen(true)}
+                                className="bg-orange-700 hover:bg-orange-800 text-white font-semibold py-2 px-4 rounded-md transition-colors text-sm"
+                                title="Excluir todos os cenários visíveis"
+                            >
+                                Excluir tudo
+                            </button>
+                        )}
                     </div>
                 </div>
             )}
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {filteredScenarios
-                 .map(scenario => (
+                {filteredScenarios.map(scenario => (
                     <ScenarioEditor
                         key={scenario.id}
                         scenario={scenario}
                         onUpdate={handleUpdateScenario}
                         onDelete={handleDeleteScenario}
+                        onDuplicate={handleDuplicateScenario}
                         isSelectedForCompare={scenariosToCompare.has(scenario.id)}
                         onToggleCompare={toggleCompare}
                         isCollapsed={collapsedScenarios.has(scenario.id)}
@@ -303,7 +467,7 @@ const StudyView: React.FC = () => {
             {filteredScenarios.length === 0 && (
                 <div className="text-center py-16 text-brand-text-muted">
                     <p>Nenhum cenário para este spot.</p>
-                     <button
+                    <button
                         onClick={handleAddNewScenario}
                         className="mt-4 bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors flex items-center gap-2 mx-auto"
                     >

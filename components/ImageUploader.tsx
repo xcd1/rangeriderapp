@@ -21,10 +21,56 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ title, imageData, onUploa
     const isSmall = size === 'small';
 
     const handleFile = (file: File | null) => {
-        if (file && file.type.startsWith('image/')) {
+        if (!file) {
+            onUpload(null);
+            return;
+        }
+
+        if (file.type.startsWith('image/')) {
             const reader = new FileReader();
-            reader.onloadend = () => {
-                onUpload(reader.result as string);
+            reader.onload = (event) => {
+                if (!event.target?.result) return;
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    // Define max dimensions to control file size
+                    const MAX_WIDTH = 1280;
+                    const MAX_HEIGHT = 1280;
+                    let { width, height } = img;
+
+                    if (width > height) {
+                        if (width > MAX_WIDTH) {
+                            height = height * (MAX_WIDTH / width);
+                            width = MAX_WIDTH;
+                        }
+                    } else {
+                        if (height > MAX_HEIGHT) {
+                            width = width * (MAX_HEIGHT / height);
+                            height = MAX_HEIGHT;
+                        }
+                    }
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    if (!ctx) {
+                        // Fallback to original if canvas fails
+                        onUpload(event.target?.result as string);
+                        return;
+                    }
+                    ctx.drawImage(img, 0, 0, width, height);
+                    
+                    // Convert to JPEG with a quality setting. 0.9 is high quality.
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+                    onUpload(dataUrl);
+                };
+                img.onerror = () => {
+                    // Fallback if image fails to load
+                    onUpload(event.target?.result as string);
+                }
+                img.src = event.target.result as string;
+            };
+            reader.onerror = () => {
+                console.error("Failed to read file.");
             };
             reader.readAsDataURL(file);
         }
@@ -35,14 +81,44 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ title, imageData, onUploa
         handleFile(file || null);
     };
 
-    const handlePaste = (event: React.ClipboardEvent<HTMLDivElement>) => {
+    const handlePaste = async (event: React.ClipboardEvent<HTMLDivElement>) => {
+        event.preventDefault();
         const items = event.clipboardData.items;
-        for (let i = 0; i < items.length; i++) {
-            if (items[i].type.startsWith('image/')) {
-                const file = items[i].getAsFile();
-                handleFile(file);
-                event.preventDefault();
-                return;
+
+        // First, check for direct image files in clipboard (e.g., from Snipping Tool)
+        for (const item of Array.from(items)) {
+            // FIX: Cast clipboard item to DataTransferItem to access its properties.
+            if ((item as DataTransferItem).type.startsWith('image/')) {
+                // FIX: Cast clipboard item to DataTransferItem to access its properties.
+                const file = (item as DataTransferItem).getAsFile();
+                if (file) {
+                    handleFile(file);
+                    return; // Exit after handling the first image file
+                }
+            }
+        }
+        
+        // If no direct image file, check for HTML content (e.g., from Excel)
+        for (const item of Array.from(items)) {
+            // FIX: Cast clipboard item to DataTransferItem to access its properties.
+            if ((item as DataTransferItem).type === 'text/html') {
+                try {
+                    // FIX: Cast clipboard item to DataTransferItem to access its properties.
+                    const htmlString = await new Promise<string>((resolve) => (item as DataTransferItem).getAsString(resolve));
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(htmlString, 'text/html');
+                    const img = doc.querySelector('img');
+
+                    if (img && img.src.startsWith('data:image/')) {
+                        const response = await fetch(img.src);
+                        const blob = await response.blob();
+                        const file = new File([blob], "pasted_image.png", { type: blob.type });
+                        handleFile(file);
+                        return; // Exit after handling the image from HTML
+                    }
+                } catch (error) {
+                    console.error("Failed to handle pasted HTML content:", error);
+                }
             }
         }
     };

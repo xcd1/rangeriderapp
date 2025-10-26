@@ -42,7 +42,7 @@ const LoginView: React.FC = () => {
             setError('E-mail ou senha inválidos.');
             break;
           case 'auth/email-already-in-use':
-            setError('Este e-mail já está em uso.');
+            setError('Este e-mail já está cadastrado. Tente fazer login ou use uma conta Google.');
             break;
           case 'auth/weak-password':
             setError('A senha deve ter pelo menos 6 caracteres.');

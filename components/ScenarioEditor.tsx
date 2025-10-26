@@ -1,5 +1,3 @@
-
-
 import React, { useRef, useEffect, useState } from 'react';
 import type { Scenario, Position, GameScenario, RangeAction } from '../types';
 import { POSITIONS, GAME_SCENARIOS, FACING_2BET_ACTIONS, HRC_ACTIONS, POSITION_ORDER, BLIND_WAR_ACTIONS, BLIND_WAR_POSITIONS } from '../constants';
@@ -12,6 +10,7 @@ interface ScenarioEditorProps {
     scenario: Scenario;
     onUpdate: (scenario: Scenario) => void;
     onDelete: (scenarioId: string) => void;
+    onDuplicate: (scenarioId: string) => void;
     isSelectedForCompare: boolean;
     onToggleCompare: (scenarioId: string) => void;
     isCollapsed: boolean;
@@ -26,8 +25,24 @@ const BrushIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5"><path d="M9.06 11.9 3 18v3h3l6.94-6.94a1 1 0 0 0 0-1.41z"/><path d="m14 6-1-1-4 4 1 1"/><path d="M3 21h18"/><path d="M12.59 7.41a1 1 0 0 0 0 1.41l4 4a1 1 0 0 0 1.41 0l1.18-1.18a1 1 0 0 0 0-1.41l-4-4a1 1 0 0 0-1.41 0Z"/></svg>
 );
 
+const DuplicateIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+);
+
 const XIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+);
+
+const ClearImageIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5"><path d="M12 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-9"/><path d="M7 12.5 9.5 10l2.5 2.5L17 8"/><path d="m21.5 2.5-6 6"/><path d="m15.5 2.5 6 6"/></svg>
+);
+
+const ClearTxtIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="m9.5 12.5 5 5"/><path d="m14.5 12.5-5 5"/></svg>
+);
+
+const ClearNotesIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5"><path d="M15.5 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.5L15.5 3z"/><polyline points="15 3 15 8 20 8"/><path d="m11.5 12.5 5 5"/><path d="m16.5 12.5-5 5"/></svg>
 );
 
 interface ButtonGroupProps {
@@ -40,8 +55,8 @@ interface ButtonGroupProps {
 
 const ButtonGroup: React.FC<ButtonGroupProps> = ({ label, children, onClear, hasSelection, isDisabled = false }) => (
     <div className={`${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
-        <div className="flex justify-between items-center mb-1.5">
-            <label className="block text-sm font-medium text-brand-text-muted">{label}</label>
+        <div className="flex items-center mb-1.5">
+            <label className="block text-sm font-medium text-brand-text-muted mr-2">{label}</label>
             {hasSelection && !isDisabled && (
                 <button onClick={onClear} className="text-brand-text-muted hover:text-brand-text p-1 rounded-full hover:bg-brand-bg" title="Limpar seleção">
                     <XIcon />
@@ -148,7 +163,8 @@ const ImageViewerModal: React.FC<ImageViewerModalProps> = ({ imageSrc, onClose }
 const ScenarioEditor: React.FC<ScenarioEditorProps> = ({ 
     scenario, 
     onUpdate, 
-    onDelete, 
+    onDelete,
+    onDuplicate,
     isSelectedForCompare, 
     onToggleCompare,
     isCollapsed,
@@ -157,11 +173,23 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
     const { pushToHistory } = useHistory();
     const scenarioRef = useRef(scenario);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-    const [uploaderTarget, setUploaderTarget] = useState<'printSpotImage' | 'rpImage' | null>(null);
+    const [uploaderTarget, setUploaderTarget] = useState<'printSpotImage' | 'rpImage' | 'tableViewImage' | 'plusInfoImage' | null>(null);
     const [viewingImage, setViewingImage] = useState<string | null>(null);
+    const [textInputs, setTextInputs] = useState({
+        raiseSmallText: scenario.raiseSmallText,
+        raiseBigText: scenario.raiseBigText,
+        callText: scenario.callText,
+        notes: scenario.notes,
+    });
 
     useEffect(() => {
         scenarioRef.current = scenario;
+        setTextInputs({
+            raiseSmallText: scenario.raiseSmallText,
+            raiseBigText: scenario.raiseBigText,
+            callText: scenario.callText,
+            notes: scenario.notes,
+        });
     }, [scenario]);
 
     useEffect(() => {
@@ -212,16 +240,53 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
             coldCallerPos: null,
             aggressorPos: null,
             gameScenario: null,
+            createdAt: scenario.createdAt,
         });
         pushToHistory(() => onUpdate(oldScenarioState));
     };
     
-    const handleTextUpdate = (key: keyof Scenario, value: string) => {
+    const handleTextUpdateOnBlur = (key: keyof Scenario, value: string) => {
         const currentScenario = scenarioRef.current;
         const oldScenarioState = { ...currentScenario };
         if (oldScenarioState[key] === value) return;
         
         onUpdate({ ...currentScenario, [key]: value });
+        pushToHistory(() => onUpdate(oldScenarioState));
+    };
+
+    const handleTextInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+        const { name, value } = e.target;
+        setTextInputs(prev => ({...prev, [name]: value}));
+    };
+    
+    const handleTextInputBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
+        const { name, value } = e.target as { name: keyof Scenario; value: string };
+        handleTextUpdateOnBlur(name, value);
+    };
+
+    const handleClearImage = () => {
+        if (!scenario.rangeImage) return;
+        const oldScenarioState = { ...scenario };
+        onUpdate({ ...scenario, rangeImage: null });
+        pushToHistory(() => onUpdate(oldScenarioState));
+    };
+
+    const handleClearTexts = () => {
+        if (!scenario.raiseSmallText && !scenario.raiseBigText && !scenario.callText) return;
+        const oldScenarioState = { ...scenario };
+        onUpdate({ 
+            ...scenario, 
+            raiseSmallText: '',
+            raiseBigText: '',
+            callText: '' 
+        });
+        pushToHistory(() => onUpdate(oldScenarioState));
+    };
+
+    const handleClearNotes = () => {
+        if (!scenario.notes) return;
+        const oldScenarioState = { ...scenario };
+        onUpdate({ ...scenario, notes: '' });
         pushToHistory(() => onUpdate(oldScenarioState));
     };
 
@@ -283,9 +348,7 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
         setIsDeleteModalOpen(false);
     };
 
-    const initialImageDataForModal = 
-        uploaderTarget === 'printSpotImage' ? scenario.printSpotImage :
-        uploaderTarget === 'rpImage' ? scenario.rpImage : null;
+    const initialImageDataForModal = uploaderTarget ? scenario[uploaderTarget] : null;
 
     return (
         <>
@@ -301,12 +364,24 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
                         />
                         <h3 className="font-bold text-lg text-brand-text truncate" title={scenarioTitle}>{scenarioTitle}</h3>
                     </div>
-                    <div className="flex items-center gap-3 ml-2">
+                    <div className="flex items-center gap-2 ml-2">
+                        <button onClick={(e) => { e.stopPropagation(); onDuplicate(scenario.id); }} className="text-green-300 hover:text-green-400 p-1 rounded-full hover:bg-brand-primary/80 flex items-center justify-center" title="Duplicar cenário">
+                            <DuplicateIcon />
+                        </button>
                         {scenario.spotType === 'HRC Enviroment' && (
                             <button onClick={(e) => { e.stopPropagation(); handleClearAllSelections(); }} className="text-blue-300 hover:text-blue-400 p-1 rounded-full hover:bg-brand-primary/80 flex items-center justify-center" title="Limpar Botões">
                                 <BrushIcon />
                             </button>
                         )}
+                        <button onClick={(e) => { e.stopPropagation(); handleClearImage(); }} className="text-yellow-400 hover:text-yellow-500 p-1 rounded-full hover:bg-brand-primary/80 flex items-center justify-center" title="Limpar imagem">
+                            <ClearImageIcon />
+                        </button>
+                        <button onClick={(e) => { e.stopPropagation(); handleClearTexts(); }} className="text-yellow-400 hover:text-yellow-500 p-1 rounded-full hover:bg-brand-primary/80 flex items-center justify-center" title="Limpar .txt's">
+                            <ClearTxtIcon />
+                        </button>
+                        <button onClick={(e) => { e.stopPropagation(); handleClearNotes(); }} className="text-yellow-400 hover:text-yellow-500 p-1 rounded-full hover:bg-brand-primary/80 flex items-center justify-center" title="Limpar Anotações">
+                            <ClearNotesIcon />
+                        </button>
                         <button onClick={(e) => { e.stopPropagation(); setIsDeleteModalOpen(true); }} className="text-red-400 hover:text-red-500 p-1 rounded-full hover:bg-brand-primary/80 flex items-center justify-center" title="Excluir cenário">
                             <TrashIcon />
                         </button>
@@ -347,61 +422,71 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
                                                         <button key={pos} onClick={() => handleUpdate('coldCallerPos', pos)} className={`px-3 py-1 text-xs rounded-md ${scenario.coldCallerPos === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'}`}>{pos}</button>
                                                     ))}
                                                 </ButtonGroup>
-                                                <div className="flex items-end gap-6 pt-1">
-                                                    <div className="flex-grow">
-                                                        <ButtonGroup label="3bettor/4bettor/5bettor/Squeezer Position" onClear={() => handleUpdate('aggressorPos', null)} hasSelection={!!scenario.aggressorPos}>
-                                                            {aggressorPositions.map(pos => (
-                                                                <button key={pos} onClick={() => handleUpdate('aggressorPos', pos)} className={`px-3 py-1 text-xs rounded-md ${scenario.aggressorPos === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'}`}>{pos}</button>
-                                                            ))}
-                                                        </ButtonGroup>
-                                                    </div>
-                                                    <div className="flex-shrink-0">
-                                                        <label className="block text-sm font-medium text-brand-text-muted mb-1.5 text-center">Inserir</label>
-                                                        <div className="flex justify-center gap-2">
-                                                            <button 
-                                                                onClick={() => scenario.printSpotImage ? setViewingImage(scenario.printSpotImage) : setUploaderTarget('printSpotImage')}
-                                                                className={`px-3 py-1 text-xs rounded-md font-semibold transition-colors ${scenario.printSpotImage ? 'bg-green-700 hover:bg-green-800 text-white' : 'bg-brand-bg hover:brightness-125 text-brand-text'}`}
-                                                                title={scenario.printSpotImage ? 'Clique para ver a imagem' : 'Clique para adicionar uma imagem'}
-                                                            >
-                                                                Table Draw {scenario.printSpotImage ? '✓' : ''}
-                                                            </button>
-                                                            <button 
-                                                                onClick={() => scenario.rpImage ? setViewingImage(scenario.rpImage) : setUploaderTarget('rpImage')}
-                                                                className={`px-3 py-1 text-xs rounded-md font-semibold transition-colors ${scenario.rpImage ? 'bg-green-700 hover:bg-green-800 text-white' : 'bg-brand-bg hover:brightness-125 text-brand-text'}`}
-                                                                title={scenario.rpImage ? 'Clique para ver a imagem' : 'Clique para adicionar uma imagem'}
-                                                            >
-                                                                RP {scenario.rpImage ? '✓' : ''}
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                </div>
+                                                <ButtonGroup label="3bettor/4bettor/5bettor/Squeezer Position" onClear={() => handleUpdate('aggressorPos', null)} hasSelection={!!scenario.aggressorPos}>
+                                                    {aggressorPositions.map(pos => (
+                                                        <button key={pos} onClick={() => handleUpdate('aggressorPos', pos)} className={`px-3 py-1 text-xs rounded-md ${scenario.aggressorPos === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'}`}>{pos}</button>
+                                                    ))}
+                                                </ButtonGroup>
                                             </>
                                         )}
                                     </div>
-                                    <div className="flex-shrink-0">
-                                        <div className="relative mb-1.5 text-center">
-                                            <label className="block text-sm font-medium text-brand-text-muted">Cenário</label>
-                                            {!!scenario.gameScenario && !isRfiSelected && (
-                                                <button onClick={() => handleUpdate('gameScenario', null)} className="absolute top-1/2 right-0 -translate-y-1/2 text-brand-text-muted hover:text-brand-text p-1 rounded-full hover:bg-brand-bg" title="Limpar seleção">
+                                    <div className="flex-shrink-0 w-48">
+                                        <div className="flex items-center justify-center mb-1.5">
+                                            <label className="block text-sm font-medium text-brand-text-muted mr-2">Modalidade</label>
+                                            {!!scenario.gameScenario && (
+                                                <button onClick={() => handleUpdate('gameScenario', null)} className="text-brand-text-muted hover:text-brand-text p-1 rounded-full hover:bg-brand-bg" title="Limpar seleção">
                                                     <XIcon />
                                                 </button>
                                             )}
                                         </div>
-                                        <div className={`flex flex-col gap-1.5 ${isRfiSelected ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                        <div className="flex flex-col gap-1.5">
                                             {GAME_SCENARIOS.map(gs => (
-                                                <button key={gs} onClick={() => handleUpdate('gameScenario', gs)} disabled={isRfiSelected} className={`px-3 py-1 text-xs rounded-md w-full text-left ${scenario.gameScenario === gs ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'}`}>{gs}</button>
+                                                <button key={gs} onClick={() => handleUpdate('gameScenario', gs)} className={`px-3 py-1 text-xs rounded-md w-full text-left ${scenario.gameScenario === gs ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'}`}>{gs}</button>
                                             ))}
+                                        </div>
+                                        <div className="mt-4">
+                                            <label className="block text-sm font-medium text-brand-text-muted mb-1.5 text-center">Inserir</label>
+                                            <div className="flex justify-center gap-2 flex-wrap">
+                                                <button 
+                                                    onClick={() => scenario.printSpotImage ? setViewingImage(scenario.printSpotImage) : setUploaderTarget('printSpotImage')}
+                                                    className={`px-3 py-1 text-xs rounded-md font-semibold transition-colors ${scenario.printSpotImage ? 'bg-brand-secondary/80 hover:bg-brand-secondary text-brand-primary' : 'bg-brand-bg hover:brightness-125 text-brand-text'}`}
+                                                    title={scenario.printSpotImage ? 'Clique para ver a imagem' : 'Clique para adicionar uma imagem'}
+                                                >
+                                                    HRC Table View {scenario.printSpotImage ? '✓' : ''}
+                                                </button>
+                                                <button 
+                                                    onClick={() => scenario.rpImage ? setViewingImage(scenario.rpImage) : setUploaderTarget('rpImage')}
+                                                    className={`px-3 py-1 text-xs rounded-md font-semibold transition-colors ${scenario.rpImage ? 'bg-brand-secondary/80 hover:bg-brand-secondary text-brand-primary' : 'bg-brand-bg hover:brightness-125 text-brand-text'}`}
+                                                    title={scenario.rpImage ? 'Clique para ver a imagem' : 'Clique para adicionar uma imagem'}
+                                                >
+                                                    RP {scenario.rpImage ? '✓' : ''}
+                                                </button>
+                                                <button 
+                                                    onClick={() => scenario.tableViewImage ? setViewingImage(scenario.tableViewImage) : setUploaderTarget('tableViewImage')}
+                                                    className={`px-3 py-1 text-xs rounded-md font-semibold transition-colors ${scenario.tableViewImage ? 'bg-brand-secondary/80 hover:bg-brand-secondary text-brand-primary' : 'bg-brand-bg hover:brightness-125 text-brand-text'}`}
+                                                    title={scenario.tableViewImage ? 'Clique para ver a imagem' : 'Clique para adicionar uma imagem'}
+                                                >
+                                                    Table View {scenario.tableViewImage ? '✓' : ''}
+                                                </button>
+                                                <button 
+                                                    onClick={() => scenario.plusInfoImage ? setViewingImage(scenario.plusInfoImage) : setUploaderTarget('plusInfoImage')}
+                                                    className={`px-3 py-1 text-xs rounded-md font-semibold transition-colors ${scenario.plusInfoImage ? 'bg-brand-secondary/80 hover:bg-brand-secondary text-brand-primary' : 'bg-brand-bg hover:brightness-125 text-brand-text'}`}
+                                                    title={scenario.plusInfoImage ? 'Clique para ver a imagem' : 'Clique para adicionar uma imagem'}
+                                                >
+                                                    +Info {scenario.plusInfoImage ? '✓' : ''}
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                                 <div className="space-y-4 pt-4">
                                     <ImageUploader title="Range" imageData={scenario.rangeImage} onUpload={(data) => handleUpdate('rangeImage', data)} className="aspect-[5/3]" />
                                     <div className="grid grid-cols-3 gap-2">
-                                        <textarea defaultValue={scenario.raiseSmallText} onBlur={e => handleTextUpdate('raiseSmallText', e.target.value)} placeholder="raise small" className="h-10 bg-brand-bg text-xs rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-secondary w-full resize-none"></textarea>
-                                        <textarea defaultValue={scenario.raiseBigText} onBlur={e => handleTextUpdate('raiseBigText', e.target.value)} placeholder="raise big" className="h-10 bg-brand-bg text-xs rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-secondary w-full resize-none"></textarea>
-                                        <textarea defaultValue={scenario.callText} onBlur={e => handleTextUpdate('callText', e.target.value)} placeholder="call" className="h-10 bg-brand-bg text-xs rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-secondary w-full resize-none"></textarea>
+                                        <textarea name="raiseSmallText" value={textInputs.raiseSmallText} onChange={handleTextInputChange} onBlur={handleTextInputBlur} placeholder="raise small" className="h-10 bg-brand-bg text-xs rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-secondary w-full resize-none"></textarea>
+                                        <textarea name="raiseBigText" value={textInputs.raiseBigText} onChange={handleTextInputChange} onBlur={handleTextInputBlur} placeholder="raise big" className="h-10 bg-brand-bg text-xs rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-secondary w-full resize-none"></textarea>
+                                        <textarea name="callText" value={textInputs.callText} onChange={handleTextInputChange} onBlur={handleTextInputBlur} placeholder="call" className="h-10 bg-brand-bg text-xs rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-secondary w-full resize-none"></textarea>
                                     </div>
-                                    <textarea defaultValue={scenario.notes} onBlur={e => handleTextUpdate('notes', e.target.value)} placeholder="Anotações..." className="h-24 bg-brand-bg rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-brand-secondary w-full resize-none"></textarea>
+                                    <textarea name="notes" value={textInputs.notes} onChange={handleTextInputChange} onBlur={handleTextInputBlur} placeholder="Anotações..." className="h-24 bg-brand-bg rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-brand-secondary w-full resize-none"></textarea>
                                 </div>
                             </>
                         )}
@@ -445,7 +530,7 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="block text-center text-sm font-medium text-brand-text-muted mb-2">Cenário</label>
+                                        <label className="block text-center text-sm font-medium text-brand-text-muted mb-2">Modalidade</label>
                                         <div className="flex gap-2 flex-wrap justify-center">
                                             {GAME_SCENARIOS.map(gs => (
                                                 <button key={gs} onClick={() => handleUpdate('gameScenario', gs)} className={`px-4 py-2 rounded-md ${scenario.gameScenario === gs ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'}`}>{gs}</button>
@@ -455,16 +540,16 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
                                 </div>
                                 <div className="grid grid-cols-1 lg:grid-cols-10 gap-4">
                                     <div className="lg:col-span-7 space-y-4">
-                                        <ImageUploader title="Range" imageData={scenario.rangeImage} onUpload={(data) => handleUpdate('rangeImage', data)} className="aspect-[20/17]" />
+                                        <ImageUploader title="Range" imageData={scenario.rangeImage} onUpload={(data) => handleUpdate('rangeImage', data)} className="aspect-video" />
                                         <ImageUploader title="Frequências" imageData={scenario.frequenciesImage} onUpload={(data) => handleUpdate('frequenciesImage', data)} className="aspect-[6/1]" size="small" />
                                         <div className="grid grid-cols-3 gap-2">
-                                            <textarea defaultValue={scenario.raiseSmallText} onBlur={e => handleTextUpdate('raiseSmallText', e.target.value)} placeholder="raise small" className="h-12 bg-brand-bg text-xs rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-secondary w-full resize-none"></textarea>
-                                            <textarea defaultValue={scenario.raiseBigText} onBlur={e => handleTextUpdate('raiseBigText', e.target.value)} placeholder="raise big" className="h-12 bg-brand-bg text-xs rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-secondary w-full resize-none"></textarea>
-                                            <textarea defaultValue={scenario.callText} onBlur={e => handleTextUpdate('callText', e.target.value)} placeholder="call" className="h-12 bg-brand-bg text-xs rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-secondary w-full resize-none"></textarea>
+                                            <textarea name="raiseSmallText" value={textInputs.raiseSmallText} onChange={handleTextInputChange} onBlur={handleTextInputBlur} placeholder="raise small" className="h-12 bg-brand-bg text-xs rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-secondary w-full resize-none"></textarea>
+                                            <textarea name="raiseBigText" value={textInputs.raiseBigText} onChange={handleTextInputChange} onBlur={handleTextInputBlur} placeholder="raise big" className="h-12 bg-brand-bg text-xs rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-secondary w-full resize-none"></textarea>
+                                            <textarea name="callText" value={textInputs.callText} onChange={handleTextInputChange} onBlur={handleTextInputBlur} placeholder="call" className="h-12 bg-brand-bg text-xs rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-secondary w-full resize-none"></textarea>
                                         </div>
                                     </div>
                                     <div className="lg:col-span-3">
-                                        <textarea defaultValue={scenario.notes} onBlur={e => handleTextUpdate('notes', e.target.value)} placeholder="Anotações..." className="h-full bg-brand-bg rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-brand-secondary w-full resize-none min-h-[240px]"></textarea>
+                                        <textarea name="notes" value={textInputs.notes} onChange={handleTextInputChange} onBlur={handleTextInputBlur} placeholder="Anotações..." className="h-full bg-brand-bg rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-brand-secondary w-full resize-none min-h-[240px]"></textarea>
                                     </div>
                                 </div>
                             </>
@@ -505,7 +590,7 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
                                         </div>
                                     )}
                                     <div>
-                                        <label className={`block text-sm font-medium text-brand-text-muted mb-2 ${scenario.spotType === 'Rfi' ? 'text-center' : ''}`}>Cenário</label>
+                                        <label className={`block text-sm font-medium text-brand-text-muted mb-2 ${scenario.spotType === 'Rfi' ? 'text-center' : ''}`}>Modalidade</label>
                                         <div className="flex gap-2 flex-wrap">
                                             {GAME_SCENARIOS.map(gs => (
                                                 <button key={gs} onClick={() => handleUpdate('gameScenario', gs)} className={`px-3.5 py-1.5 text-sm rounded-md ${scenario.gameScenario === gs ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'}`}>{gs}</button>
@@ -516,16 +601,16 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
 
                                 <div className="grid grid-cols-1 lg:grid-cols-10 gap-4">
                                     <div className="lg:col-span-7 space-y-4">
-                                        <ImageUploader title="Range" imageData={scenario.rangeImage} onUpload={(data) => handleUpdate('rangeImage', data)} className="aspect-[20/17]" />
+                                        <ImageUploader title="Range" imageData={scenario.rangeImage} onUpload={(data) => handleUpdate('rangeImage', data)} className="aspect-video" />
                                         <ImageUploader title="Frequências" imageData={scenario.frequenciesImage} onUpload={(data) => handleUpdate('frequenciesImage', data)} className="aspect-[6/1]" size="small" />
                                         <div className="grid grid-cols-3 gap-2">
-                                            <textarea defaultValue={scenario.raiseSmallText} onBlur={e => handleTextUpdate('raiseSmallText', e.target.value)} placeholder="raise small" className="h-12 bg-brand-bg text-xs rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-secondary w-full resize-none"></textarea>
-                                            <textarea defaultValue={scenario.raiseBigText} onBlur={e => handleTextUpdate('raiseBigText', e.target.value)} placeholder="raise big" className="h-12 bg-brand-bg text-xs rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-secondary w-full resize-none"></textarea>
-                                            <textarea defaultValue={scenario.callText} onBlur={e => handleTextUpdate('callText', e.target.value)} placeholder="call" className="h-12 bg-brand-bg text-xs rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-secondary w-full resize-none"></textarea>
+                                            <textarea name="raiseSmallText" value={textInputs.raiseSmallText} onChange={handleTextInputChange} onBlur={handleTextInputBlur} placeholder="raise small" className="h-12 bg-brand-bg text-xs rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-secondary w-full resize-none"></textarea>
+                                            <textarea name="raiseBigText" value={textInputs.raiseBigText} onChange={handleTextInputChange} onBlur={handleTextInputBlur} placeholder="raise big" className="h-12 bg-brand-bg text-xs rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-secondary w-full resize-none"></textarea>
+                                            <textarea name="callText" value={textInputs.callText} onChange={handleTextInputChange} onBlur={handleTextInputBlur} placeholder="call" className="h-12 bg-brand-bg text-xs rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-secondary w-full resize-none"></textarea>
                                         </div>
                                     </div>
                                     <div className="lg:col-span-3">
-                                        <textarea defaultValue={scenario.notes} onBlur={e => handleTextUpdate('notes', e.target.value)} placeholder="Anotações..." className="h-full bg-brand-bg rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-brand-secondary w-full resize-none min-h-[240px]"></textarea>
+                                        <textarea name="notes" value={textInputs.notes} onChange={handleTextInputChange} onBlur={handleTextInputBlur} placeholder="Anotações..." className="h-full bg-brand-bg rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-brand-secondary w-full resize-none min-h-[240px]"></textarea>
                                     </div>
                                 </div>
                         </>
@@ -551,7 +636,12 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
              <ImageEditModal 
                 isOpen={!!uploaderTarget}
                 onClose={() => setUploaderTarget(null)}
-                title={`Inserir Imagem para ${uploaderTarget === 'printSpotImage' ? 'Table Draw' : 'RP'}`}
+                title={`Inserir Imagem para ${
+                    uploaderTarget === 'printSpotImage' ? 'HRC Table View' :
+                    uploaderTarget === 'rpImage' ? 'RP' :
+                    uploaderTarget === 'tableViewImage' ? 'Table View' :
+                    uploaderTarget === 'plusInfoImage' ? '+Info' : ''
+                }`}
                 initialImageData={initialImageDataForModal}
                 onSave={(data) => {
                     if (uploaderTarget) {

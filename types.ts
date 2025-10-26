@@ -25,6 +25,8 @@ export interface Scenario {
   aggressorPos: Position | null; // For 3bettor, 4bettor, etc.
   printSpotImage: string | null; // For HRC "Print Spot" image
   rpImage: string | null; // For HRC "RP" image
+  tableViewImage: string | null;
+  plusInfoImage: string | null;
 
   gameScenario: GameScenario | null;
   rangeImage: string | null; // base64 string
@@ -33,10 +35,20 @@ export interface Scenario {
   raiseBigText: string;
   callText: string;
   notes: string;
+  createdAt: number;
+}
+
+export interface Folder {
+  id: string;
+  name: string;
+  parentId?: string | null;
+  createdAt: number;
 }
 
 export interface Notebook {
   id: string;
   name: string;
   scenarios: Scenario[];
+  folderId?: string | null;
+  createdAt: number;
 }

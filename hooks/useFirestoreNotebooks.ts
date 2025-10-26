@@ -14,15 +14,19 @@ import {
   writeBatch,
   getDocs,
 } from 'firebase/firestore';
-import type { Notebook, Scenario } from '../types';
+import type { Notebook, Scenario, Folder } from '../types';
 import { POSITIONS, GAME_SCENARIOS, SPOT_TYPES, RANGE_ACTIONS, BLIND_WAR_ACTIONS, BLIND_WAR_POSITIONS } from '../constants';
 
 interface FirestoreNotebooksResult {
     notebooks: Notebook[];
+    folders: Folder[];
     loading: boolean;
     addNotebook: (name: string) => Promise<void>;
     deleteNotebook: (notebookId: string) => Promise<void>;
-    updateNotebookName: (notebookId: string, newName: string) => Promise<void>;
+    updateNotebook: (notebookId: string, updates: Partial<Pick<Notebook, 'name' | 'folderId'>>) => Promise<void>;
+    addFolder: (name: string) => Promise<void>;
+    deleteFolder: (folderId: string) => Promise<void>;
+    updateFolder: (folderId: string, updates: Partial<Pick<Folder, 'name' | 'parentId'>>) => Promise<void>;
     addScenario: (notebookId: string, scenario: Scenario) => Promise<void>;
     updateScenario: (notebookId: string, scenario: Scenario) => Promise<void>;
     deleteScenario: (notebookId: string, scenarioId: string) => Promise<void>;
@@ -30,13 +34,8 @@ interface FirestoreNotebooksResult {
     deleteMultipleScenarios: (notebookId: string, scenarioIds: string[]) => Promise<void>;
 }
 
-// Helper to check if a value is a valid member of an enum-like constant array.
 const isValidValue = (value: any, validValues: readonly any[]) => validValues.includes(value);
 
-// Helper to ensure scenario objects are clean for Firestore. It validates
-// property values, converts `undefined` to `null` for nullable fields, and 
-// provides defaults. This prevents "invalid nested entity" errors by ensuring
-// every object in the scenarios array is a valid, serializable POJO.
 const cleanScenario = (scenario: any): Scenario => {
     const s = (typeof scenario === 'object' && scenario !== null) ? scenario : {};
 
@@ -54,6 +53,8 @@ const cleanScenario = (scenario: any): Scenario => {
         aggressorPos: isValidValue(s.aggressorPos, POSITIONS) ? s.aggressorPos : null,
         printSpotImage: typeof s.printSpotImage === 'string' ? s.printSpotImage : null,
         rpImage: typeof s.rpImage === 'string' ? s.rpImage : null,
+        tableViewImage: typeof s.tableViewImage === 'string' ? s.tableViewImage : null,
+        plusInfoImage: typeof s.plusInfoImage === 'string' ? s.plusInfoImage : null,
 
         gameScenario: isValidValue(s.gameScenario, GAME_SCENARIOS) ? s.gameScenario : null,
         
@@ -64,96 +65,127 @@ const cleanScenario = (scenario: any): Scenario => {
         raiseBigText: typeof s.raiseBigText === 'string' ? s.raiseBigText : '',
         callText: typeof s.callText === 'string' ? s.callText : '',
         notes: typeof s.notes === 'string' ? s.notes : '',
+        createdAt: typeof s.createdAt === 'number' ? s.createdAt : Date.now(),
     };
 };
 
 
-const useFirestoreNotebooks = (uid: string | undefined, activeNotebookId: string | null): FirestoreNotebooksResult => {
+const useFirestoreNotebooks = (uid: string | undefined): Omit<FirestoreNotebooksResult, 'addScenario' | 'updateScenario' | 'deleteScenario' | 'addMultipleScenarios' | 'deleteMultipleScenarios'> & {
+    addScenario: (notebookId: string, scenario: Scenario) => Promise<void>;
+    updateScenario: (notebookId: string, scenario: Scenario) => Promise<void>;
+    deleteScenario: (notebookId: string, scenarioId: string) => Promise<void>;
+    addMultipleScenarios: (notebookId: string, scenariosToAdd: Scenario[]) => Promise<void>;
+    deleteMultipleScenarios: (notebookId: string, scenarioIds: string[]) => Promise<void>;
+} => {
     const [notebooks, setNotebooks] = useState<Notebook[]>([]);
-    const [loadingNotebooks, setLoadingNotebooks] = useState(true);
-    const [loadingScenarios, setLoadingScenarios] = useState(false);
-    const scenariosUnsubscribeRef = useRef<(() => void) | null>(null);
+    const [folders, setFolders] = useState<Folder[]>([]);
+    const [loading, setLoading] = useState(true);
+    const scenariosUnsubscribersRef = useRef<Map<string, () => void>>(new Map());
 
     useEffect(() => {
         if (!uid) {
             setNotebooks([]);
-            setLoadingNotebooks(false);
+            setFolders([]);
+            setLoading(false);
+            scenariosUnsubscribersRef.current.forEach(unsubscribe => unsubscribe());
+            scenariosUnsubscribersRef.current.clear();
             return;
         }
 
-        setLoadingNotebooks(true);
-        const q = query(collection(db, 'users', uid, 'notebooks'));
+        setLoading(true);
 
-        const unsubscribe = onSnapshot(q, (querySnapshot) => {
-            const notebooksData: Notebook[] = [];
-            querySnapshot.forEach((doc) => {
-                notebooksData.push({ id: doc.id, ...doc.data(), scenarios: [] } as Notebook);
+        const notebooksQuery = query(collection(db, 'users', uid, 'notebooks'));
+        const foldersQuery = query(collection(db, 'users', uid, 'folders'));
+
+        const notebooksUnsubscribe = onSnapshot(notebooksQuery, (notebooksSnapshot) => {
+            const notebooksFromDb = notebooksSnapshot.docs.map(doc => {
+                const data = doc.data();
+                return {
+                    ...data,
+                    id: doc.id,
+                    createdAt: data.createdAt || 0, // Garante a ordenação de itens antigos
+                } as Omit<Notebook, 'scenarios'>;
+            }).sort((a, b) => a.createdAt - b.createdAt);
+
+
+            const newNotebooksMap = new Map(notebooksFromDb.map(n => [n.id, n]));
+            const currentSubs = scenariosUnsubscribersRef.current;
+
+            // Unsubscribe from scenarios of deleted notebooks
+            for (const notebookId of currentSubs.keys()) {
+                if (!newNotebooksMap.has(notebookId)) {
+                    currentSubs.get(notebookId)?.();
+                    currentSubs.delete(notebookId);
+                }
+            }
+
+            // Update notebooks list, preserving existing scenarios to prevent UI flicker
+            // FIX: Explicitly type `prevNotebooks` to prevent it from being inferred as `unknown[]`,
+            // which was causing a type error when accessing the `scenarios` property.
+            setNotebooks((prevNotebooks: Notebook[]) => {
+                const prevNotebooksMap = new Map(prevNotebooks.map(n => [n.id, n]));
+                return notebooksFromDb.map(newNotebook => ({
+                    ...newNotebook,
+                    scenarios: prevNotebooksMap.get(newNotebook.id)?.scenarios || []
+                })) as Notebook[];
             });
-            setNotebooks(notebooksData);
-            setLoadingNotebooks(false);
+
+            // Subscribe to scenarios for new notebooks
+            for (const notebook of notebooksFromDb) {
+                if (!currentSubs.has(notebook.id)) {
+                    const scenariosQuery = query(collection(db, 'users', uid, 'notebooks', notebook.id, 'scenarios'));
+                    const unsubscribe = onSnapshot(scenariosQuery, (scenariosSnapshot) => {
+                        const scenariosData = scenariosSnapshot.docs.map(doc => cleanScenario(doc.data()))
+                            .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+                        
+                        // Update the specific notebook with its scenarios
+                        setNotebooks(prev => prev.map(n => 
+                            n.id === notebook.id ? { ...n, scenarios: scenariosData } : n
+                        ));
+                    }, (error) => {
+                        console.error(`Error fetching scenarios for notebook ${notebook.id}:`, error);
+                    });
+                    currentSubs.set(notebook.id, unsubscribe);
+                }
+            }
+            
+            setLoading(false);
         }, (error) => {
             console.error("Error fetching notebooks:", error);
-            setLoadingNotebooks(false);
+            setLoading(false);
         });
 
-        return () => unsubscribe();
-    }, [uid]);
-    
-    useEffect(() => {
-        if (scenariosUnsubscribeRef.current) {
-            scenariosUnsubscribeRef.current();
-            scenariosUnsubscribeRef.current = null;
-        }
-
-        if (!uid || !activeNotebookId) {
-            return;
-        }
-
-        setLoadingScenarios(true);
-        const scenariosQuery = query(collection(db, 'users', uid, 'notebooks', activeNotebookId, 'scenarios'));
-        
-        scenariosUnsubscribeRef.current = onSnapshot(scenariosQuery, (snapshot) => {
-            const scenariosData: Scenario[] = [];
-            snapshot.forEach(doc => {
-                scenariosData.push(doc.data() as Scenario);
-            });
-            
-            setNotebooks(prevNotebooks => 
-                prevNotebooks.map(notebook => 
-                    notebook.id === activeNotebookId 
-                    ? { ...notebook, scenarios: scenariosData } 
-                    : notebook
-                )
-            );
-            setLoadingScenarios(false);
+        const foldersUnsubscribe = onSnapshot(foldersQuery, (snapshot) => {
+            const foldersData = snapshot.docs.map(doc => {
+                const data = doc.data();
+                return {
+                    id: doc.id,
+                    ...data,
+                    createdAt: data.createdAt || 0, // Garante a ordenação de itens antigos
+                } as Folder;
+            }).sort((a, b) => a.createdAt - b.createdAt);
+            setFolders(foldersData);
         }, (error) => {
-            console.error(`Error fetching scenarios for notebook ${activeNotebookId}:`, error);
-            setLoadingScenarios(false);
+            console.error("Error fetching folders:", error);
         });
-
+        
         return () => {
-             if (scenariosUnsubscribeRef.current) {
-                scenariosUnsubscribeRef.current();
-                scenariosUnsubscribeRef.current = null;
-            }
+            notebooksUnsubscribe();
+            foldersUnsubscribe();
+            scenariosUnsubscribersRef.current.forEach(unsubscribe => unsubscribe());
+            scenariosUnsubscribersRef.current.clear();
         };
-    }, [uid, activeNotebookId]);
-
+    }, [uid]);
 
     const addNotebook = useCallback(async (name: string) => {
         if (!uid) throw new Error("User not authenticated");
-        await addDoc(collection(db, 'users', uid, 'notebooks'), {
-            name,
-        });
+        await addDoc(collection(db, 'users', uid, 'notebooks'), { name, folderId: null, createdAt: Date.now() });
     }, [uid]);
 
-    const updateNotebookName = useCallback(async (notebookId: string, newName: string) => {
+    const updateNotebook = useCallback(async (notebookId: string, updates: Partial<Pick<Notebook, 'name' | 'folderId'>>) => {
         if (!uid) throw new Error("User not authenticated");
-        if (!newName.trim()) throw new Error("Notebook name cannot be empty");
         const notebookRef = doc(db, 'users', uid, 'notebooks', notebookId);
-        await updateDoc(notebookRef, {
-            name: newName.trim()
-        });
+        await updateDoc(notebookRef, updates);
     }, [uid]);
 
     const deleteNotebook = useCallback(async (notebookId: string) => {
@@ -161,57 +193,88 @@ const useFirestoreNotebooks = (uid: string | undefined, activeNotebookId: string
         const notebookRef = doc(db, 'users', uid, 'notebooks', notebookId);
         const scenariosRef = collection(notebookRef, 'scenarios');
         const scenariosSnapshot = await getDocs(scenariosRef);
-
         const batch = writeBatch(db);
+        scenariosSnapshot.forEach((scenarioDoc) => batch.delete(scenarioDoc.ref));
+        batch.delete(notebookRef);
+        await batch.commit();
+        if (scenariosUnsubscribersRef.current.has(notebookId)) {
+            scenariosUnsubscribersRef.current.get(notebookId)?.();
+            scenariosUnsubscribersRef.current.delete(notebookId);
+        }
+    }, [uid]);
 
-        scenariosSnapshot.forEach((scenarioDoc) => {
-            batch.delete(scenarioDoc.ref);
+    const addFolder = useCallback(async (name: string) => {
+        if (!uid) throw new Error("User not authenticated");
+        await addDoc(collection(db, 'users', uid, 'folders'), { name, parentId: null, createdAt: Date.now() });
+    }, [uid]);
+    
+    const updateFolder = useCallback(async (folderId: string, updates: Partial<Pick<Folder, 'name' | 'parentId'>>) => {
+        if (!uid) throw new Error("User not authenticated");
+        const folderRef = doc(db, 'users', uid, 'folders', folderId);
+        await updateDoc(folderRef, updates);
+    }, [uid]);
+
+    const deleteFolder = useCallback(async (folderId: string) => {
+        if (!uid) throw new Error("User not authenticated");
+        // Before deleting, find all notebooks in this folder and move them to the root
+        const batch = writeBatch(db);
+        const q = query(collection(db, 'users', uid, 'notebooks'));
+        const notebooksSnapshot = await getDocs(q);
+        notebooksSnapshot.forEach(notebookDoc => {
+            if (notebookDoc.data().folderId === folderId) {
+                batch.update(notebookDoc.ref, { folderId: null });
+            }
         });
 
-        batch.delete(notebookRef);
+        // Find all sub-folders and move them to the root
+        const foldersSnapshot = await getDocs(collection(db, 'users', uid, 'folders'));
+        foldersSnapshot.forEach(folderDoc => {
+            if (folderDoc.data().parentId === folderId) {
+                batch.update(folderDoc.ref, { parentId: null });
+            }
+        });
 
+        // Delete the folder itself
+        batch.delete(doc(db, 'users', uid, 'folders', folderId));
         await batch.commit();
     }, [uid]);
 
     const addScenario = useCallback(async (notebookId: string, scenario: Scenario) => {
         if (!uid) throw new Error("User not authenticated");
-        const scenarioRef = doc(db, 'users', uid, 'notebooks', notebookId, 'scenarios', scenario.id);
-        await setDoc(scenarioRef, cleanScenario(scenario));
+        await setDoc(doc(db, 'users', uid, 'notebooks', notebookId, 'scenarios', scenario.id), cleanScenario(scenario));
     }, [uid]);
 
     const updateScenario = useCallback(async (notebookId: string, updatedScenario: Scenario) => {
         if (!uid) throw new Error("User not authenticated");
-        const scenarioRef = doc(db, 'users', uid, 'notebooks', notebookId, 'scenarios', updatedScenario.id);
-        await updateDoc(scenarioRef, cleanScenario(updatedScenario));
+        await updateDoc(doc(db, 'users', uid, 'notebooks', notebookId, 'scenarios', updatedScenario.id), cleanScenario(updatedScenario));
     }, [uid]);
 
     const deleteScenario = useCallback(async (notebookId: string, scenarioId: string) => {
         if (!uid) throw new Error("User not authenticated");
-        const scenarioRef = doc(db, 'users', uid, 'notebooks', notebookId, 'scenarios', scenarioId);
-        await deleteDoc(scenarioRef);
+        await deleteDoc(doc(db, 'users', uid, 'notebooks', notebookId, 'scenarios', scenarioId));
     }, [uid]);
     
     const addMultipleScenarios = useCallback(async (notebookId: string, scenariosToAdd: Scenario[]) => {
         if (!uid) throw new Error("User not authenticated");
         const batch = writeBatch(db);
-        scenariosToAdd.forEach(scenario => {
-            const scenarioRef = doc(db, 'users', uid, 'notebooks', notebookId, 'scenarios', scenario.id);
-            batch.set(scenarioRef, cleanScenario(scenario));
-        });
+        scenariosToAdd.forEach(s => batch.set(doc(db, 'users', uid, 'notebooks', notebookId, 'scenarios', s.id), cleanScenario(s)));
         await batch.commit();
     }, [uid]);
     
     const deleteMultipleScenarios = useCallback(async (notebookId: string, scenarioIds: string[]) => {
         if (!uid) throw new Error("User not authenticated");
         const batch = writeBatch(db);
-        scenarioIds.forEach(scenarioId => {
-            const scenarioRef = doc(db, 'users', uid, 'notebooks', notebookId, 'scenarios', scenarioId);
-            batch.delete(scenarioRef);
-        });
+        scenarioIds.forEach(id => batch.delete(doc(db, 'users', uid, 'notebooks', notebookId, 'scenarios', id)));
         await batch.commit();
     }, [uid]);
 
-    return { notebooks, loading: loadingNotebooks || loadingScenarios, addNotebook, deleteNotebook, updateNotebookName, addScenario, updateScenario, deleteScenario, addMultipleScenarios, deleteMultipleScenarios };
+    return { 
+        notebooks, folders, loading, 
+        addNotebook, deleteNotebook, updateNotebook, 
+        addFolder, deleteFolder, updateFolder, 
+        addScenario, updateScenario, deleteScenario, 
+        addMultipleScenarios, deleteMultipleScenarios 
+    };
 };
 
 export default useFirestoreNotebooks;

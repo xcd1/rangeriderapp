@@ -1,5 +1,6 @@
-import React, { useState, createContext, useMemo, useCallback, ReactNode, useContext, useEffect } from 'react';
-import type { Notebook, Scenario } from './types';
+
+import React, { useState, createContext, useMemo, useCallback, ReactNode, useContext, useEffect, useRef } from 'react';
+import type { Notebook, Scenario, Folder } from './types';
 import type { User } from 'firebase/auth';
 import useFirestoreNotebooks from './hooks/useFirestoreNotebooks';
 import Sidebar from './components/Sidebar';
@@ -52,13 +53,17 @@ const HistoryProvider: React.FC<{children: ReactNode}> = ({ children }) => {
 
 interface AppContextType {
   notebooks: Notebook[];
+  folders: Folder[];
   activeNotebookId: string | null;
   setActiveNotebookId: React.Dispatch<React.SetStateAction<string | null>>;
   user: User;
   logout: () => void;
   addNotebook: (name: string) => Promise<void>;
   deleteNotebook: (notebookId: string) => Promise<void>;
-  updateNotebookName: (notebookId: string, newName: string) => Promise<void>;
+  updateNotebook: (notebookId: string, updates: Partial<Pick<Notebook, 'name' | 'folderId'>>) => Promise<void>;
+  addFolder: (name: string) => Promise<void>;
+  deleteFolder: (folderId: string) => Promise<void>;
+  updateFolder: (folderId: string, updates: Partial<Pick<Folder, 'name' | 'parentId'>>) => Promise<void>;
   addScenario: (notebookId: string, scenario: Scenario) => Promise<void>;
   updateScenario: (notebookId: string, scenario: Scenario) => Promise<void>;
   deleteScenario: (notebookId: string, scenarioId: string) => Promise<void>;
@@ -80,18 +85,58 @@ const AppContent: React.FC = () => {
   const { undoLastAction } = useHistory();
   const [activeNotebookId, setActiveNotebookId] = useState<string | null>(null);
   
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    const savedWidth = localStorage.getItem('sidebarWidth');
+    const width = savedWidth ? parseInt(savedWidth, 10) : 288; // 288px is w-72
+    return Math.max(200, Math.min(width, 500)); // Constrain width on initial load
+  });
+  const isResizing = useRef(false);
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (isResizing.current) {
+        const newWidth = e.clientX;
+        // Constrain width during resize
+        if (newWidth >= 200 && newWidth <= 500) {
+            setSidebarWidth(newWidth);
+        }
+    }
+  }, []);
+
+  const handleMouseUp = useCallback(() => {
+    isResizing.current = false;
+    document.body.style.cursor = 'default';
+    window.removeEventListener('mousemove', handleMouseMove);
+    window.removeEventListener('mouseup', handleMouseUp);
+  }, [handleMouseMove]);
+  
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+      e.preventDefault();
+      isResizing.current = true;
+      document.body.style.cursor = 'col-resize';
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+  }, [handleMouseMove, handleMouseUp]);
+
+  useEffect(() => {
+    localStorage.setItem('sidebarWidth', sidebarWidth.toString());
+  }, [sidebarWidth]);
+
   const { 
     notebooks, 
+    folders,
     loading: dataLoading, 
     addNotebook,
     deleteNotebook,
-    updateNotebookName,
+    updateNotebook,
+    addFolder,
+    deleteFolder,
+    updateFolder,
     addScenario,
     updateScenario,
     deleteScenario,
     addMultipleScenarios,
     deleteMultipleScenarios
-  } = useFirestoreNotebooks(user?.uid, activeNotebookId);
+  } = useFirestoreNotebooks(user?.uid);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -120,20 +165,24 @@ const AppContent: React.FC = () => {
     if (!user) return null;
     return {
         notebooks,
+        folders,
         activeNotebookId,
         setActiveNotebookId,
         user,
         logout: handleLogout,
         addNotebook,
         deleteNotebook,
-        updateNotebookName,
+        updateNotebook,
+        addFolder,
+        deleteFolder,
+        updateFolder,
         addScenario,
         updateScenario,
         deleteScenario,
         addMultipleScenarios,
         deleteMultipleScenarios,
     }
-  }, [notebooks, activeNotebookId, user, handleLogout, addNotebook, deleteNotebook, updateNotebookName, addScenario, updateScenario, deleteScenario, addMultipleScenarios, deleteMultipleScenarios]);
+  }, [notebooks, folders, activeNotebookId, user, handleLogout, addNotebook, deleteNotebook, updateNotebook, addFolder, deleteFolder, updateFolder, addScenario, updateScenario, deleteScenario, addMultipleScenarios, deleteMultipleScenarios]);
   
   if (authLoading || (user && dataLoading)) {
       return <LoadingSpinner />;
@@ -146,9 +195,14 @@ const AppContent: React.FC = () => {
   return (
     <AppContext.Provider value={contextValue}>
       <div className="flex h-screen font-sans bg-brand-bg text-brand-text">
-        <Sidebar />
-        <main className="flex-1 p-6 overflow-y-auto">
-          <StudyView />
+        <Sidebar width={sidebarWidth} />
+        <div 
+            onMouseDown={handleMouseDown}
+            className="w-1.5 cursor-col-resize bg-brand-primary hover:bg-brand-secondary transition-colors duration-200 flex-shrink-0"
+            title="Arraste para redimensionar"
+        />
+        <main className="flex-1 p-6 overflow-y-auto min-w-0">
+          <StudyView key={activeNotebookId} />
         </main>
       </div>
     </AppContext.Provider>
