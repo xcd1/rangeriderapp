@@ -33,8 +33,8 @@ const LockIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
 );
 
-const UnlockIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></svg>
+const EditIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
 );
 
 
@@ -168,6 +168,81 @@ const ImageViewerModal: React.FC<ImageViewerModalProps> = ({ imageSrc, onClose }
     );
 };
 
+interface RangeZoomModalProps {
+    imageSrc: string | null;
+    onClose: () => void;
+}
+
+const RangeZoomModal: React.FC<RangeZoomModalProps> = ({ imageSrc, onClose }) => {
+    const [scale, setScale] = useState(1);
+    const [offset, setOffset] = useState({ x: 0, y: 0 });
+    const imgRef = useRef<HTMLImageElement>(null);
+    const dragInfo = useRef({ isDragging: false, startX: 0, startY: 0, initialX: 0, initialY: 0 });
+
+    useEffect(() => {
+        // Reset zoom and pan when image changes or modal is reopened
+        setScale(1);
+        setOffset({ x: 0, y: 0 });
+    }, [imageSrc]);
+
+    if (!imageSrc) return null;
+
+    const handleZoomIn = () => setScale(s => Math.min(s * 1.2, 5));
+    const handleZoomOut = () => setScale(s => Math.max(s / 1.2, 0.5));
+    const handleZoomReset = () => { setScale(1); setOffset({ x: 0, y: 0 }); };
+
+    const handleMouseDown = (e: React.MouseEvent<HTMLImageElement>) => {
+        dragInfo.current = { isDragging: true, startX: e.clientX, startY: e.clientY, initialX: offset.x, initialY: offset.y };
+        e.currentTarget.style.cursor = 'grabbing';
+    };
+
+    const handleMouseUp = (e: React.MouseEvent<HTMLImageElement>) => {
+        dragInfo.current.isDragging = false;
+        e.currentTarget.style.cursor = 'grab';
+    };
+
+    const handleMouseMove = (e: React.MouseEvent<HTMLImageElement>) => {
+        if (!dragInfo.current.isDragging) return;
+        const dx = e.clientX - dragInfo.current.startX;
+        const dy = e.clientY - dragInfo.current.startY;
+        setOffset({ x: dragInfo.current.initialX + dx, y: dragInfo.current.initialY + dy });
+    };
+    
+    const handleWheel = (e: React.WheelEvent) => {
+        e.preventDefault();
+        if (e.deltaY < 0) handleZoomIn();
+        else handleZoomOut();
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex flex-col justify-center items-center z-[60]" onClick={onClose}>
+            <div className="absolute top-4 right-4 z-10 flex items-center gap-2 bg-brand-bg p-2 rounded-lg">
+                <button onClick={(e) => { e.stopPropagation(); handleZoomOut(); }} className="w-8 h-8 rounded-md bg-brand-primary text-lg font-bold">-</button>
+                <button onClick={(e) => { e.stopPropagation(); handleZoomIn(); }} className="w-8 h-8 rounded-md bg-brand-primary text-lg font-bold">+</button>
+                <button onClick={(e) => { e.stopPropagation(); handleZoomReset(); }} className="h-8 px-3 rounded-md bg-brand-primary text-sm">Reset</button>
+                <button onClick={onClose} className="w-8 h-8 rounded-md bg-red-700 text-lg font-bold">&times;</button>
+            </div>
+            <div className="w-full h-full flex items-center justify-center overflow-hidden" onWheel={handleWheel}>
+                <img
+                    ref={imgRef}
+                    src={imageSrc}
+                    alt="Range ampliado"
+                    className="max-w-none max-h-none transition-transform duration-100"
+                    style={{ 
+                        transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
+                        cursor: 'grab'
+                    }}
+                    onMouseDown={handleMouseDown}
+                    onMouseUp={handleMouseUp}
+                    onMouseMove={handleMouseMove}
+                    onMouseLeave={handleMouseUp}
+                    onClick={(e) => e.stopPropagation()}
+                />
+            </div>
+        </div>
+    );
+};
+
 
 const ScenarioEditor: React.FC<ScenarioEditorProps> = ({ 
     scenario, 
@@ -184,6 +259,7 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [uploaderTarget, setUploaderTarget] = useState<'printSpotImage' | 'rpImage' | 'tableViewImage' | 'plusInfoImage' | null>(null);
     const [viewingImage, setViewingImage] = useState<string | null>(null);
+    const [zoomedImage, setZoomedImage] = useState<string | null>(null);
     const [textInputs, setTextInputs] = useState({
         raiseSmallText: scenario.raiseSmallText,
         raiseBigText: scenario.raiseBigText,
@@ -214,7 +290,20 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
     
     const getAutoGeneratedTitle = (s: Scenario): string => {
         const { spotType, gameScenario } = s;
-        const gsSuffix = gameScenario ? ` [${gameScenario}]` : '';
+        
+        const dropEquity =
+            s.rpMode &&
+            s.gameScenario?.startsWith('Bounty') &&
+            typeof s.startingBounties === 'number' && s.startingBounties > 0 &&
+            typeof s.startingStacks === 'number' && s.startingStacks > 0
+                ? (s.startingBounties / s.startingStacks) / 0.2
+                : null;
+
+        let gsSuffix = gameScenario ? ` [${gameScenario}]` : '';
+        if (dropEquity !== null) {
+            gsSuffix += ` [DE: ${dropEquity.toFixed(1)}%]`;
+        }
+
 
         if (spotType === 'Blind War') {
             const { blindWarPosition, blindWarAction } = s;
@@ -276,6 +365,16 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
         const oldScenarioState = { ...scenario };
         const newScenario = { ...scenario, [key]: value };
 
+        // When toggling RP Mode ON, set default values if they don't exist
+        if (key === 'rpMode' && value === true) {
+            if (typeof newScenario.startingBounties !== 'number' || newScenario.startingBounties <= 0) {
+                newScenario.startingBounties = 1;
+            }
+            if (typeof newScenario.startingStacks !== 'number' || newScenario.startingStacks <= 0) {
+                newScenario.startingStacks = 1;
+            }
+        }
+
         if (key === 'rangeAction') {
             if (value === 'RFI') {
                 newScenario.heroPos = null;
@@ -294,13 +393,33 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
             if (newPosition === 'SB' && (currentAction === 'vs. Limp' || currentAction === 'vs. raise')) {
                 newScenario.blindWarAction = null;
             }
-            if (newPosition === 'BB' && currentAction === 'vs. ISO') {
+            if (newPosition === 'BB' && (currentAction === 'vs. ISO' || currentAction === 'em Gap' || currentAction === 'vs. 3bet')) {
                 newScenario.blindWarAction = null;
             }
         }
 
         onUpdate(newScenario);
         pushToHistory(() => onUpdate(oldScenarioState));
+    };
+
+    const handleGameScenarioUpdate = (gs: GameScenario | null) => {
+        const oldScenarioState = { ...scenario };
+        const newScenario: Scenario = { ...scenario, gameScenario: gs };
+
+        if (!gs?.startsWith('Bounty')) {
+            newScenario.rpMode = false;
+        }
+
+        onUpdate(newScenario);
+        pushToHistory(() => onUpdate(oldScenarioState));
+    };
+    
+    const handleBountyUpdate = (count: number) => {
+        handleUpdate('startingBounties', count);
+    };
+    
+    const handleStacksUpdate = (count: number) => {
+        handleUpdate('startingStacks', count);
     };
 
     const handleClearAllSelections = () => {
@@ -382,6 +501,136 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
     };
 
     const initialImageDataForModal = uploaderTarget ? scenario[uploaderTarget] : null;
+    
+    const dropEquity =
+        scenario.rpMode &&
+        scenario.gameScenario?.startsWith('Bounty') &&
+        typeof scenario.startingBounties === 'number' && scenario.startingBounties > 0 &&
+        typeof scenario.startingStacks === 'number' && scenario.startingStacks > 0
+            ? (scenario.startingBounties / scenario.startingStacks) / 0.2
+            : null;
+
+    const BountyControls = () => (
+        <>
+            {scenario.gameScenario?.startsWith('Bounty') && (
+                <div className="flex flex-col items-center gap-2 mt-2 p-3 bg-brand-bg/50 rounded-lg">
+                    <div className="flex items-center self-start gap-2">
+                        <input
+                            type="checkbox"
+                            id={`rp-mode-${scenario.id}`}
+                            checked={!!scenario.rpMode}
+                            onChange={(e) => handleUpdate('rpMode', e.target.checked)}
+                            disabled={isManualMode}
+                            className="h-4 w-4 text-brand-secondary bg-brand-bg border-brand-bg rounded focus:ring-brand-secondary disabled:opacity-50"
+                        />
+                        <label htmlFor={`rp-mode-${scenario.id}`} className="text-sm font-medium text-brand-text">
+                            RP Mode
+                        </label>
+                    </div>
+
+                    {scenario.rpMode && (
+                        <div className="w-full">
+                            <div className="flex items-center justify-center gap-4 mt-2">
+                                {/* Bi Counter */}
+                                <div className="flex items-center gap-2">
+                                    <label className="text-sm font-medium text-brand-text-muted">Bi:</label>
+                                    <button 
+                                        onClick={() => handleBountyUpdate(Math.max(1, (scenario.startingBounties || 1) - 0.5))}
+                                        disabled={isManualMode}
+                                        className="w-7 h-7 flex items-center justify-center text-lg bg-brand-bg rounded-md hover:brightness-125 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        -
+                                    </button>
+                                    <input 
+                                        type="number"
+                                        step="0.5"
+                                        min="1"
+                                        value={scenario.startingBounties ?? ''}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            handleUpdate('startingBounties', val === '' ? null : parseFloat(val));
+                                        }}
+                                        onBlur={(e) => {
+                                            const value = parseFloat(e.target.value);
+                                            if (isNaN(value) || value < 1) {
+                                                alert("Bounty inicial deve ser >= 1");
+                                                handleBountyUpdate(1);
+                                            }
+                                        }}
+                                        disabled={isManualMode}
+                                        className="w-14 text-center bg-brand-bg rounded-md py-1 focus:outline-none focus:ring-2 focus:ring-brand-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+                                    />
+                                    <button
+                                        onClick={() => handleBountyUpdate((scenario.startingBounties || 0) + 0.5)}
+                                        disabled={isManualMode}
+                                        className="w-7 h-7 flex items-center justify-center text-lg bg-brand-bg rounded-md hover:brightness-125 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        +
+                                    </button>
+                                </div>
+                                {/* Si Counter */}
+                                <div className="flex items-center gap-2">
+                                    <label className="text-sm font-medium text-brand-text-muted">Si:</label>
+                                    <button 
+                                        onClick={() => handleStacksUpdate(Math.max(0.5, (scenario.startingStacks || 0.5) - 0.5))}
+                                        disabled={isManualMode}
+                                        className="w-7 h-7 flex items-center justify-center text-lg bg-brand-bg rounded-md hover:brightness-125 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        -
+                                    </button>
+                                    <input 
+                                        type="number"
+                                        step="0.5"
+                                        min="0.5"
+                                        value={scenario.startingStacks ?? ''}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            handleUpdate('startingStacks', val === '' ? null : parseFloat(val));
+                                        }}
+                                        onBlur={(e) => {
+                                            const value = parseFloat(e.target.value);
+                                            if (isNaN(value) || value <= 0) {
+                                                alert("Stack inicial deve ser > 0");
+                                                handleStacksUpdate(0.5);
+                                            }
+                                        }}
+                                        disabled={isManualMode}
+                                        className="w-14 text-center bg-brand-bg rounded-md py-1 focus:outline-none focus:ring-2 focus:ring-brand-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+                                    />
+                                    <button
+                                        onClick={() => handleStacksUpdate((scenario.startingStacks || 0) + 0.5)}
+                                        disabled={isManualMode}
+                                        className="w-7 h-7 flex items-center justify-center text-lg bg-brand-bg rounded-md hover:brightness-125 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        +
+                                    </button>
+                                </div>
+                            </div>
+                            {/* DE Display */}
+                            {dropEquity !== null && (
+                                <div className="mt-2 text-center flex items-center justify-center gap-2">
+                                    <span className="text-sm font-medium text-brand-text-muted">Drop Equity: </span>
+                                    <span className="text-lg font-bold text-brand-secondary">{dropEquity.toFixed(1)}%</span>
+                                    <div className="relative flex items-center group">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-brand-text-muted cursor-help">
+                                            <circle cx="12" cy="12" r="10"></circle>
+                                            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                                            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                                        </svg>
+                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-xs p-2 bg-brand-bg text-brand-text text-xs rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                                            O cálculo da Drop Equity através desta metodologia (Bounty Power) é mais indicado para Early Stages.
+                                            <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-x-4 border-x-transparent border-t-4 border-t-brand-bg"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            )}
+        </>
+    );
+
 
     return (
         <>
@@ -417,8 +666,8 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
                         )}
                     </div>
                     <div className="flex items-center gap-2 ml-2">
-                         <button onClick={(e) => { e.stopPropagation(); handleToggleManualMode(); }} className="text-blue-300 hover:text-blue-400 p-1 rounded-full hover:bg-brand-primary/80 flex items-center justify-center" title={isManualMode ? "Desbloquear para usar botões" : "Bloquear para editar título manualmente"}>
-                            {isManualMode ? <LockIcon /> : <UnlockIcon />}
+                         <button onClick={(e) => { e.stopPropagation(); handleToggleManualMode(); }} className="text-blue-300 hover:text-blue-400 p-1 rounded-full hover:bg-brand-primary/80 flex items-center justify-center" title={isManualMode ? "Voltar para título automático (gerado pelos botões)" : "Editar título manualmente"}>
+                            {isManualMode ? <LockIcon /> : <EditIcon />}
                         </button>
                         <button onClick={(e) => { e.stopPropagation(); onDuplicate(scenario.id); }} className="text-green-300 hover:text-green-400 p-1 rounded-full hover:bg-brand-primary/80 flex items-center justify-center" title="Duplicar cenário">
                             <DuplicateIcon />
@@ -490,14 +739,15 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
                                             <div className="flex items-center justify-center mb-1.5">
                                                 <label className="block text-sm font-medium text-brand-text-muted mr-2">Modalidade</label>
                                                 {!!scenario.gameScenario && !isManualMode && (
-                                                    <button onClick={() => handleUpdate('gameScenario', null)} className="text-brand-text-muted hover:text-brand-text p-1 rounded-full hover:bg-brand-bg" title="Limpar seleção">
+                                                    <button onClick={() => handleGameScenarioUpdate(null)} className="text-brand-text-muted hover:text-brand-text p-1 rounded-full hover:bg-brand-bg" title="Limpar seleção">
                                                         <XIcon />
                                                     </button>
                                                 )}
                                             </div>
                                             {GAME_SCENARIOS.map(gs => (
-                                                <button key={gs} onClick={() => handleUpdate('gameScenario', gs)} disabled={isManualMode} className={`px-3 py-1 text-xs rounded-md w-full text-left ${scenario.gameScenario === gs ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isManualMode ? 'cursor-not-allowed' : ''}`}>{gs}</button>
+                                                <button key={gs} onClick={() => handleGameScenarioUpdate(gs)} disabled={isManualMode} className={`px-3 py-1 text-xs rounded-md w-full text-left ${scenario.gameScenario === gs ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isManualMode ? 'cursor-not-allowed' : ''}`}>{gs}</button>
                                             ))}
+                                            <BountyControls />
                                         </div>
                                         <div className="mt-4">
                                             <label className="block text-sm font-medium text-brand-text-muted mb-1.5 text-center">Inserir</label>
@@ -535,7 +785,7 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
                                     </div>
                                 </div>
                                 <div className="space-y-4 pt-4">
-                                    <ImageUploader title="Range" imageData={scenario.rangeImage} onUpload={(data) => handleUpdate('rangeImage', data)} className="aspect-[5/3]" />
+                                    <ImageUploader title="Range" imageData={scenario.rangeImage} onUpload={(data) => handleUpdate('rangeImage', data)} className="aspect-[5/3]" onZoom={setZoomedImage} />
                                     <div className="grid grid-cols-3 gap-2">
                                         <textarea name="raiseSmallText" value={textInputs.raiseSmallText} onChange={handleTextInputChange} onBlur={handleTextInputBlur} placeholder="raise small" className="h-10 bg-brand-bg text-xs rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-secondary w-full resize-none"></textarea>
                                         <textarea name="raiseBigText" value={textInputs.raiseBigText} onChange={handleTextInputChange} onBlur={handleTextInputBlur} placeholder="raise big" className="h-10 bg-brand-bg text-xs rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-secondary w-full resize-none"></textarea>
@@ -549,54 +799,55 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
                         {/* Blind War */}
                         {scenario.spotType === 'Blind War' && (
                             <>
-                                <div className={`flex flex-wrap items-start justify-center gap-x-8 gap-y-4 ${isManualMode ? 'opacity-50' : ''}`}>
+                                <div className="flex flex-wrap items-start justify-center gap-x-8 gap-y-4">
+                                    <ButtonGroup label="Position" onClear={() => handleUpdate('blindWarPosition', null)} hasSelection={!!scenario.blindWarPosition} isDisabled={isManualMode}>
+                                        {BLIND_WAR_POSITIONS.map(pos => (
+                                            <button key={pos} onClick={() => handleUpdate('blindWarPosition', pos)} disabled={isManualMode} className={`px-4 py-2 rounded-md ${scenario.blindWarPosition === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isManualMode ? 'cursor-not-allowed' : ''}`}>{pos}</button>
+                                        ))}
+                                    </ButtonGroup>
+                                    <ButtonGroup label="Action" onClear={() => handleUpdate('blindWarAction', null)} hasSelection={!!scenario.blindWarAction} isDisabled={isManualMode || !scenario.blindWarPosition}>
+                                        {BLIND_WAR_ACTIONS.map(action => {
+                                            if (action === 'em Gap' && scenario.blindWarPosition !== 'SB') return null;
+
+                                            const isVsLimpDisabled = scenario.blindWarPosition === 'SB' && action === 'vs. Limp';
+                                            const isVsRaiseDisabled = scenario.blindWarPosition === 'SB' && action === 'vs. raise';
+                                            const isVsIsoDisabled = scenario.blindWarPosition === 'BB' && action === 'vs. ISO';
+                                            const isVs3betDisabled = scenario.blindWarPosition === 'BB' && action === 'vs. 3bet';
+                                            const baseDisabled = isVsLimpDisabled || isVsRaiseDisabled || isVsIsoDisabled || isVs3betDisabled || isManualMode || !scenario.blindWarPosition;
+                                            
+                                            const isThisActionSelected = scenario.blindWarAction === action;
+                                            const isAnyActionSelected = !!scenario.blindWarAction;
+                                            const isDisabled = baseDisabled || (isAnyActionSelected && !isThisActionSelected);
+                                            
+                                            return (
+                                                <button
+                                                    key={action}
+                                                    onClick={() => handleUpdate('blindWarAction', action)}
+                                                    disabled={isDisabled}
+                                                    className={`px-4 py-2 rounded-md transition-opacity ${
+                                                        isThisActionSelected
+                                                            ? 'bg-brand-secondary text-brand-primary font-bold'
+                                                            : 'bg-brand-bg hover:brightness-125'
+                                                    } ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                >
+                                                    {action}
+                                                </button>
+                                            );
+                                        })}
+                                    </ButtonGroup>
                                     <div>
-                                        <label className="block text-center text-sm font-medium text-brand-text-muted mb-2">Position</label>
-                                        <div className="flex gap-2 flex-wrap justify-center">
-                                            {BLIND_WAR_POSITIONS.map(pos => (
-                                                <button key={pos} onClick={() => handleUpdate('blindWarPosition', pos)} disabled={isManualMode} className={`px-4 py-2 rounded-md ${scenario.blindWarPosition === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isManualMode ? 'cursor-not-allowed' : ''}`}>{pos}</button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="block text-center text-sm font-medium text-brand-text-muted mb-2">Action</label>
-                                        <div className="flex gap-2 flex-wrap justify-center">
-                                            {BLIND_WAR_ACTIONS.map(action => {
-                                                const isVsLimpDisabled = scenario.blindWarPosition === 'SB' && action === 'vs. Limp';
-                                                const isVsRaiseDisabled = scenario.blindWarPosition === 'SB' && action === 'vs. raise';
-                                                const isVsIsoDisabled = scenario.blindWarPosition === 'BB' && action === 'vs. ISO';
-                                                const isDisabled = isVsLimpDisabled || isVsRaiseDisabled || isVsIsoDisabled || isManualMode;
-                                                
-                                                return (
-                                                    <button
-                                                        key={action}
-                                                        onClick={() => handleUpdate('blindWarAction', action)}
-                                                        disabled={isDisabled}
-                                                        className={`px-4 py-2 rounded-md transition-opacity ${
-                                                            scenario.blindWarAction === action
-                                                                ? 'bg-brand-secondary text-brand-primary font-bold'
-                                                                : 'bg-brand-bg hover:brightness-125'
-                                                        } ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                                    >
-                                                        {action}
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="block text-center text-sm font-medium text-brand-text-muted mb-2">Modalidade</label>
-                                        <div className="flex gap-2 flex-wrap justify-center">
+                                        <ButtonGroup label="Modalidade" onClear={() => handleGameScenarioUpdate(null)} hasSelection={!!scenario.gameScenario} isDisabled={isManualMode}>
                                             {GAME_SCENARIOS.map(gs => (
-                                                <button key={gs} onClick={() => handleUpdate('gameScenario', gs)} disabled={isManualMode} className={`px-4 py-2 rounded-md ${scenario.gameScenario === gs ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isManualMode ? 'cursor-not-allowed' : ''}`}>{gs}</button>
+                                                <button key={gs} onClick={() => handleGameScenarioUpdate(gs)} disabled={isManualMode} className={`px-4 py-2 rounded-md ${scenario.gameScenario === gs ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isManualMode ? 'cursor-not-allowed' : ''}`}>{gs}</button>
                                             ))}
-                                        </div>
+                                        </ButtonGroup>
+                                        <BountyControls />
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-1 lg:grid-cols-10 gap-4">
                                     <div className="lg:col-span-7 space-y-4">
-                                        <ImageUploader title="Range" imageData={scenario.rangeImage} onUpload={(data) => handleUpdate('rangeImage', data)} className="aspect-video" />
-                                        <ImageUploader title="Frequências" imageData={scenario.frequenciesImage} onUpload={(data) => handleUpdate('frequenciesImage', data)} className="aspect-[6/1]" size="small" />
+                                        <ImageUploader title="Range" imageData={scenario.rangeImage} onUpload={(data) => handleUpdate('rangeImage', data)} className="aspect-video" onZoom={setZoomedImage} />
+                                        <ImageUploader title="Frequências" imageData={scenario.frequenciesImage} onUpload={(data) => handleUpdate('frequenciesImage', data)} className="aspect-[6/1]" size="small" onZoom={setZoomedImage} />
                                         <div className="grid grid-cols-3 gap-2">
                                             <textarea name="raiseSmallText" value={textInputs.raiseSmallText} onChange={handleTextInputChange} onBlur={handleTextInputBlur} placeholder="raise small" className="h-12 bg-brand-bg text-xs rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-secondary w-full resize-none"></textarea>
                                             <textarea name="raiseBigText" value={textInputs.raiseBigText} onChange={handleTextInputChange} onBlur={handleTextInputBlur} placeholder="raise big" className="h-12 bg-brand-bg text-xs rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-secondary w-full resize-none"></textarea>
@@ -613,51 +864,45 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
                         {/* Facing 2bet & Rfi */}
                         {(scenario.spotType === 'Facing 2bet' || scenario.spotType === 'Rfi') && (
                         <>
-                                <div className={`flex flex-wrap items-start gap-x-6 gap-y-4 ${isManualMode ? 'opacity-50' : ''}`}>
+                                <div className={`flex flex-wrap items-start gap-x-6 gap-y-4`}>
                                     {scenario.spotType === 'Facing 2bet' && (
-                                        <div>
-                                            <label className="block text-sm font-medium text-brand-text-muted mb-2">Action</label>
-                                            <div className="flex gap-2 flex-wrap">
-                                                {FACING_2BET_ACTIONS.map(action => (
-                                                    <button key={action} onClick={() => handleUpdate('rangeAction', action)} disabled={isManualMode} className={`px-3.5 py-1.5 text-sm rounded-md ${scenario.rangeAction === action ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isManualMode ? 'cursor-not-allowed' : ''}`}>{action}</button>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-                                    <div>
-                                        <label className={`block text-sm font-medium text-brand-text-muted mb-2 ${scenario.spotType === 'Rfi' ? 'text-center' : ''}`}>
-                                        {scenario.rangeAction === 'RFI' ? 'Posição' : 'First Raiser Position'}
-                                        </label>
-                                        <div className="flex gap-2 flex-wrap">
-                                            {POSITIONS.filter(p => p !== 'BB').map(pos => (
-                                                <button key={pos} onClick={() => handleUpdate('raiserPos', pos)} disabled={isManualMode} className={`px-3.5 py-1.5 text-sm rounded-md ${scenario.raiserPos === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isManualMode ? 'cursor-not-allowed' : ''}`}>{pos}</button>
+                                        <ButtonGroup label="Action" onClear={() => handleUpdate('rangeAction', null)} hasSelection={!!scenario.rangeAction} isDisabled={isManualMode}>
+                                            {FACING_2BET_ACTIONS.map(action => (
+                                                <button key={action} onClick={() => handleUpdate('rangeAction', action)} disabled={isManualMode} className={`px-3.5 py-1.5 text-sm rounded-md ${scenario.rangeAction === action ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isManualMode ? 'cursor-not-allowed' : ''}`}>{action}</button>
                                             ))}
-                                        </div>
-                                    </div>
+                                        </ButtonGroup>
+                                    )}
+                                    <ButtonGroup 
+                                        label={scenario.rangeAction === 'RFI' ? 'Posição' : 'First Raiser Position'} 
+                                        onClear={() => handleUpdate('raiserPos', null)} 
+                                        hasSelection={!!scenario.raiserPos} 
+                                        isDisabled={isManualMode}
+                                    >
+                                        {POSITIONS.filter(p => p !== 'BB').map(pos => (
+                                            <button key={pos} onClick={() => handleUpdate('raiserPos', pos)} disabled={isManualMode} className={`px-3.5 py-1.5 text-sm rounded-md ${scenario.raiserPos === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isManualMode ? 'cursor-not-allowed' : ''}`}>{pos}</button>
+                                        ))}
+                                    </ButtonGroup>
                                     {scenario.rangeAction !== 'RFI' && (
-                                        <div>
-                                            <label className="block text-sm font-medium text-brand-text-muted mb-2">Hero Position</label>
-                                            <div className="flex gap-2 flex-wrap">
-                                                {heroPositions.map(pos => (
-                                                    <button key={pos} onClick={() => handleUpdate('heroPos', pos)} disabled={isManualMode} className={`px-3.5 py-1.5 text-sm rounded-md ${scenario.heroPos === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isManualMode ? 'cursor-not-allowed' : ''}`}>{pos}</button>
-                                                ))}
-                                            </div>
-                                        </div>
+                                        <ButtonGroup label="Hero Position" onClear={() => handleUpdate('heroPos', null)} hasSelection={!!scenario.heroPos} isDisabled={isManualMode}>
+                                            {heroPositions.map(pos => (
+                                                <button key={pos} onClick={() => handleUpdate('heroPos', pos)} disabled={isManualMode} className={`px-3.5 py-1.5 text-sm rounded-md ${scenario.heroPos === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isManualMode ? 'cursor-not-allowed' : ''}`}>{pos}</button>
+                                            ))}
+                                        </ButtonGroup>
                                     )}
                                     <div>
-                                        <label className={`block text-sm font-medium text-brand-text-muted mb-2 ${scenario.spotType === 'Rfi' ? 'text-center' : ''}`}>Modalidade</label>
-                                        <div className="flex gap-2 flex-wrap">
+                                        <ButtonGroup label="Modalidade" onClear={() => handleGameScenarioUpdate(null)} hasSelection={!!scenario.gameScenario} isDisabled={isManualMode}>
                                             {GAME_SCENARIOS.map(gs => (
-                                                <button key={gs} onClick={() => handleUpdate('gameScenario', gs)} disabled={isManualMode} className={`px-3.5 py-1.5 text-sm rounded-md ${scenario.gameScenario === gs ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isManualMode ? 'cursor-not-allowed' : ''}`}>{gs}</button>
+                                                <button key={gs} onClick={() => handleGameScenarioUpdate(gs)} disabled={isManualMode} className={`px-3.5 py-1.5 text-sm rounded-md ${scenario.gameScenario === gs ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isManualMode ? 'cursor-not-allowed' : ''}`}>{gs}</button>
                                             ))}
-                                        </div>
+                                        </ButtonGroup>
+                                        <BountyControls />
                                     </div>
                                 </div>
 
                                 <div className="grid grid-cols-1 lg:grid-cols-10 gap-4">
                                     <div className="lg:col-span-7 space-y-4">
-                                        <ImageUploader title="Range" imageData={scenario.rangeImage} onUpload={(data) => handleUpdate('rangeImage', data)} className="aspect-video" />
-                                        <ImageUploader title="Frequências" imageData={scenario.frequenciesImage} onUpload={(data) => handleUpdate('frequenciesImage', data)} className="aspect-[6/1]" size="small" />
+                                        <ImageUploader title="Range" imageData={scenario.rangeImage} onUpload={(data) => handleUpdate('rangeImage', data)} className="aspect-video" onZoom={setZoomedImage} />
+                                        <ImageUploader title="Frequências" imageData={scenario.frequenciesImage} onUpload={(data) => handleUpdate('frequenciesImage', data)} className="aspect-[6/1]" size="small" onZoom={setZoomedImage} />
                                         <div className="grid grid-cols-3 gap-2">
                                             <textarea name="raiseSmallText" value={textInputs.raiseSmallText} onChange={handleTextInputChange} onBlur={handleTextInputBlur} placeholder="raise small" className="h-12 bg-brand-bg text-xs rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-secondary w-full resize-none"></textarea>
                                             <textarea name="raiseBigText" value={textInputs.raiseBigText} onChange={handleTextInputChange} onBlur={handleTextInputBlur} placeholder="raise big" className="h-12 bg-brand-bg text-xs rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-secondary w-full resize-none"></textarea>
@@ -705,6 +950,7 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
                 }}
             />
             <ImageViewerModal imageSrc={viewingImage} onClose={() => setViewingImage(null)} />
+            <RangeZoomModal imageSrc={zoomedImage} onClose={() => setZoomedImage(null)} />
         </>
     );
 }

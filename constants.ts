@@ -8,7 +8,7 @@ export const SPOT_TYPES: SpotType[] = ['Rfi', 'Facing 2bet', 'Blind War', 'HRC E
 export const RANGE_ACTIONS: RangeAction[] = ['RFI', 'F2bet', 'F3bet', 'F4bet', 'F5bet', 'FCC', 'FSQZ'];
 export const FACING_2BET_ACTIONS: RangeAction[] = ['RFI', 'F2bet'];
 export const HRC_ACTIONS: RangeAction[] = ['RFI', 'F2bet', 'F3bet', 'F4bet', 'F5bet', 'FCC', 'FSQZ'];
-export const BLIND_WAR_ACTIONS: BlindWarAction[] = ['vs. Limp', 'vs. raise', 'vs. ISO', 'vs. 3bet'];
+export const BLIND_WAR_ACTIONS: BlindWarAction[] = ['vs. Limp', 'vs. raise', 'em Gap', 'vs. ISO', 'vs. 3bet'];
 export const BLIND_WAR_POSITIONS: BlindWarPosition[] = ['SB', 'BB'];
 
 

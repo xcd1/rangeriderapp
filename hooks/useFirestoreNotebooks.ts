@@ -58,6 +58,9 @@ const cleanScenario = (scenario: any): Scenario => {
         plusInfoImage: typeof s.plusInfoImage === 'string' ? s.plusInfoImage : null,
 
         gameScenario: isValidValue(s.gameScenario, GAME_SCENARIOS) ? s.gameScenario : null,
+        rpMode: typeof s.rpMode === 'boolean' ? s.rpMode : false,
+        startingBounties: typeof s.startingBounties === 'number' ? s.startingBounties : null,
+        startingStacks: typeof s.startingStacks === 'number' ? s.startingStacks : null,
         
         rangeImage: typeof s.rangeImage === 'string' ? s.rangeImage : null,
         frequenciesImage: typeof s.frequenciesImage === 'string' ? s.frequenciesImage : null,

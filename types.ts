@@ -4,7 +4,7 @@ export type Position = 'UTG' | 'EP' | 'LJ' | 'HJ' | 'CO' | 'BTN' | 'SB' | 'BB';
 export type GameScenario = 'CEv' | 'Bounty CVD' | 'Bounty CVN' | 'Vanilla CVD' | 'Vanilla CVN' | 'Turbo' | 'Hyper' | 'Mistery';
 export type SpotType = 'Blind War' | 'Facing 2bet' | 'HRC Enviroment' | 'Rfi';
 export type RangeAction = 'RFI' | 'F2bet' | 'F3bet' | 'F4bet' | 'F5bet' | 'FCC' | 'FSQZ';
-export type BlindWarAction = 'vs. Limp' | 'vs. raise' | 'vs. ISO' | 'vs. 3bet';
+export type BlindWarAction = 'vs. Limp' | 'vs. raise' | 'em Gap' | 'vs. ISO' | 'vs. 3bet';
 export type BlindWarPosition = 'SB' | 'BB';
 
 export interface Scenario {
@@ -30,6 +30,9 @@ export interface Scenario {
   plusInfoImage: string | null;
 
   gameScenario: GameScenario | null;
+  rpMode?: boolean;
+  startingBounties?: number | null;
+  startingStacks?: number | null;
   rangeImage: string | null; // base64 string
   frequenciesImage: string | null; // base64 string
   raiseSmallText: string;

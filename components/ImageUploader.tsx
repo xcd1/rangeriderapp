@@ -6,6 +6,7 @@ interface ImageUploaderProps {
     onUpload: (data: string | null) => void;
     className?: string;
     size?: 'normal' | 'small';
+    onZoom?: (imageData: string) => void;
 }
 
 const PlusIcon = ({ isSmall }: { isSmall: boolean }) => (
@@ -15,8 +16,17 @@ const PlusIcon = ({ isSmall }: { isSmall: boolean }) => (
     </svg>
 );
 
+const ZoomIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="11" cy="11" r="8"></circle>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        <line x1="11" y1="8" x2="11" y2="14"></line>
+        <line x1="8" y1="11" x2="14" y2="11"></line>
+    </svg>
+);
 
-const ImageUploader: React.FC<ImageUploaderProps> = ({ title, imageData, onUpload, className = '', size = 'normal' }) => {
+
+const ImageUploader: React.FC<ImageUploaderProps> = ({ title, imageData, onUpload, onZoom, className = '', size = 'normal' }) => {
     const inputRef = useRef<HTMLInputElement>(null);
     const isSmall = size === 'small';
 
@@ -167,6 +177,19 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ title, imageData, onUploa
                     >
                         X
                     </button>
+                    {onZoom && (
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                onZoom(imageData);
+                            }}
+                            className="absolute top-2 left-2 bg-brand-bg/80 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Ampliar imagem"
+                        >
+                            <ZoomIcon />
+                        </button>
+                    )}
                 </>
             ) : (
                 <div className="w-full h-full flex flex-col items-center justify-center text-brand-text-muted pointer-events-none overflow-hidden">
