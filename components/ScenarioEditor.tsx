@@ -456,10 +456,10 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
         handleTextUpdateOnBlur(name, value);
     };
 
-    const handleClearImage = () => {
-        if (!scenario.rangeImage) return;
+    const handleClearImages = () => {
+        if (!scenario.rangeImage && !scenario.frequenciesImage) return;
         const oldScenarioState = { ...scenario };
-        onUpdate({ ...scenario, rangeImage: null });
+        onUpdate({ ...scenario, rangeImage: null, frequenciesImage: null });
         pushToHistory(() => onUpdate(oldScenarioState));
     };
 
@@ -509,6 +509,42 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
         typeof scenario.startingStacks === 'number' && scenario.startingStacks > 0
             ? (scenario.startingBounties / scenario.startingStacks) / 0.2
             : null;
+
+    const renderInserirButtons = () => (
+        <div className="mt-4">
+            <label className="block text-sm font-medium text-brand-text-muted mb-1.5 text-center">Inserir</label>
+            <div className="flex justify-center gap-2 flex-wrap">
+                <button 
+                    onClick={() => scenario.printSpotImage ? setViewingImage(scenario.printSpotImage) : setUploaderTarget('printSpotImage')}
+                    className={`px-3 py-1 text-xs rounded-md font-semibold transition-colors ${scenario.printSpotImage ? 'bg-brand-secondary/80 hover:bg-brand-secondary text-brand-primary' : 'bg-brand-bg hover:brightness-125 text-brand-text'}`}
+                    title={scenario.printSpotImage ? 'Clique para ver a imagem' : 'Clique para adicionar uma imagem'}
+                >
+                    HRC Table View {scenario.printSpotImage ? '✓' : ''}
+                </button>
+                <button 
+                    onClick={() => scenario.rpImage ? setViewingImage(scenario.rpImage) : setUploaderTarget('rpImage')}
+                    className={`px-3 py-1 text-xs rounded-md font-semibold transition-colors ${scenario.rpImage ? 'bg-brand-secondary/80 hover:bg-brand-secondary text-brand-primary' : 'bg-brand-bg hover:brightness-125 text-brand-text'}`}
+                    title={scenario.rpImage ? 'Clique para ver a imagem' : 'Clique para adicionar uma imagem'}
+                >
+                    RP {scenario.rpImage ? '✓' : ''}
+                </button>
+                <button 
+                    onClick={() => scenario.tableViewImage ? setViewingImage(scenario.tableViewImage) : setUploaderTarget('tableViewImage')}
+                    className={`px-3 py-1 text-xs rounded-md font-semibold transition-colors ${scenario.tableViewImage ? 'bg-brand-secondary/80 hover:bg-brand-secondary text-brand-primary' : 'bg-brand-bg hover:brightness-125 text-brand-text'}`}
+                    title={scenario.tableViewImage ? 'Clique para ver a imagem' : 'Clique para adicionar uma imagem'}
+                >
+                    Table View {scenario.tableViewImage ? '✓' : ''}
+                </button>
+                <button 
+                    onClick={() => scenario.plusInfoImage ? setViewingImage(scenario.plusInfoImage) : setUploaderTarget('plusInfoImage')}
+                    className={`px-3 py-1 text-xs rounded-md font-semibold transition-colors ${scenario.plusInfoImage ? 'bg-brand-secondary/80 hover:bg-brand-secondary text-brand-primary' : 'bg-brand-bg hover:brightness-125 text-brand-text'}`}
+                    title={scenario.plusInfoImage ? 'Clique para ver a imagem' : 'Clique para adicionar uma imagem'}
+                >
+                    +Info {scenario.plusInfoImage ? '✓' : ''}
+                </button>
+            </div>
+        </div>
+    );
 
     const BountyControls = () => (
         <>
@@ -677,7 +713,7 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
                                 <BrushIcon />
                             </button>
                         )}
-                        <button onClick={(e) => { e.stopPropagation(); handleClearImage(); }} className="text-yellow-400 hover:text-yellow-500 p-1 rounded-full hover:bg-brand-primary/80 flex items-center justify-center" title="Limpar imagem">
+                        <button onClick={(e) => { e.stopPropagation(); handleClearImages(); }} className="text-yellow-400 hover:text-yellow-500 p-1 rounded-full hover:bg-brand-primary/80 flex items-center justify-center" title="Limpar Imagens">
                             <ClearImageIcon />
                         </button>
                         <button onClick={(e) => { e.stopPropagation(); handleClearTexts(); }} className="text-yellow-400 hover:text-yellow-500 p-1 rounded-full hover:bg-brand-primary/80 flex items-center justify-center" title="Limpar .txt's">
@@ -749,39 +785,7 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
                                             ))}
                                             <BountyControls />
                                         </div>
-                                        <div className="mt-4">
-                                            <label className="block text-sm font-medium text-brand-text-muted mb-1.5 text-center">Inserir</label>
-                                            <div className="flex justify-center gap-2 flex-wrap">
-                                                <button 
-                                                    onClick={() => scenario.printSpotImage ? setViewingImage(scenario.printSpotImage) : setUploaderTarget('printSpotImage')}
-                                                    className={`px-3 py-1 text-xs rounded-md font-semibold transition-colors ${scenario.printSpotImage ? 'bg-brand-secondary/80 hover:bg-brand-secondary text-brand-primary' : 'bg-brand-bg hover:brightness-125 text-brand-text'}`}
-                                                    title={scenario.printSpotImage ? 'Clique para ver a imagem' : 'Clique para adicionar uma imagem'}
-                                                >
-                                                    HRC Table View {scenario.printSpotImage ? '✓' : ''}
-                                                </button>
-                                                <button 
-                                                    onClick={() => scenario.rpImage ? setViewingImage(scenario.rpImage) : setUploaderTarget('rpImage')}
-                                                    className={`px-3 py-1 text-xs rounded-md font-semibold transition-colors ${scenario.rpImage ? 'bg-brand-secondary/80 hover:bg-brand-secondary text-brand-primary' : 'bg-brand-bg hover:brightness-125 text-brand-text'}`}
-                                                    title={scenario.rpImage ? 'Clique para ver a imagem' : 'Clique para adicionar uma imagem'}
-                                                >
-                                                    RP {scenario.rpImage ? '✓' : ''}
-                                                </button>
-                                                <button 
-                                                    onClick={() => scenario.tableViewImage ? setViewingImage(scenario.tableViewImage) : setUploaderTarget('tableViewImage')}
-                                                    className={`px-3 py-1 text-xs rounded-md font-semibold transition-colors ${scenario.tableViewImage ? 'bg-brand-secondary/80 hover:bg-brand-secondary text-brand-primary' : 'bg-brand-bg hover:brightness-125 text-brand-text'}`}
-                                                    title={scenario.tableViewImage ? 'Clique para ver a imagem' : 'Clique para adicionar uma imagem'}
-                                                >
-                                                    Table View {scenario.tableViewImage ? '✓' : ''}
-                                                </button>
-                                                <button 
-                                                    onClick={() => scenario.plusInfoImage ? setViewingImage(scenario.plusInfoImage) : setUploaderTarget('plusInfoImage')}
-                                                    className={`px-3 py-1 text-xs rounded-md font-semibold transition-colors ${scenario.plusInfoImage ? 'bg-brand-secondary/80 hover:bg-brand-secondary text-brand-primary' : 'bg-brand-bg hover:brightness-125 text-brand-text'}`}
-                                                    title={scenario.plusInfoImage ? 'Clique para ver a imagem' : 'Clique para adicionar uma imagem'}
-                                                >
-                                                    +Info {scenario.plusInfoImage ? '✓' : ''}
-                                                </button>
-                                            </div>
-                                        </div>
+                                        {renderInserirButtons()}
                                     </div>
                                 </div>
                                 <div className="space-y-4 pt-4">
@@ -842,6 +846,7 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
                                             ))}
                                         </ButtonGroup>
                                         <BountyControls />
+                                        {renderInserirButtons()}
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-1 lg:grid-cols-10 gap-4">
@@ -896,6 +901,7 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
                                             ))}
                                         </ButtonGroup>
                                         <BountyControls />
+                                        {renderInserirButtons()}
                                     </div>
                                 </div>
 

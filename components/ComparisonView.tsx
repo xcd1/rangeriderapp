@@ -266,10 +266,9 @@ interface OpenModal {
 interface ComparisonViewProps {
     scenarios: Scenario[];
     onBack: () => void;
-    spotType: SpotType | null;
 }
 
-const ComparisonView: React.FC<ComparisonViewProps> = ({ scenarios, onBack, spotType }) => {
+const ComparisonView: React.FC<ComparisonViewProps> = ({ scenarios, onBack }) => {
     const [openModals, setOpenModals] = useState<OpenModal[]>([]);
     const [zIndexCounter, setZIndexCounter] = useState(100);
     const [zoomedImage, setZoomedImage] = useState<string | null>(null);
@@ -438,8 +437,6 @@ const ComparisonView: React.FC<ComparisonViewProps> = ({ scenarios, onBack, spot
     };
 
     const handleCloseAll = () => setOpenModals([]);
-
-    const showFrequencies = spotType === 'Rfi' || spotType === 'Blind War';
     
     const isDragging = dragItem.current && placeholderIndex !== null;
     const visualScenarios = isDragging 
@@ -548,23 +545,20 @@ const ComparisonView: React.FC<ComparisonViewProps> = ({ scenarios, onBack, spot
                                         )}
                                     </div>
                                     
-                                    {showFrequencies && scenario.frequenciesImage && (
-                                        <>
-                                            <h4 className="text-sm font-semibold text-center text-brand-text-muted -mb-2">Frequências</h4>
-                                            <div 
-                                                className="bg-brand-bg aspect-[6/1] rounded flex items-center justify-center relative"
-                                            >
-                                                <img src={scenario.frequenciesImage} alt="Frequências" className="max-w-full max-h-full object-contain"/>
-                                                <div
-                                                    className="absolute w-1/2 h-1/2 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 cursor-zoom-in"
-                                                    onClick={() => setZoomedImage(scenario.frequenciesImage)}
-                                                    title="Ampliar imagem"
-                                                />
-                                            </div>
-                                        </>
+                                    {scenario.frequenciesImage && (
+                                        <div 
+                                            className="bg-brand-bg aspect-[6/1] rounded flex items-center justify-center relative"
+                                        >
+                                            <img src={scenario.frequenciesImage} alt="Frequências" className="max-w-full max-h-full object-contain"/>
+                                            <div
+                                                className="absolute w-1/2 h-1/2 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 cursor-zoom-in"
+                                                onClick={() => setZoomedImage(scenario.frequenciesImage)}
+                                                title="Ampliar imagem"
+                                            />
+                                        </div>
                                     )}
 
-                                    {scenario.spotType === 'HRC Enviroment' && (scenario.printSpotImage || scenario.rpImage || scenario.tableViewImage || scenario.plusInfoImage) && (
+                                    {(scenario.printSpotImage || scenario.rpImage || scenario.tableViewImage || scenario.plusInfoImage) && (
                                         <div className="flex justify-center flex-wrap gap-2 mt-auto pt-2">
                                             {scenario.printSpotImage && (
                                                 <button 

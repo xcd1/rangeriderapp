@@ -342,7 +342,7 @@ const StudyView: React.FC = () => {
     }
 
     if (isComparing) {
-        return <ComparisonView scenarios={scenariosForComparisonView} onBack={handleBackFromComparison} spotType={comparisonOriginSpot} />;
+        return <ComparisonView scenarios={scenariosForComparisonView} onBack={handleBackFromComparison} />;
     }
 
     if (!activeSpot) {
