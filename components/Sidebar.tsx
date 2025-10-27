@@ -40,6 +40,14 @@ const SpinnerIcon = () => (
     </svg>
 );
 
+const ArrowUpIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+);
+
+const ArrowDownIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
+);
+
 // Helper to prevent dropping a folder into itself or its children
 const isAncestor = (draggedId: string, targetId: string | null, allFolders: Folder[]): boolean => {
     if (!targetId) return false;
@@ -65,12 +73,15 @@ interface NotebookItemProps {
     onPromptDelete: () => void;
     onDragStart: (e: React.DragEvent) => void;
     onDragEnd: (e: React.DragEvent) => void;
+    onMove: (direction: 'up' | 'down') => void;
+    isFirst: boolean;
+    isLast: boolean;
 }
 
 const NotebookItem: React.FC<NotebookItemProps> = ({
     notebook, isActive, isDeleting, isEditing, isAnyItemBeingEdited, editedName,
     onSelect, onStartEditing, onCancelEditing, onSaveName, onNameChange, onNameKeyDown, onPromptDelete,
-    onDragStart, onDragEnd
+    onDragStart, onDragEnd, onMove, isFirst, isLast
 }) => {
     return (
         <li 
@@ -106,10 +117,34 @@ const NotebookItem: React.FC<NotebookItemProps> = ({
                     </div>
                     
                     <div className="flex-shrink-0 flex items-center">
+                        <button
+                            onClick={() => onMove('up')}
+                            disabled={isFirst || isDeleting}
+                            className={`p-1 rounded-full transition-opacity flex items-center justify-center w-6 h-6 disabled:opacity-20 disabled:cursor-not-allowed ${
+                                isActive
+                                ? 'opacity-100 text-brand-primary/70 hover:text-green-500'
+                                : 'opacity-0 group-hover:opacity-100 text-gray-400 hover:text-green-500'
+                            }`}
+                            title="Mover para cima"
+                        >
+                            <ArrowUpIcon />
+                        </button>
+                        <button
+                            onClick={() => onMove('down')}
+                            disabled={isLast || isDeleting}
+                            className={`p-1 rounded-full transition-opacity flex items-center justify-center w-6 h-6 disabled:opacity-20 disabled:cursor-not-allowed ${
+                                isActive
+                                ? 'opacity-100 text-brand-primary/70 hover:text-green-500'
+                                : 'opacity-0 group-hover:opacity-100 text-gray-400 hover:text-green-500'
+                            }`}
+                            title="Mover para baixo"
+                        >
+                            <ArrowDownIcon />
+                        </button>
                         <button 
                             onClick={onStartEditing}
                             disabled={isDeleting}
-                            className={`p-1 rounded-full transition-opacity flex items-center justify-center w-6 h-6 disabled:opacity-50 disabled:cursor-not-allowed ${
+                            className={`ml-1 p-1 rounded-full transition-opacity flex items-center justify-center w-6 h-6 disabled:opacity-50 disabled:cursor-not-allowed ${
                                 isActive
                                 ? 'opacity-100 text-brand-primary/70 hover:text-blue-500'
                                 : 'opacity-0 group-hover:opacity-100 text-gray-400 hover:text-blue-500'
@@ -170,7 +205,8 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
   const { 
       notebooks, folders, activeNotebookId, setActiveNotebookId, user, logout,
       addNotebook, deleteNotebook, updateNotebook,
-      addFolder, deleteFolder, updateFolder
+      addFolder, deleteFolder, updateFolder,
+      swapItemsOrder
   } = context;
   
   // Load collapsed folders state from localStorage on mount/login
@@ -343,6 +379,43 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
     setCollapsedFolders(new Set());
   };
 
+  const handleMoveItem = useCallback(async (
+      itemId: string, 
+      type: 'notebook' | 'folder', 
+      direction: 'up' | 'down'
+  ) => {
+      const isNotebook = type === 'notebook';
+      const items = isNotebook ? notebooks : folders;
+      
+      const itemToMove = items.find(i => i.id === itemId);
+      if (!itemToMove) return;
+
+      let siblings: Array<Notebook | Folder>;
+      if (isNotebook) {
+          const notebook = itemToMove as Notebook;
+          siblings = notebook.folderId 
+              ? notebooksByFolder[notebook.folderId] || [] 
+              : rootNotebooks;
+      } else {
+          const folder = itemToMove as Folder;
+          siblings = folder.parentId 
+              ? foldersByParent[folder.parentId] || [] 
+              : rootFolders;
+      }
+
+      const currentIndex = siblings.findIndex(s => s.id === itemId);
+      if (currentIndex === -1) return;
+
+      const swapIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+      if (swapIndex < 0 || swapIndex >= siblings.length) return;
+
+      const itemToSwapWith = siblings[swapIndex];
+
+      await swapItemsOrder(
+          { id: itemToMove.id, type, createdAt: itemToMove.createdAt },
+          { id: itemToSwapWith.id, type, createdAt: itemToSwapWith.createdAt }
+      );
+  }, [notebooks, folders, rootNotebooks, notebooksByFolder, rootFolders, foldersByParent, swapItemsOrder]);
 
   // --- Drag & Drop Handlers ---
   const handleDragStart = (e: React.DragEvent, id: string, type: 'notebook' | 'folder') => {
@@ -394,7 +467,7 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
     setDragOverTargetId(null);
   };
 
-  const renderNotebook = (notebook: Notebook) => (
+  const renderNotebook = (notebook: Notebook, index: number, list: Notebook[]) => (
       <NotebookItem
         key={notebook.id}
         notebook={notebook}
@@ -412,15 +485,20 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
         onPromptDelete={() => setNotebookToDelete(notebook)}
         onDragStart={(e) => handleDragStart(e, notebook.id, 'notebook')}
         onDragEnd={handleDragEnd}
+        onMove={(direction) => handleMoveItem(notebook.id, 'notebook', direction)}
+        isFirst={index === 0}
+        isLast={index === list.length - 1}
       />
   );
   
-  const renderFolderTree = (folder: Folder, level: number) => {
+  const renderFolderTree = (folder: Folder, level: number, index: number, list: Folder[]) => {
     const isCollapsed = collapsedFolders.has(folder.id);
     const notebooksInFolder = notebooksByFolder[folder.id] || [];
     const childFolders = foldersByParent[folder.id] || [];
     const isDropTarget = dragOverTargetId === folder.id;
     const isEditing = editingFolderId === folder.id;
+    const isFirst = index === 0;
+    const isLast = index === list.length - 1;
 
     return (
         <div key={folder.id} 
@@ -446,6 +524,22 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
                             <span className="truncate pr-2 font-semibold">{folder.name}</span>
                         </div>
                         <div className="flex items-center">
+                            <button
+                                onClick={(e) => { e.stopPropagation(); handleMoveItem(folder.id, 'folder', 'up'); }}
+                                disabled={isFirst || isAnyItemBeingEdited}
+                                className="p-1 rounded opacity-0 group-hover:opacity-100 hover:text-green-400 disabled:opacity-20 disabled:cursor-not-allowed"
+                                title="Mover para cima"
+                            >
+                                <ArrowUpIcon />
+                            </button>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); handleMoveItem(folder.id, 'folder', 'down'); }}
+                                disabled={isLast || isAnyItemBeingEdited}
+                                className="p-1 rounded opacity-0 group-hover:opacity-100 hover:text-green-400 disabled:opacity-20 disabled:cursor-not-allowed"
+                                title="Mover para baixo"
+                            >
+                                <ArrowDownIcon />
+                            </button>
                             <button onClick={(e) => {e.stopPropagation(); handleStartEditingFolder(folder);}} className="p-1 rounded opacity-0 group-hover:opacity-100 hover:text-blue-400" title="Renomear pasta"><PencilIcon/></button>
                             <button disabled={notebooksInFolder.length > 0 || childFolders.length > 0} onClick={(e) => {e.stopPropagation(); setFolderToDelete(folder);}} className="p-1 rounded opacity-0 group-hover:opacity-100 hover:text-red-400 disabled:opacity-20 disabled:cursor-not-allowed" title={(notebooksInFolder.length > 0 || childFolders.length > 0) ? "Esvazie a pasta para excluir" : "Excluir pasta"}><TrashIcon/></button>
                             <span className="ml-2 w-4 text-center">{isCollapsed ? '▸' : '▾'}</span>
@@ -455,8 +549,8 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
             </div>
             {!isCollapsed && (
                 <ul className="pl-6 border-l-2 border-brand-secondary/20 ml-4">
-                    {childFolders.map(subFolder => renderFolderTree(subFolder, 0))}
-                    {notebooksInFolder.map(renderNotebook)}
+                    {childFolders.map((subFolder, i, arr) => renderFolderTree(subFolder, 0, i, arr))}
+                    {notebooksInFolder.map((nb, i, arr) => renderNotebook(nb, i, arr))}
                     {notebooksInFolder.length === 0 && childFolders.length === 0 && <li className="text-xs text-brand-text-muted p-2">Pasta vazia</li>}
                 </ul>
             )}
@@ -492,14 +586,14 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
             <button onClick={handleExpandAll} disabled={folders.length === 0} className="w-full text-xs bg-brand-bg hover:brightness-125 text-brand-text-muted font-semibold py-2 px-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Expandir tudo</button>
         </div>
         <nav className="flex-grow overflow-y-auto pr-2 -mr-2 space-y-2">
-            {rootFolders.map(folder => renderFolderTree(folder, 0))}
+            {rootFolders.map((folder, i, arr) => renderFolderTree(folder, 0, i, arr))}
             
             <div onDragOver={(e) => handleDragOver(e, null)}
                   onDragLeave={handleDragLeave}
                   onDrop={(e) => handleDrop(e, null)}
                   className={`rounded-md min-h-[2rem] transition-colors ${dragOverTargetId === null ? 'bg-brand-secondary/20' : ''}`}>
                 <ul className="space-y-1 pt-2">
-                    {rootNotebooks.map(renderNotebook)}
+                    {rootNotebooks.map((nb, i, arr) => renderNotebook(nb, i, arr))}
                 </ul>
             </div>
         </nav>

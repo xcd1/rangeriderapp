@@ -73,6 +73,7 @@ interface AppContextType {
   deleteScenario: (notebookId: string, scenarioId: string) => Promise<void>;
   addMultipleScenarios: (notebookId: string, scenariosToAdd: Scenario[]) => Promise<void>;
   deleteMultipleScenarios: (notebookId: string, scenarioIds: string[]) => Promise<void>;
+  swapItemsOrder: (item1: { id: string; type: 'notebook' | 'folder'; createdAt: number; }, item2: { id: string; type: 'notebook' | 'folder'; createdAt: number; }) => Promise<void>;
 }
 
 export const AppContext = createContext<AppContextType | null>(null);
@@ -142,7 +143,8 @@ const AppContent: React.FC = () => {
     updateScenario,
     deleteScenario,
     addMultipleScenarios,
-    deleteMultipleScenarios
+    deleteMultipleScenarios,
+    swapItemsOrder
   } = useFirestoreNotebooks(user?.uid);
   
     // --- Session Persistence Effects ---
@@ -234,8 +236,9 @@ const AppContent: React.FC = () => {
         deleteScenario,
         addMultipleScenarios,
         deleteMultipleScenarios,
+        swapItemsOrder,
     }
-  }, [notebooks, folders, activeNotebookId, user, handleLogout, addNotebook, deleteNotebook, updateNotebook, addFolder, deleteFolder, updateFolder, addScenario, updateScenario, deleteScenario, addMultipleScenarios, deleteMultipleScenarios]);
+  }, [notebooks, folders, activeNotebookId, user, handleLogout, addNotebook, deleteNotebook, updateNotebook, addFolder, deleteFolder, updateFolder, addScenario, updateScenario, deleteScenario, addMultipleScenarios, deleteMultipleScenarios, swapItemsOrder]);
   
   if (authLoading || (user && dataLoading)) {
       return <LoadingSpinner />;

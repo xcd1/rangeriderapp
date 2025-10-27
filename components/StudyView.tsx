@@ -1,4 +1,4 @@
-import React, { useContext, useState, useMemo, useEffect } from 'react';
+import React, { useContext, useState, useMemo, useEffect, useRef } from 'react';
 import { AppContext, useHistory } from '../App';
 import type { SpotType, Scenario } from '../types';
 import { SPOT_TYPES } from '../constants';
@@ -77,6 +77,13 @@ const StudyView: React.FC = () => {
     const [isDeleteAllModalOpen, setIsDeleteAllModalOpen] = useState(false);
     const [isDeleteSelectionModalOpen, setIsDeleteSelectionModalOpen] = useState(false);
 
+    // Dropdown states
+    const [expandDropdownOpen, setExpandDropdownOpen] = useState(false);
+    const [collapseDropdownOpen, setCollapseDropdownOpen] = useState(false);
+    const [sectionControl, setSectionControl] = useState<{action: 'expand' | 'collapse', target: 'all' | 'params' | 'media' | 'notes', key: number} | null>(null);
+    const expandDropdownRef = useRef<HTMLDivElement>(null);
+    const collapseDropdownRef = useRef<HTMLDivElement>(null);
+
 
     if (!context) return null;
     const { 
@@ -91,6 +98,27 @@ const StudyView: React.FC = () => {
     } = context;
 
     const uid = user?.uid;
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (expandDropdownRef.current && !expandDropdownRef.current.contains(event.target as Node)) {
+                setExpandDropdownOpen(false);
+            }
+            if (collapseDropdownRef.current && !collapseDropdownRef.current.contains(event.target as Node)) {
+                setCollapseDropdownOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, []);
+
+    const handleSectionControl = (action: 'expand' | 'collapse', target: 'all' | 'params' | 'media' | 'notes') => {
+        setSectionControl({ action, target, key: Date.now() });
+        setExpandDropdownOpen(false);
+        setCollapseDropdownOpen(false);
+    };
 
     const activeNotebook = useMemo(() => {
         return notebooks.find(n => n.id === activeNotebookId);
@@ -278,14 +306,6 @@ const StudyView: React.FC = () => {
             return newSet;
         });
     };
-    
-    const handleCollapseAll = () => {
-        setCollapsedScenarios(new Set(filteredScenarios.map(s => s.id)));
-    };
-    
-    const handleExpandAll = () => {
-        setCollapsedScenarios(new Set());
-    };
 
     const handleClearCompare = () => {
         setScenariosToCompare(new Set());
@@ -404,18 +424,46 @@ const StudyView: React.FC = () => {
                         
                         {filteredScenarios.length > 1 && (
                             <>
-                                <button
-                                    onClick={handleExpandAll}
-                                    className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors text-sm"
-                                >
-                                    Expandir todos
-                                </button>
-                                <button
-                                    onClick={handleCollapseAll}
-                                    className="bg-brand-primary hover:bg-brand-primary/80 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm"
-                                >
-                                    Recolher todos
-                                </button>
+                                <div className="relative" ref={expandDropdownRef}>
+                                    <button
+                                        onClick={() => setExpandDropdownOpen(p => !p)}
+                                        disabled={scenariosToCompare.size === 0}
+                                        className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors text-sm disabled:bg-brand-secondary/50 disabled:cursor-not-allowed disabled:text-brand-primary/70"
+                                        title={scenariosToCompare.size === 0 ? "Selecione um ou mais cenários para usar esta função" : ""}
+                                    >
+                                        Expandir Seções
+                                    </button>
+                                    {expandDropdownOpen && (
+                                        <div className="absolute top-full left-0 mt-2 w-48 bg-brand-bg rounded-md shadow-lg z-10 border border-brand-primary overflow-hidden">
+                                            <ul className="text-sm text-brand-text">
+                                                <li><button onClick={() => handleSectionControl('expand', 'all')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Expandir Tudo</button></li>
+                                                <li><button onClick={() => handleSectionControl('expand', 'params')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Parâmetros</button></li>
+                                                <li><button onClick={() => handleSectionControl('expand', 'media')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Mídias</button></li>
+                                                <li><button onClick={() => handleSectionControl('expand', 'notes')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Anotações</button></li>
+                                            </ul>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="relative" ref={collapseDropdownRef}>
+                                    <button
+                                        onClick={() => setCollapseDropdownOpen(p => !p)}
+                                        disabled={scenariosToCompare.size === 0}
+                                        className="bg-brand-primary hover:bg-brand-primary/80 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                        title={scenariosToCompare.size === 0 ? "Selecione um ou mais cenários para usar esta função" : ""}
+                                    >
+                                        Recolher Seções
+                                    </button>
+                                     {collapseDropdownOpen && (
+                                        <div className="absolute top-full left-0 mt-2 w-48 bg-brand-bg rounded-md shadow-lg z-10 border border-brand-primary overflow-hidden">
+                                            <ul className="text-sm text-brand-text">
+                                                <li><button onClick={() => handleSectionControl('collapse', 'all')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Recolher Tudo</button></li>
+                                                <li><button onClick={() => handleSectionControl('collapse', 'params')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Parâmetros</button></li>
+                                                <li><button onClick={() => handleSectionControl('collapse', 'media')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Mídias</button></li>
+                                                <li><button onClick={() => handleSectionControl('collapse', 'notes')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Anotações</button></li>
+                                            </ul>
+                                        </div>
+                                    )}
+                                </div>
                             </>
                         )}
                     </div>
@@ -470,6 +518,7 @@ const StudyView: React.FC = () => {
                         onToggleCompare={toggleCompare}
                         isCollapsed={collapsedScenarios.has(scenario.id)}
                         onToggleCollapse={toggleScenarioCollapse}
+                        sectionControl={sectionControl}
                     />
                 ))}
             </div>

@@ -32,6 +32,7 @@ interface FirestoreNotebooksResult {
     deleteScenario: (notebookId: string, scenarioId: string) => Promise<void>;
     addMultipleScenarios: (notebookId: string, scenariosToAdd: Scenario[]) => Promise<void>;
     deleteMultipleScenarios: (notebookId: string, scenarioIds: string[]) => Promise<void>;
+    swapItemsOrder: (item1: { id: string, type: 'notebook' | 'folder', createdAt: number }, item2: { id: string, type: 'notebook' | 'folder', createdAt: number }) => Promise<void>;
 }
 
 const isValidValue = (value: any, validValues: readonly any[]) => validValues.includes(value);
@@ -80,6 +81,7 @@ const useFirestoreNotebooks = (uid: string | undefined): Omit<FirestoreNotebooks
     deleteScenario: (notebookId: string, scenarioId: string) => Promise<void>;
     addMultipleScenarios: (notebookId: string, scenariosToAdd: Scenario[]) => Promise<void>;
     deleteMultipleScenarios: (notebookId: string, scenarioIds: string[]) => Promise<void>;
+    swapItemsOrder: (item1: { id: string, type: 'notebook' | 'folder', createdAt: number }, item2: { id: string, type: 'notebook' | 'folder', createdAt: number }) => Promise<void>;
 } => {
     const [notebooks, setNotebooks] = useState<Notebook[]>([]);
     const [folders, setFolders] = useState<Folder[]>([]);
@@ -272,12 +274,30 @@ const useFirestoreNotebooks = (uid: string | undefined): Omit<FirestoreNotebooks
         await batch.commit();
     }, [uid]);
 
+    const swapItemsOrder = useCallback(async (
+        item1: { id: string, type: 'notebook' | 'folder', createdAt: number },
+        item2: { id: string, type: 'notebook' | 'folder', createdAt: number }
+    ) => {
+        if (!uid) throw new Error("User not authenticated");
+
+        const batch = writeBatch(db);
+
+        const doc1Ref = doc(db, 'users', uid, item1.type === 'notebook' ? 'notebooks' : 'folders', item1.id);
+        batch.update(doc1Ref, { createdAt: item2.createdAt });
+
+        const doc2Ref = doc(db, 'users', uid, item2.type === 'notebook' ? 'notebooks' : 'folders', item2.id);
+        batch.update(doc2Ref, { createdAt: item1.createdAt });
+
+        await batch.commit();
+    }, [uid]);
+
     return { 
         notebooks, folders, loading, 
         addNotebook, deleteNotebook, updateNotebook, 
         addFolder, deleteFolder, updateFolder, 
         addScenario, updateScenario, deleteScenario, 
-        addMultipleScenarios, deleteMultipleScenarios 
+        addMultipleScenarios, deleteMultipleScenarios,
+        swapItemsOrder
     };
 };
 

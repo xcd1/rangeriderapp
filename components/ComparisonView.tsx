@@ -70,13 +70,15 @@ const RangeZoomModal: React.FC<RangeZoomModalProps> = ({ imageSrc, onClose }) =>
 
     const handleMouseUp = (e: React.MouseEvent<HTMLImageElement>) => {
         dragInfo.current.isDragging = false;
-        e.currentTarget.style.cursor = 'grab';
+        if (scale > 1) {
+            e.currentTarget.style.cursor = 'grab';
+        }
     };
 
     const handleMouseMove = (e: React.MouseEvent<HTMLImageElement>) => {
         if (!dragInfo.current.isDragging) return;
-        const dx = (e.clientX - dragInfo.current.startX) / scale;
-        const dy = (e.clientY - dragInfo.current.startY) / scale;
+        const dx = e.clientX - dragInfo.current.startX;
+        const dy = e.clientY - dragInfo.current.startY;
         setOffset({ x: dragInfo.current.initialX + dx, y: dragInfo.current.initialY + dy });
     };
     
@@ -87,21 +89,21 @@ const RangeZoomModal: React.FC<RangeZoomModalProps> = ({ imageSrc, onClose }) =>
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-80 flex flex-col justify-center items-center z-[10000]" onClick={onClose}>
+        <div className="fixed inset-0 flex flex-col justify-center items-center z-[10000]" onClick={onClose}>
             <div className="absolute top-4 right-4 z-10 flex items-center gap-2 bg-brand-bg p-2 rounded-lg">
                 <button onClick={(e) => { e.stopPropagation(); handleZoomOut(); }} className="w-8 h-8 rounded-md bg-brand-primary text-lg font-bold">-</button>
                 <button onClick={(e) => { e.stopPropagation(); handleZoomIn(); }} className="w-8 h-8 rounded-md bg-brand-primary text-lg font-bold">+</button>
                 <button onClick={(e) => { e.stopPropagation(); handleZoomReset(); }} className="h-8 px-3 rounded-md bg-brand-primary text-sm">Reset</button>
                 <button onClick={onClose} className="w-8 h-8 rounded-md bg-red-700 text-lg font-bold">&times;</button>
             </div>
-            <div className="w-full h-full flex items-center justify-center overflow-hidden" onWheel={handleWheel}>
+            <div className="w-[90vw] h-[90vh] flex items-center justify-center overflow-hidden" onWheel={handleWheel}>
                 <img
                     ref={imgRef}
                     src={imageSrc}
                     alt="Range ampliado"
                     className="max-w-none max-h-none transition-transform duration-100"
                     style={{ 
-                        transform: `scale(${scale}) translate(${offset.x}px, ${offset.y}px)`,
+                        transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
                         cursor: scale > 1 ? 'grab' : 'default'
                     }}
                     onMouseDown={handleMouseDown}
@@ -492,7 +494,7 @@ const ComparisonView: React.FC<ComparisonViewProps> = ({ scenarios, onBack }) =>
                 </div>
             ) : (
                 <div 
-                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6"
                     onDrop={handleDrop}
                     onDragOver={(e) => e.preventDefault()}
                 >

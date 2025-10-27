@@ -16,6 +16,7 @@ interface ScenarioEditorProps {
     onToggleCompare: (scenarioId: string) => void;
     isCollapsed: boolean;
     onToggleCollapse: (scenarioId: string) => void;
+    sectionControl: {action: 'expand' | 'collapse', target: 'all' | 'params' | 'media' | 'notes', key: number} | null;
 }
 
 const TrashIcon = () => (
@@ -198,17 +199,20 @@ const RangeZoomModal: React.FC<RangeZoomModalProps> = ({ imageSrc, onClose, onDe
     if (!imageSrc) return null;
 
     const handleZoomIn = () => setScale(s => Math.min(s * 1.2, 5));
-    const handleZoomOut = () => setScale(s => Math.max(s / 1.2, 0.5));
+    const handleZoomOut = () => setScale(s => Math.max(s / 1.2, 1));
     const handleZoomReset = () => { setScale(1); setOffset({ x: 0, y: 0 }); };
 
     const handleMouseDown = (e: React.MouseEvent<HTMLImageElement>) => {
+        if (scale <= 1) return;
         dragInfo.current = { isDragging: true, startX: e.clientX, startY: e.clientY, initialX: offset.x, initialY: offset.y };
         e.currentTarget.style.cursor = 'grabbing';
     };
 
     const handleMouseUp = (e: React.MouseEvent<HTMLImageElement>) => {
         dragInfo.current.isDragging = false;
-        e.currentTarget.style.cursor = 'grab';
+        if (scale > 1) {
+            e.currentTarget.style.cursor = 'grab';
+        }
     };
 
     const handleMouseMove = (e: React.MouseEvent<HTMLImageElement>) => {
@@ -225,7 +229,7 @@ const RangeZoomModal: React.FC<RangeZoomModalProps> = ({ imageSrc, onClose, onDe
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-80 flex flex-col justify-center items-center z-[60]" onClick={onClose}>
+        <div className="fixed inset-0 flex flex-col justify-center items-center z-[60]" onClick={onClose}>
             <div className="absolute top-4 right-4 z-[62] flex items-center gap-2 bg-brand-bg p-2 rounded-lg">
                 <button onClick={(e) => { e.stopPropagation(); handleZoomOut(); }} className="w-8 h-8 rounded-md bg-brand-primary text-lg font-bold">-</button>
                 <button onClick={(e) => { e.stopPropagation(); handleZoomIn(); }} className="w-8 h-8 rounded-md bg-brand-primary text-lg font-bold">+</button>
@@ -248,7 +252,7 @@ const RangeZoomModal: React.FC<RangeZoomModalProps> = ({ imageSrc, onClose, onDe
                     <TrashIcon />
                 </button>
             )}
-            <div className="w-full h-full flex items-center justify-center overflow-hidden" onWheel={handleWheel}>
+            <div className="w-[90vw] h-[90vh] flex items-center justify-center overflow-hidden" onWheel={handleWheel}>
                 <img
                     ref={imgRef}
                     src={imageSrc}
@@ -256,7 +260,7 @@ const RangeZoomModal: React.FC<RangeZoomModalProps> = ({ imageSrc, onClose, onDe
                     className="max-w-none max-h-none transition-transform duration-100"
                     style={{ 
                         transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
-                        cursor: 'grab'
+                        cursor: scale > 1 ? 'grab' : 'default'
                     }}
                     onMouseDown={handleMouseDown}
                     onMouseUp={handleMouseUp}
@@ -309,7 +313,8 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
     isSelectedForCompare, 
     onToggleCompare,
     isCollapsed,
-    onToggleCollapse
+    onToggleCollapse,
+    sectionControl,
 }) => {
     const { pushToHistory } = useHistory();
     const { scenariosToCompare: intelligentScenarios, addScenarioToCompare, removeScenarioFromCompare } = useComparison();
@@ -345,6 +350,30 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
         });
         setManualTitleInput(scenario.manualTitle || '');
     }, [scenario]);
+    
+    useEffect(() => {
+        if (!sectionControl || !isSelectedForCompare) return;
+
+        const { action, target } = sectionControl;
+
+        if (action === 'expand') {
+            if (target === 'all') {
+                setOpenSections(new Set(['params', 'media', 'notes']));
+            } else {
+                setOpenSections(prev => new Set([...prev, target]));
+            }
+        } else { // collapse
+            if (target === 'all') {
+                setOpenSections(new Set());
+            } else {
+                setOpenSections(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete(target);
+                    return newSet;
+                });
+            }
+        }
+    }, [sectionControl, isSelectedForCompare]);
 
     useEffect(() => {
         // For RFI spots, the action is always RFI. This sets it automatically.
