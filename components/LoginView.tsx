@@ -118,7 +118,7 @@ const LoginView: React.FC = () => {
           <button
               onClick={handleGoogleLogin}
               disabled={isLoading}
-              className="w-full inline-flex items-center justify-center py-2 px-4 border border-gray-600 rounded-md shadow-sm bg-white text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-brand-primary focus:ring-brand-secondary disabled:opacity-50"
+              className="w-full inline-flex items-center justify-center py-2 px-4 border border-brand-bg rounded-md shadow-sm bg-brand-bg text-brand-text hover:brightness-125 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-brand-primary focus:ring-brand-secondary disabled:opacity-50"
             >
               <GoogleIcon />
               Entrar com o Google

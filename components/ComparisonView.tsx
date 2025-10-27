@@ -1,4 +1,4 @@
-// FIX: Added 'useCallback' to the React import to resolve 'Cannot find name' errors.
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { Scenario, SpotType } from '../types';
 

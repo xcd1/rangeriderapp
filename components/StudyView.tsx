@@ -425,7 +425,7 @@ const StudyView: React.FC = () => {
                     {/* CENTER BUTTON */}
                     <button
                         onClick={handleAddNewScenario}
-                        className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors flex items-center gap-2"
+                        className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors flex items-center gap-2 flex-shrink-0"
                     >
                         <PlusIcon />
                         Novo Cenário

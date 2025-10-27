@@ -1,0 +1,54 @@
+import React, { createContext, useContext, useState, ReactNode, useCallback } from 'react';
+
+interface ComparisonContextType {
+  scenariosToCompare: string[];
+  addScenarioToCompare: (scenarioId: string) => void;
+  removeScenarioFromCompare: (scenarioId: string) => void;
+  clearComparison: () => void;
+}
+
+const ComparisonContext = createContext<ComparisonContextType | null>(null);
+
+export const useComparison = (): ComparisonContextType => {
+  const context = useContext(ComparisonContext);
+  if (!context) {
+    throw new Error("useComparison must be used within a ComparisonProvider");
+  }
+  return context;
+};
+
+interface ComparisonProviderProps {
+  children: ReactNode;
+}
+
+export const ComparisonProvider: React.FC<ComparisonProviderProps> = ({ children }) => {
+  const [scenariosToCompare, setScenariosToCompare] = useState<string[]>([]);
+
+  const addScenarioToCompare = useCallback((scenarioId: string) => {
+    setScenariosToCompare(prev => {
+      if (prev.includes(scenarioId)) return prev;
+      return [...prev, scenarioId];
+    });
+  }, []);
+
+  const removeScenarioFromCompare = useCallback((scenarioId: string) => {
+    setScenariosToCompare(prev => prev.filter(id => id !== scenarioId));
+  }, []);
+  
+  const clearComparison = useCallback(() => {
+    setScenariosToCompare([]);
+  }, []);
+
+  const value = {
+    scenariosToCompare,
+    addScenarioToCompare,
+    removeScenarioFromCompare,
+    clearComparison,
+  };
+
+  return (
+    <ComparisonContext.Provider value={value}>
+      {children}
+    </ComparisonContext.Provider>
+  );
+};

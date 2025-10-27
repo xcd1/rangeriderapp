@@ -7,7 +7,10 @@ import useFirestoreNotebooks from './hooks/useFirestoreNotebooks';
 import Sidebar from './components/Sidebar';
 import StudyView from './components/StudyView';
 import LoginView from './components/LoginView';
+import ComparisonTray from './components/ComparisonTray';
+import ComparisonView from './components/ComparisonView';
 import { useAuth } from './contexts/AuthContext';
+import { ComparisonProvider, useComparison } from './contexts/ComparisonContext';
 
 // --- History Context for Undo functionality ---
 type UndoableAction = () => void;
@@ -84,7 +87,9 @@ const LoadingSpinner: React.FC = () => (
 const AppContent: React.FC = () => {
   const { user, logout, loading: authLoading } = useAuth();
   const { undoLastAction } = useHistory();
+  const { scenariosToCompare } = useComparison();
   const [activeNotebookId, setActiveNotebookId] = useState<string | null>(null);
+  const [isGlobalComparing, setIsGlobalComparing] = useState(false);
   
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const savedWidth = localStorage.getItem('sidebarWidth');
@@ -195,6 +200,19 @@ const AppContent: React.FC = () => {
         console.error("Failed to log out:", error);
     }
   }, [logout]);
+  
+  const scenariosForGlobalComparison = useMemo(() => {
+    if (!isGlobalComparing || scenariosToCompare.length === 0) return [];
+    
+    const scenarioMap = new Map<string, Scenario>();
+    for (const notebook of notebooks) {
+        for (const scenario of notebook.scenarios) {
+            scenarioMap.set(scenario.id, scenario);
+        }
+    }
+    
+    return scenariosToCompare.map(id => scenarioMap.get(id)).filter((s): s is Scenario => !!s);
+  }, [isGlobalComparing, scenariosToCompare, notebooks]);
 
   const contextValue = useMemo(() => {
     if (!user) return null;
@@ -226,6 +244,17 @@ const AppContent: React.FC = () => {
   if (!user) {
     return <LoginView />;
   }
+  
+  if (isGlobalComparing) {
+      return (
+          <div className="p-6 overflow-y-auto min-w-0 h-screen">
+            <ComparisonView 
+                scenarios={scenariosForGlobalComparison}
+                onBack={() => setIsGlobalComparing(false)}
+            />
+          </div>
+      )
+  }
 
   return (
     <AppContext.Provider value={contextValue}>
@@ -240,13 +269,16 @@ const AppContent: React.FC = () => {
           <StudyView key={activeNotebookId} />
         </main>
       </div>
+      <ComparisonTray onCompare={() => setIsGlobalComparing(true)} />
     </AppContext.Provider>
   );
 };
 
 const App: React.FC = () => (
   <HistoryProvider>
-    <AppContent />
+    <ComparisonProvider>
+      <AppContent />
+    </ComparisonProvider>
   </HistoryProvider>
 );
 
