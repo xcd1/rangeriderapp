@@ -113,7 +113,7 @@ const NotebookItem: React.FC<NotebookItemProps> = ({
                         className={`flex items-center truncate flex-grow ${isDeleting ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                     >
                         <NotebookIcon />
-                        <span className="truncate pr-2">{notebook.name}</span>
+                        <span className="truncate pr-2" title={notebook.name}>{notebook.name}</span>
                     </div>
                     
                     <div className="flex-shrink-0 flex items-center">
@@ -521,7 +521,7 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
                     <>
                         <div className="flex items-center truncate flex-grow">
                             <FolderIcon isOpen={!isCollapsed} />
-                            <span className="truncate pr-2 font-semibold">{folder.name}</span>
+                            <span className="truncate pr-2 font-semibold" title={folder.name}>{folder.name}</span>
                         </div>
                         <div className="flex items-center">
                             <button
@@ -548,7 +548,7 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
                 )}
             </div>
             {!isCollapsed && (
-                <ul className="pl-6 border-l-2 border-brand-secondary/20 ml-4">
+                <ul className="pl-4 border-l-2 border-brand-secondary/20 ml-2">
                     {childFolders.map((subFolder, i, arr) => renderFolderTree(subFolder, 0, i, arr))}
                     {notebooksInFolder.map((nb, i, arr) => renderNotebook(nb, i, arr))}
                     {notebooksInFolder.length === 0 && childFolders.length === 0 && <li className="text-xs text-brand-text-muted p-2">Pasta vazia</li>}
@@ -572,18 +572,18 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
           </div>
           <div className="space-y-3 mb-4">
             <div className="flex" title="Digite o nome da pasta">
-                <input type="text" value={newFolderName} onChange={(e) => setNewFolderName(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleAddFolder()} placeholder="Nova pasta..." className="flex-grow bg-brand-bg text-brand-text rounded-l-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-secondary"/>
+                <input type="text" value={newFolderName} onChange={(e) => setNewFolderName(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleAddFolder()} placeholder="Nova Pasta..." className="flex-grow bg-brand-bg text-brand-text rounded-l-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-secondary"/>
                 <button onClick={handleAddFolder} className="bg-brand-secondary/70 hover:brightness-110 text-brand-primary font-bold py-2 px-3 rounded-r-md text-sm transition-all flex items-center"><PlusIcon /></button>
             </div>
             <div className="flex" title="Digite o nome do caderno">
-                <input type="text" value={newNotebookName} onChange={(e) => setNewNotebookName(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleAddNotebook()} placeholder="Novo caderno..." className="flex-grow bg-brand-bg text-brand-text rounded-l-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-secondary"/>
+                <input type="text" value={newNotebookName} onChange={(e) => setNewNotebookName(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleAddNotebook()} placeholder="Novo Caderno..." className="flex-grow bg-brand-bg text-brand-text rounded-l-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-secondary"/>
                 <button onClick={handleAddNotebook} className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-3 rounded-r-md text-sm transition-all flex items-center"><PlusIcon /></button>
             </div>
           </div>
         </div>
         <div className="flex justify-between gap-2 mb-4">
-            <button onClick={handleCollapseAll} disabled={folders.length === 0} className="w-full text-xs bg-brand-bg hover:brightness-125 text-brand-text-muted font-semibold py-2 px-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Recolher tudo</button>
-            <button onClick={handleExpandAll} disabled={folders.length === 0} className="w-full text-xs bg-brand-bg hover:brightness-125 text-brand-text-muted font-semibold py-2 px-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Expandir tudo</button>
+            <button onClick={handleCollapseAll} disabled={folders.length === 0} className="w-full text-xs bg-brand-bg hover:brightness-125 text-brand-text-muted font-semibold py-2 px-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Recolher Tudo</button>
+            <button onClick={handleExpandAll} disabled={folders.length === 0} className="w-full text-xs bg-brand-bg hover:brightness-125 text-brand-text-muted font-semibold py-2 px-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Expandir Tudo</button>
         </div>
         <nav className="flex-grow overflow-y-auto pr-2 -mr-2 space-y-2">
             {rootFolders.map((folder, i, arr) => renderFolderTree(folder, 0, i, arr))}

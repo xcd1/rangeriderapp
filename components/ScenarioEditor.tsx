@@ -918,7 +918,7 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
                 
                 {!isCollapsed && (
                     <div className="bg-brand-primary">
-                        <CollapsibleSection title="Parâmetros do Cenário" isOpen={openSections.has('params')} onToggle={() => toggleSection('params')}>
+                        <CollapsibleSection title="Parâmetros" isOpen={openSections.has('params')} onToggle={() => toggleSection('params')}>
                              {/* HRC Enviroment */}
                             {scenario.spotType === 'HRC Enviroment' && (
                                 <div className="flex items-start gap-4">

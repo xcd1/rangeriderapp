@@ -1,3 +1,5 @@
+
+
 import React, { useContext, useState, useMemo, useEffect, useRef } from 'react';
 import { AppContext, useHistory } from '../App';
 import type { SpotType, Scenario } from '../types';
@@ -69,11 +71,7 @@ const setComparisonState = (uid: string, notebookId: string, scenarioIds: string
 const StudyView: React.FC = () => {
     const context = useContext(AppContext);
     const { pushToHistory } = useHistory();
-    const [activeSpot, setActiveSpot] = useState<SpotType | null>(null);
-    const [scenariosToCompare, setScenariosToCompare] = useState<Set<string>>(new Set());
-    const [isComparing, setIsComparing] = useState(false);
-    const [comparisonOriginSpot, setComparisonOriginSpot] = useState<SpotType | null>(null);
-    const [collapsedScenarios, setCollapsedScenarios] = useState<Set<string>>(new Set());
+
     const [isDeleteAllModalOpen, setIsDeleteAllModalOpen] = useState(false);
     const [isDeleteSelectionModalOpen, setIsDeleteSelectionModalOpen] = useState(false);
 
@@ -99,6 +97,62 @@ const StudyView: React.FC = () => {
 
     const uid = user?.uid;
 
+    const activeNotebook = useMemo(() => {
+        return notebooks.find(n => n.id === activeNotebookId);
+    }, [notebooks, activeNotebookId]);
+
+    // Synchronously determine the initial state to prevent UI flashing on notebook switch.
+    const initialViewState = useMemo(() => {
+        if (activeNotebook && uid) {
+            const comparisonStates = getComparisonState(uid);
+            const savedComparison = comparisonStates[activeNotebook.id];
+
+            if (savedComparison && savedComparison.scenarioIds.length > 0) {
+                return {
+                    isComparing: true,
+                    scenariosToCompare: new Set<string>(savedComparison.scenarioIds),
+                    activeSpot: null as SpotType | null,
+                    comparisonOriginSpot: savedComparison.fromSpot,
+                };
+            } else {
+                const lastSpot = getLastActiveSpots(uid)[activeNotebook.id];
+                return {
+                    isComparing: false,
+                    scenariosToCompare: new Set<string>(),
+                    activeSpot: lastSpot || null,
+                    comparisonOriginSpot: null as SpotType | null,
+                };
+            }
+        }
+        return {
+            isComparing: false,
+            scenariosToCompare: new Set<string>(),
+            activeSpot: null as SpotType | null,
+            comparisonOriginSpot: null as SpotType | null,
+        };
+    }, [activeNotebook, uid]);
+
+    const [activeSpot, setActiveSpot] = useState<SpotType | null>(initialViewState.activeSpot);
+    const [scenariosToCompare, setScenariosToCompare] = useState<Set<string>>(initialViewState.scenariosToCompare);
+    const [isComparing, setIsComparing] = useState<boolean>(initialViewState.isComparing);
+    const [comparisonOriginSpot, setComparisonOriginSpot] = useState<SpotType | null>(initialViewState.comparisonOriginSpot);
+
+    const initialCollapsedState = useMemo(() => {
+        if (activeNotebook && uid && initialViewState.activeSpot) {
+             try {
+                const key = `collapsedScenarios-${uid}-${activeNotebook.id}-${initialViewState.activeSpot}`;
+                const saved = localStorage.getItem(key);
+                return saved ? new Set<string>(JSON.parse(saved)) : new Set<string>();
+            } catch (e) {
+                console.error("Failed to load collapsed scenarios:", e);
+                return new Set<string>();
+            }
+        }
+        return new Set<string>();
+    }, [activeNotebook, uid, initialViewState.activeSpot]);
+
+    const [collapsedScenarios, setCollapsedScenarios] = useState<Set<string>>(initialCollapsedState);
+    
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (expandDropdownRef.current && !expandDropdownRef.current.contains(event.target as Node)) {
@@ -119,57 +173,6 @@ const StudyView: React.FC = () => {
         setExpandDropdownOpen(false);
         setCollapseDropdownOpen(false);
     };
-
-    const activeNotebook = useMemo(() => {
-        return notebooks.find(n => n.id === activeNotebookId);
-    }, [notebooks, activeNotebookId]);
-    
-    useEffect(() => {
-        // This effect handles restoring the view state (active spot or comparison view)
-        // for the currently active notebook. It now depends on `activeNotebook` to ensure
-        // it only runs when the notebook data is actually loaded, fixing a race condition.
-        if (activeNotebook && uid) {
-            const comparisonStates = getComparisonState(uid);
-            const savedComparison = comparisonStates[activeNotebook.id];
-
-            if (savedComparison && savedComparison.scenarioIds.length > 0) {
-                // If a saved comparison state is found, go directly to the comparison screen.
-                setActiveSpot(null);
-                setComparisonOriginSpot(savedComparison.fromSpot);
-                setScenariosToCompare(new Set(savedComparison.scenarioIds));
-                setIsComparing(true);
-                setCollapsedScenarios(new Set());
-            } else {
-                // Otherwise, load the last active spot for this notebook.
-                setIsComparing(false);
-                setComparisonOriginSpot(null);
-                const lastSpot = getLastActiveSpots(uid)[activeNotebook.id];
-                setActiveSpot(lastSpot || null);
-                setScenariosToCompare(new Set());
-                
-                if (lastSpot) {
-                    try {
-                        const key = `collapsedScenarios-${uid}-${activeNotebook.id}-${lastSpot}`;
-                        const saved = localStorage.getItem(key);
-                        const savedCollapsedSet = saved ? new Set(JSON.parse(saved)) : new Set();
-                        setCollapsedScenarios(savedCollapsedSet);
-                    } catch (e) {
-                        console.error("Failed to load collapsed scenarios:", e);
-                        setCollapsedScenarios(new Set());
-                    }
-                } else {
-                    setCollapsedScenarios(new Set());
-                }
-            }
-        } else {
-            // Reset state if no notebook is active or if it's still loading.
-            setActiveSpot(null);
-            setIsComparing(false);
-            setComparisonOriginSpot(null);
-            setScenariosToCompare(new Set());
-            setCollapsedScenarios(new Set());
-        }
-    }, [activeNotebook, uid]); // Depends on the notebook object itself, not just the ID.
 
     useEffect(() => {
         if (activeNotebookId && activeSpot && uid) {
@@ -395,7 +398,7 @@ const StudyView: React.FC = () => {
             </div>
             
             {filteredScenarios.length > 0 && (
-                <div className="flex items-center flex-wrap gap-4 mb-6 border-y border-brand-primary py-3">
+                <div className="flex justify-between items-center flex-wrap gap-4 mb-6 border-y border-brand-primary py-3">
                     {/* LEFT GROUP */}
                     <div className="flex items-center flex-wrap gap-4">
                         <button
@@ -405,22 +408,6 @@ const StudyView: React.FC = () => {
                         >
                             Comparar ({scenariosToCompare.size})
                         </button>
-                        {filteredScenarios.length > 1 && (
-                            <button
-                                onClick={handleSelectAll}
-                                className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors text-sm"
-                            >
-                                Selecionar todos
-                            </button>
-                        )}
-                        {scenariosToCompare.size > 0 && (
-                                <button
-                                onClick={handleClearCompare}
-                                className="bg-brand-primary hover:bg-brand-primary/80 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm"
-                            >
-                                Desmarcar todos
-                            </button>
-                        )}
                         
                         {filteredScenarios.length > 1 && (
                             <>
@@ -431,14 +418,14 @@ const StudyView: React.FC = () => {
                                         className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors text-sm disabled:bg-brand-secondary/50 disabled:cursor-not-allowed disabled:text-brand-primary/70"
                                         title={scenariosToCompare.size === 0 ? "Selecione um ou mais cenários para usar esta função" : ""}
                                     >
-                                        Expandir Seções
+                                        Expandir Cenários
                                     </button>
                                     {expandDropdownOpen && (
                                         <div className="absolute top-full left-0 mt-2 w-48 bg-brand-bg rounded-md shadow-lg z-10 border border-brand-primary overflow-hidden">
                                             <ul className="text-sm text-brand-text">
                                                 <li><button onClick={() => handleSectionControl('expand', 'all')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Expandir Tudo</button></li>
                                                 <li><button onClick={() => handleSectionControl('expand', 'params')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Parâmetros</button></li>
-                                                <li><button onClick={() => handleSectionControl('expand', 'media')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Mídias</button></li>
+                                                <li><button onClick={() => handleSectionControl('expand', 'media')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Mídia</button></li>
                                                 <li><button onClick={() => handleSectionControl('expand', 'notes')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Anotações</button></li>
                                             </ul>
                                         </div>
@@ -451,14 +438,14 @@ const StudyView: React.FC = () => {
                                         className="bg-brand-primary hover:bg-brand-primary/80 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                                         title={scenariosToCompare.size === 0 ? "Selecione um ou mais cenários para usar esta função" : ""}
                                     >
-                                        Recolher Seções
+                                        Recolher Cenários
                                     </button>
                                      {collapseDropdownOpen && (
                                         <div className="absolute top-full left-0 mt-2 w-48 bg-brand-bg rounded-md shadow-lg z-10 border border-brand-primary overflow-hidden">
                                             <ul className="text-sm text-brand-text">
                                                 <li><button onClick={() => handleSectionControl('collapse', 'all')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Recolher Tudo</button></li>
                                                 <li><button onClick={() => handleSectionControl('collapse', 'params')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Parâmetros</button></li>
-                                                <li><button onClick={() => handleSectionControl('collapse', 'media')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Mídias</button></li>
+                                                <li><button onClick={() => handleSectionControl('collapse', 'media')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Mídia</button></li>
                                                 <li><button onClick={() => handleSectionControl('collapse', 'notes')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Anotações</button></li>
                                             </ul>
                                         </div>
@@ -466,23 +453,35 @@ const StudyView: React.FC = () => {
                                 </div>
                             </>
                         )}
+
+                        {filteredScenarios.length > 1 && (
+                            <button
+                                onClick={handleSelectAll}
+                                className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors text-sm"
+                            >
+                                Selecionar Todos
+                            </button>
+                        )}
+                        {scenariosToCompare.size > 0 && (
+                                <button
+                                onClick={handleClearCompare}
+                                className="bg-brand-primary hover:bg-brand-primary/80 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm"
+                            >
+                                Desmarcar Todos
+                            </button>
+                        )}
                     </div>
 
-                    <div className="flex-grow" />
-
-                    {/* CENTER BUTTON */}
-                    <button
-                        onClick={handleAddNewScenario}
-                        className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors flex items-center gap-2 flex-shrink-0"
-                    >
-                        <PlusIcon />
-                        Novo Cenário
-                    </button>
-
-                    <div className="flex-grow" />
-
                     {/* RIGHT GROUP */}
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center flex-wrap gap-4">
+                        <button
+                            onClick={handleAddNewScenario}
+                            className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors flex items-center gap-2 flex-shrink-0"
+                        >
+                            <PlusIcon />
+                            Novo Cenário
+                        </button>
+                        
                         {scenariosToCompare.size > 0 && (
                             <button
                                 onClick={() => setIsDeleteSelectionModalOpen(true)}
@@ -499,7 +498,7 @@ const StudyView: React.FC = () => {
                                 className="bg-orange-700 hover:bg-orange-800 text-white font-semibold py-2 px-4 rounded-md transition-colors text-sm"
                                 title="Excluir todos os cenários visíveis"
                             >
-                                Excluir tudo
+                                Excluir Tudo
                             </button>
                         )}
                     </div>
