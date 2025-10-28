@@ -795,14 +795,24 @@ const ComparisonView: React.FC<ComparisonViewProps> = ({ scenarios, onBack }) =>
                         <span className="text-sm font-semibold text-brand-text-muted mr-2">Zoom:</span>
                         <button
                             onClick={handleZoomOut}
-                            className="bg-brand-bg hover:brightness-125 text-brand-text font-bold py-1.5 px-3 rounded-md transition-colors text-lg"
+                            className="bg-brand-bg hover:brightness-125 text-brand-text font-bold w-8 h-8 rounded-md transition-colors text-lg flex items-center justify-center"
                             title="Diminuir zoom"
                         >
                             -
                         </button>
+                        <input
+                            type="range"
+                            min="0.5"
+                            max="2"
+                            step="0.01"
+                            value={zoomLevel}
+                            onChange={(e) => setZoomLevel(parseFloat(e.target.value))}
+                            className="w-32 h-2 bg-brand-bg rounded-lg appearance-none cursor-pointer accent-brand-secondary"
+                            title={`Zoom: ${Math.round(zoomLevel * 100)}%`}
+                        />
                         <button
                             onClick={handleZoomIn}
-                            className="bg-brand-bg hover:brightness-125 text-brand-text font-bold py-1.5 px-3 rounded-md transition-colors text-lg"
+                            className="bg-brand-bg hover:brightness-125 text-brand-text font-bold w-8 h-8 rounded-md transition-colors text-lg flex items-center justify-center"
                             title="Aumentar zoom"
                         >
                             +
