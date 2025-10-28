@@ -8,9 +8,15 @@ interface State {
   hasError: boolean;
 }
 
-// FIX: Changed to extend `React.Component` directly. This resolves a TypeScript error where `this.props` was not recognized on the class instance, ensuring it's correctly typed as a React class component.
+// FIX: Refactored to use a constructor for state initialization. This approach is more traditional and can resolve subtle issues with build toolchains that may not fully support class field syntax, which was causing a misleading error where `this.props` was not recognized.
 class ErrorBoundary extends React.Component<Props, State> {
-  state: State = { hasError: false };
+  // FIX: The 'state' property is inherited from React.Component and initialized in the constructor.
+  // An explicit declaration here is redundant and was causing type resolution issues.
+
+  constructor(props: Props) {
+    super(props);
+    this.state = { hasError: false };
+  }
 
   static getDerivedStateFromError(_: Error): State {
     // Update state so the next render will show the fallback UI.

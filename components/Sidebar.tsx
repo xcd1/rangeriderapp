@@ -591,7 +591,7 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
             <div onDragOver={(e) => handleDragOver(e, null)}
                   onDragLeave={handleDragLeave}
                   onDrop={(e) => handleDrop(e, null)}
-                  className={`rounded-md min-h-[2rem] transition-colors ${dragOverTargetId === null ? 'bg-brand-secondary/20' : ''}`}>
+                  className={`rounded-md min-h-[2rem] transition-colors ${draggedItem && dragOverTargetId === null ? 'bg-brand-secondary/20' : ''}`}>
                 <ul className="space-y-1 pt-2">
                     {rootNotebooks.map((nb, i, arr) => renderNotebook(nb, i, arr))}
                 </ul>

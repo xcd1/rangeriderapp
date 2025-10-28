@@ -287,39 +287,14 @@ const getNumCols = (gridElement: HTMLElement | null): number => {
     return 2;
 };
 
-const layoutGroups = [
-    {
-        title: '2 Linhas',
-        options: [
-            { label: '2x2', rows: 2, cols: 2 },
-            { label: '2x3', rows: 2, cols: 3 },
-            { label: '2x4', rows: 2, cols: 4 },
-            { label: '2x5', rows: 2, cols: 5 },
-        ]
-    },
-    {
-        title: '3 Linhas',
-        options: [
-            { label: '3x2', rows: 3, cols: 2 },
-            { label: '3x3', rows: 3, cols: 3 },
-            { label: '3x4', rows: 3, cols: 4 },
-            { label: '3x5', rows: 3, cols: 5 },
-        ]
-    },
-    {
-        title: '4 Linhas',
-        options: [
-            { label: '4x2', rows: 4, cols: 2 },
-            { label: '4x3', rows: 4, cols: 3 },
-        ]
-    },
-    {
-        title: '5 Linhas',
-        options: [
-            { label: '5x2', rows: 5, cols: 2 },
-            { label: '5x3', rows: 5, cols: 3 },
-        ]
-    },
+const layouts = [
+    { type: 'single', label: '2x2', rows: 2, cols: 2 },
+    { type: 'single', label: '3x3', rows: 3, cols: 3 },
+    { type: 'dual', labels: ['2', '3'], layouts: [{ rows: 2, cols: 3 }, { rows: 3, cols: 2 }] },
+    { type: 'dual', labels: ['2', '4'], layouts: [{ rows: 2, cols: 4 }, { rows: 4, cols: 2 }] },
+    { type: 'dual', labels: ['2', '5'], layouts: [{ rows: 2, cols: 5 }, { rows: 5, cols: 2 }] },
+    { type: 'dual', labels: ['3', '4'], layouts: [{ rows: 3, cols: 4 }, { rows: 4, cols: 3 }] },
+    { type: 'dual', labels: ['3', '5'], layouts: [{ rows: 3, cols: 5 }, { rows: 5, cols: 3 }] },
 ];
 
 // Helper function to determine if a layout button should be enabled
@@ -752,22 +727,66 @@ const ComparisonView: React.FC<ComparisonViewProps> = ({ scenarios, onBack }) =>
                         </button>
                     </div>
 
-                    {/* Express layout buttons - flattened for space */}
+                    {/* Express layout buttons */}
                     <div className="flex flex-wrap items-center gap-2">
                         <span className="text-sm font-semibold text-brand-text-muted mr-2">Layouts:</span>
-                        {layoutGroups.flatMap(group => group.options).map(opt => {
-                            const enabled = isLayoutEnabled(opt.rows, opt.cols, numActiveScenarios);
-                            return (
-                                <button
-                                    key={opt.label}
-                                    onClick={() => handleExpressLayout(opt.rows, opt.cols)}
-                                    disabled={!enabled}
-                                    className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1.5 px-3 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                                    title={enabled ? `Organizar em ${opt.label}` : `Requer um número diferente de cenários`}
-                                >
-                                    {opt.label}
-                                </button>
-                            );
+                        {layouts.map((layout) => {
+                            if (layout.type === 'single') {
+                                const enabled = isLayoutEnabled(layout.rows, layout.cols, numActiveScenarios);
+                                return (
+                                    <button
+                                        key={layout.label}
+                                        onClick={() => handleExpressLayout(layout.rows, layout.cols)}
+                                        disabled={!enabled}
+                                        className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1.5 px-3 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                                        title={enabled ? `Organizar em ${layout.label}` : `Requer um número diferente de cenários`}
+                                    >
+                                        {layout.label}
+                                    </button>
+                                );
+                            }
+
+                            if (layout.type === 'dual') {
+                                const enabled1 = isLayoutEnabled(layout.layouts[0].rows, layout.layouts[0].cols, numActiveScenarios);
+                                const enabled2 = isLayoutEnabled(layout.layouts[1].rows, layout.layouts[1].cols, numActiveScenarios);
+                                
+                                const title1 = enabled1 ? `Organizar em ${layout.layouts[0].rows}x${layout.layouts[0].cols}` : 'Requer um número diferente de cenários';
+                                const title2 = enabled2 ? `Organizar em ${layout.layouts[1].rows}x${layout.layouts[1].cols}` : 'Requer um número diferente de cenários';
+                                
+                                return (
+                                    <div
+                                        key={`${layout.labels[0]}x${layout.labels[1]}`}
+                                        className={`flex items-center justify-center bg-brand-bg text-brand-text font-semibold rounded-md transition-colors text-sm ${(!enabled1 && !enabled2) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    >
+                                        <span
+                                            onClick={(e) => {
+                                                if (enabled1) {
+                                                    e.stopPropagation();
+                                                    handleExpressLayout(layout.layouts[0].rows, layout.layouts[0].cols);
+                                                }
+                                            }}
+                                            className={`py-1.5 px-3 rounded-l-md ${enabled1 ? 'hover:bg-brand-primary cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}
+                                            title={title1}
+                                        >
+                                            {layout.labels[0]}
+                                        </span>
+                                        <span className="text-brand-text-muted text-xs select-none">x</span>
+                                        <span
+                                            onClick={(e) => {
+                                                if (enabled2) {
+                                                    e.stopPropagation();
+                                                    handleExpressLayout(layout.layouts[1].rows, layout.layouts[1].cols);
+                                                }
+                                            }}
+                                            className={`py-1.5 px-3 rounded-r-md ${enabled2 ? 'hover:bg-brand-primary cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}
+                                            title={title2}
+                                        >
+                                            {layout.labels[1]}
+                                        </span>
+                                    </div>
+                                );
+                            }
+                            return null;
                         })}
                     </div>
                     

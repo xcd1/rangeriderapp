@@ -143,10 +143,13 @@ const ImageViewerModal: React.FC<ImageViewerModalProps> = ({ imageSrc, onClose, 
           onClick={onClose}
         >
             <button 
-                className="absolute top-4 right-4 text-white text-3xl font-bold z-[51]"
+                className="absolute top-4 right-4 text-white bg-black/50 hover:bg-red-700 p-2 rounded-full shadow-lg z-[51] transition-all hover:scale-110"
                 onClick={onClose}
+                title="Fechar (Esc)"
             >
-                &times;
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
             </button>
             <div className="relative max-w-full max-h-full" onClick={e => e.stopPropagation()}>
                 <img 
@@ -156,7 +159,7 @@ const ImageViewerModal: React.FC<ImageViewerModalProps> = ({ imageSrc, onClose, 
                 />
                 {onDelete && (
                     <button
-                        className="absolute top-2 left-2 text-white bg-black/50 hover:bg-red-700 p-2 rounded-full shadow-lg z-10 transition-all hover:scale-110"
+                        className="absolute top-4 left-4 text-white bg-black/50 hover:bg-red-700 p-2 rounded-full shadow-lg z-10 transition-all hover:scale-110"
                         onClick={(e) => {
                             e.stopPropagation();
                             onDelete();
