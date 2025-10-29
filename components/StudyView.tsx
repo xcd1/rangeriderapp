@@ -402,13 +402,13 @@ const StudyView: React.FC = () => {
                     {/* LEFT GROUP */}
                     <div className="flex items-center flex-wrap gap-4">
                         <button
-                            onClick={handleStartComparison}
-                            disabled={scenariosToCompare.size < 2}
-                            className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors disabled:bg-brand-secondary/50 disabled:cursor-not-allowed disabled:text-brand-primary/70"
+                            onClick={handleAddNewScenario}
+                            className="bg-white hover:bg-gray-200 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors flex items-center gap-2 flex-shrink-0"
                         >
-                            Comparar ({scenariosToCompare.size})
+                            <PlusIcon />
+                            Novo Cenário
                         </button>
-                        
+
                         {filteredScenarios.length > 1 && (
                             <>
                                 <div className="relative" ref={expandDropdownRef}>
@@ -453,7 +453,7 @@ const StudyView: React.FC = () => {
                                 </div>
                             </>
                         )}
-
+                        
                         {filteredScenarios.length > 1 && (
                             <button
                                 onClick={handleSelectAll}
@@ -462,6 +462,7 @@ const StudyView: React.FC = () => {
                                 Selecionar Todos
                             </button>
                         )}
+                        
                         {scenariosToCompare.size > 0 && (
                                 <button
                                 onClick={handleClearCompare}
@@ -470,18 +471,20 @@ const StudyView: React.FC = () => {
                                 Desmarcar Todos
                             </button>
                         )}
+
+                        {scenariosToCompare.size > 0 && (
+                            <button
+                                onClick={handleStartComparison}
+                                disabled={scenariosToCompare.size < 2}
+                                className="bg-white hover:bg-gray-200 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed disabled:text-brand-primary/70"
+                            >
+                                Comparar ({scenariosToCompare.size})
+                            </button>
+                        )}
                     </div>
 
                     {/* RIGHT GROUP */}
                     <div className="flex items-center flex-wrap gap-4">
-                        <button
-                            onClick={handleAddNewScenario}
-                            className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors flex items-center gap-2 flex-shrink-0"
-                        >
-                            <PlusIcon />
-                            Novo Cenário
-                        </button>
-                        
                         {scenariosToCompare.size > 0 && (
                             <button
                                 onClick={() => setIsDeleteSelectionModalOpen(true)}

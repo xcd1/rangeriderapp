@@ -1,7 +1,7 @@
 
 
 import React, { useState, createContext, useMemo, useCallback, ReactNode, useContext, useEffect, useRef } from 'react';
-import type { Notebook, Scenario, Folder } from './types';
+import type { Notebook, Scenario, Folder, UserProfile } from './types';
 import type { User } from 'firebase/auth';
 import useFirestoreNotebooks from './hooks/useFirestoreNotebooks';
 import Sidebar from './components/Sidebar';
@@ -11,6 +11,7 @@ import ComparisonTray from './components/ComparisonTray';
 import ComparisonView from './components/ComparisonView';
 import { useAuth } from './contexts/AuthContext';
 import { ComparisonProvider, useComparison } from './contexts/ComparisonContext';
+import VerificationBanner from './components/VerificationBanner';
 
 // --- History Context for Undo functionality ---
 type UndoableAction = () => void;
@@ -60,7 +61,7 @@ interface AppContextType {
   folders: Folder[];
   activeNotebookId: string | null;
   setActiveNotebookId: React.Dispatch<React.SetStateAction<string | null>>;
-  user: User;
+  user: (User & Partial<UserProfile>);
   logout: () => void;
   addNotebook: (name: string) => Promise<void>;
   deleteNotebook: (notebookId: string) => Promise<void>;
@@ -268,8 +269,11 @@ const AppContent: React.FC = () => {
             className="w-1.5 cursor-col-resize bg-brand-primary hover:bg-brand-secondary transition-colors duration-200 flex-shrink-0"
             title="Arraste para redimensionar"
         />
-        <main className="flex-1 p-6 overflow-y-auto min-w-0">
-          <StudyView key={activeNotebookId} />
+        <main className="flex-1 p-6 min-w-0 flex flex-col">
+          {user && !user.isVerified && <VerificationBanner />}
+          <div className="flex-grow overflow-y-auto">
+            <StudyView key={activeNotebookId} />
+          </div>
         </main>
       </div>
       <ComparisonTray onCompare={() => setIsGlobalComparing(true)} />

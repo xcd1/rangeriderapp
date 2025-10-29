@@ -403,6 +403,9 @@ const ComparisonView: React.FC<ComparisonViewProps> = ({ scenarios, onBack }) =>
             pushToHistory(orderedScenarios);
             setOrderedScenarios([...originalOrder]);
         }
+        if (zoomLevel !== 1) {
+            setZoomLevel(1);
+        }
         setGridCols(null);
     };
 

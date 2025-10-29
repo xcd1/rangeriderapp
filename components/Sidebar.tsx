@@ -2,6 +2,7 @@ import React, { useContext, useState, useCallback, useMemo, useEffect, useRef } 
 import { AppContext } from '../App';
 import ConfirmationModal from './ConfirmationModal';
 import type { Folder, Notebook } from '../types';
+import ProfileModal from './ProfileModal';
 
 const FolderIcon = ({ isOpen }: { isOpen?: boolean }) => (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-3 h-5 w-5 text-brand-secondary flex-shrink-0">
@@ -46,6 +47,10 @@ const ArrowUpIcon = () => (
 
 const ArrowDownIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
+);
+
+const GearIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
 );
 
 // Helper to prevent dropping a folder into itself or its children
@@ -196,6 +201,9 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
   // Drag & Drop states
   const [draggedItem, setDraggedItem] = useState<{ id: string, type: 'notebook' | 'folder' } | null>(null);
   const [dragOverTargetId, setDragOverTargetId] = useState<string | null>(null);
+
+  // Modal State
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   const isAnyItemBeingEdited = !!editingNotebookId || !!editingFolderId;
   const isStateLoaded = useRef(false);
@@ -598,9 +606,14 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
             </div>
         </nav>
         <div className="mt-auto pt-4 border-t border-brand-bg">
-            <div className="mb-2">
-              <span className="text-xs text-brand-text-muted">Usuário:</span>
-              <p className="text-sm font-semibold text-brand-text truncate" title={user.email || 'Usuário'}>{user.email || 'Usuário Anônimo'}</p>
+            <div className="flex items-center justify-between mb-2">
+                <div className="min-w-0">
+                  <span className="text-xs text-brand-text-muted">Usuário:</span>
+                  <p className="text-sm font-semibold text-brand-text truncate" title={user.displayName || user.email || 'Usuário'}>{user.displayName || user.email || 'Usuário Anônimo'}</p>
+                </div>
+                <button onClick={() => setIsProfileModalOpen(true)} className="p-2 rounded-full hover:bg-brand-bg text-brand-text-muted hover:text-brand-text flex-shrink-0" title="Configurações da conta">
+                    <GearIcon />
+                </button>
             </div>
             <button onClick={logout} className="w-full flex items-center justify-center border border-brand-secondary/50 hover:bg-brand-secondary/20 text-brand-secondary font-semibold py-2 px-3 rounded-md text-sm transition-colors">
               <LogoutIcon/> Sair
@@ -608,6 +621,8 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
             <p className="text-xs text-brand-text-muted text-center pt-4">powered by xcd1</p>
         </div>
       </aside>
+      
+      <ProfileModal isOpen={isProfileModalOpen} onClose={() => setIsProfileModalOpen(false)} />
       
       <ConfirmationModal isOpen={!!notebookToDelete} onClose={() => setNotebookToDelete(null)} onConfirm={handleConfirmDeleteNotebook} title="Confirmar Exclusão"
         message={<>Deseja realmente excluir o caderno <strong className="text-brand-secondary">{notebookToDelete?.name}</strong>?<br /><span className="text-sm">Esta ação não pode ser desfeita.</span></>}

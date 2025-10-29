@@ -7,6 +7,13 @@ export type RangeAction = 'RFI' | 'F2bet' | 'F3bet' | 'F4bet' | 'F5bet' | 'FCC' 
 export type BlindWarAction = 'vs. Limp' | 'vs. raise' | 'em Gap' | 'vs. ISO' | 'vs. 3bet';
 export type BlindWarPosition = 'SB' | 'BB';
 
+export interface UserProfile {
+  firstName: string;
+  lastName: string;
+  phone: string;
+  isVerified?: boolean;
+}
+
 export interface Scenario {
   id: string;
   spotType: SpotType;
