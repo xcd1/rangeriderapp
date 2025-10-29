@@ -18,7 +18,7 @@ const VerificationBanner: React.FC = () => {
     setMessage('');
     try {
       await sendSignupVerificationCode();
-      setMessage('Código de verificação reenviado com sucesso!');
+      setMessage('E-mail de verificação reenviado com sucesso!');
     } catch (error) {
       console.error(error);
       setMessage('Erro ao reenviar. Tente novamente mais tarde.');
@@ -33,7 +33,7 @@ const VerificationBanner: React.FC = () => {
         <div>
             <p className="font-bold">Verifique seu e-mail</p>
             <p className="text-sm">
-                Sua conta ainda não foi verificada. Por favor, insira o código de 4 dígitos que enviamos para o seu e-mail.
+                Sua conta ainda não foi verificada. Por favor, clique no link que enviamos para o seu e-mail.
                 <br />
                 Verifique sua caixa de spam caso não veja o e-mail de confirmação na caixa de entrada.
             </p>
@@ -45,7 +45,7 @@ const VerificationBanner: React.FC = () => {
           className="ml-4 flex-shrink-0 bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors text-sm disabled:opacity-50 disabled:cursor-wait flex items-center"
         >
           {isLoading ? <SpinnerIcon className="w-4 h-4 mr-2" /> : null}
-          {isLoading ? 'Reenviando...' : 'Reenviar Código'}
+          {isLoading ? 'Reenviando...' : 'Reenviar E-mail'}
         </button>
       </div>
     </div>

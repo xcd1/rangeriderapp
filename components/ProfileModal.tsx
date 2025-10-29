@@ -13,10 +13,10 @@ const SpinnerIcon: React.FC<{ className?: string }> = ({ className }) => (
     </svg>
 );
 
-type ChangeMethod = 'select' | 'withPassword' | 'withCode_send' | 'withCode_verify';
+type ChangeMethod = 'select' | 'withPassword';
 
 const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
-    const { user, updateUserProfile, sendChangePasswordCode, changePasswordWithCode, changePasswordWithOldPassword } = useAuth();
+    const { user, updateUserProfile, sendPasswordReset, changePasswordWithOldPassword } = useAuth();
     const [activeTab, setActiveTab] = useState<'profile' | 'password'>('profile');
     
     // Profile State
@@ -29,10 +29,10 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
     // Password State
     const [changeMethod, setChangeMethod] = useState<ChangeMethod>('select');
     const [oldPassword, setOldPassword] = useState('');
-    const [verificationCode, setVerificationCode] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [isPasswordLoading, setIsPasswordLoading] = useState(false);
+    const [isResetLinkLoading, setIsResetLinkLoading] = useState(false);
     const [passwordMessage, setPasswordMessage] = useState({ type: '', text: '' });
 
     const resetMessages = useCallback(() => {
@@ -43,10 +43,10 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
     const resetPasswordForms = useCallback(() => {
         setChangeMethod('select');
         setOldPassword('');
-        setVerificationCode('');
         setNewPassword('');
         setConfirmPassword('');
         setIsPasswordLoading(false);
+        setIsResetLinkLoading(false);
     }, []);
 
     useEffect(() => {
@@ -81,45 +81,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
             setIsProfileLoading(false);
         }
     };
-    
-    const handleSendCode = async () => {
-        setIsPasswordLoading(true);
-        resetMessages();
-        try {
-            await sendChangePasswordCode();
-            setChangeMethod('withCode_verify');
-        } catch(error) {
-            setPasswordMessage({ type: 'error', text: 'Erro ao enviar código. Tente novamente.'});
-        } finally {
-            setIsPasswordLoading(false);
-        }
-    };
-    
-    const handlePasswordChangeWithCode = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (newPassword !== confirmPassword) {
-            setPasswordMessage({ type: 'error', text: 'As novas senhas não coincidem.' });
-            return;
-        }
-        if (newPassword.length < 6) {
-            setPasswordMessage({ type: 'error', text: 'A nova senha deve ter pelo menos 6 caracteres.' });
-            return;
-        }
-
-        setIsPasswordLoading(true);
-        resetMessages();
-
-        try {
-            await changePasswordWithCode(verificationCode, newPassword);
-            setPasswordMessage({ type: 'success', text: 'Senha alterada com sucesso! (Simulação)' });
-            resetPasswordForms();
-        } catch (error: any) {
-            setPasswordMessage({ type: 'error', text: 'Código inválido ou expirado.' });
-        } finally {
-            setIsPasswordLoading(false);
-        }
-    };
-    
+        
     const handlePasswordChangeWithOld = async (e: React.FormEvent) => {
         e.preventDefault();
         if (newPassword !== confirmPassword) {
@@ -147,6 +109,20 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
             setIsPasswordLoading(false);
         }
     };
+    
+    const handleSendResetLink = async () => {
+        if (!user?.email) return;
+        setIsResetLinkLoading(true);
+        resetMessages();
+        try {
+          await sendPasswordReset(user.email);
+          setPasswordMessage({ type: 'success', text: 'E-mail de recuperação enviado! Verifique sua caixa de entrada.' });
+        } catch (error) {
+          setPasswordMessage({ type: 'error', text: 'Erro ao enviar e-mail. Tente novamente.' });
+        } finally {
+          setIsResetLinkLoading(false);
+        }
+    };
 
     if (!isOpen) return null;
 
@@ -162,12 +138,17 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                         <p className="text-brand-text-muted">Como você gostaria de alterar sua senha?</p>
                         <div className="flex flex-col sm:flex-row gap-4">
                             <button onClick={() => setChangeMethod('withPassword')} className={`${buttonClass} bg-brand-bg text-brand-text hover:brightness-125`}>
-                                Usar Senha Atual
+                                Sei minha senha atual
                             </button>
-                            <button onClick={() => setChangeMethod('withCode_send')} className={`${buttonClass} text-brand-primary bg-brand-secondary hover:brightness-110`}>
-                                Esqueci a Senha (Usar Código)
+                            <button onClick={handleSendResetLink} disabled={isResetLinkLoading} className={`${buttonClass} text-brand-primary bg-brand-secondary hover:brightness-110`}>
+                                {isResetLinkLoading ? <SpinnerIcon className="w-5 h-5"/> : 'Não lembro minha senha'}
                             </button>
                         </div>
+                         {passwordMessage.text && (
+                            <p className={`mt-4 text-sm text-center ${passwordMessage.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+                                {passwordMessage.text}
+                            </p>
+                        )}
                     </div>
                 );
             case 'withPassword':
@@ -195,51 +176,6 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                               Voltar
                             </button>
                             <button type="submit" disabled={isPasswordLoading || oldPassword.length === 0 || newPassword.length < 6} className={`${buttonClass} text-brand-primary bg-brand-secondary hover:brightness-110`}>
-                                {isPasswordLoading ? <SpinnerIcon className="w-5 h-5" /> : 'Alterar Senha'}
-                            </button>
-                        </div>
-                    </form>
-                );
-            case 'withCode_send':
-                return (
-                    <div className="text-center space-y-4">
-                        <p className="text-brand-text-muted">Para sua segurança, enviaremos um código de verificação para seu e-mail para confirmar a alteração da senha.</p>
-                        {passwordMessage.text && <p className="text-sm text-center text-red-400">{passwordMessage.text}</p>}
-                         <div className="pt-2 flex gap-4">
-                            <button type="button" onClick={resetPasswordForms} disabled={isPasswordLoading} className={`${buttonClass} bg-brand-bg text-brand-text hover:brightness-125`}>
-                                Voltar
-                            </button>
-                            <button onClick={handleSendCode} disabled={isPasswordLoading} className={`${buttonClass} text-brand-primary bg-brand-secondary hover:brightness-110`}>
-                               {isPasswordLoading ? <SpinnerIcon className="w-5 h-5" /> : 'Enviar Código'}
-                            </button>
-                        </div>
-                    </div>
-                );
-            case 'withCode_verify':
-                return (
-                    <form onSubmit={handlePasswordChangeWithCode} className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium text-brand-text-muted mb-1">Código de Verificação</label>
-                            <input type="text" value={verificationCode} onChange={e => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 4))} maxLength={4} required className={`${inputClass} text-center text-xl tracking-widest`} placeholder="XXXX"/>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-brand-text-muted mb-1">Nova Senha</label>
-                            <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} required className={inputClass} placeholder="Mínimo de 6 caracteres"/>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-brand-text-muted mb-1">Confirmar Nova Senha</label>
-                            <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required className={inputClass} />
-                        </div>
-                        {passwordMessage.text && (
-                            <p className={`text-sm text-center ${passwordMessage.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
-                                {passwordMessage.text}
-                            </p>
-                        )}
-                        <div className="pt-2 flex gap-4">
-                            <button type="button" onClick={resetPasswordForms} disabled={isPasswordLoading} className={`${buttonClass} bg-brand-bg text-brand-text hover:brightness-125`}>
-                              Voltar
-                            </button>
-                            <button type="submit" disabled={isPasswordLoading || verificationCode.length < 4 || newPassword.length < 6} className={`${buttonClass} text-brand-primary bg-brand-secondary hover:brightness-110`}>
                                 {isPasswordLoading ? <SpinnerIcon className="w-5 h-5" /> : 'Alterar Senha'}
                             </button>
                         </div>

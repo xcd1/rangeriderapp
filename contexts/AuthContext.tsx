@@ -15,41 +15,12 @@ import {
   updatePassword,
   updateProfile,
   onAuthStateChanged,
+  sendPasswordResetEmail,
+  sendEmailVerification,
 } from 'firebase/auth';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import type { UserProfile } from '../types';
-
-// --- SIMULATED BACKEND LOGIC FOR CODE VERIFICATION ---
-// In a real application, this logic would live in a secure backend (e.g., Firebase Functions).
-// We use sessionStorage here for a client-only simulation.
-
-const generateCode = (): string => {
-  return Math.floor(1000 + Math.random() * 9000).toString();
-};
-
-const storeCode = (email: string, purpose: string, code: string) => {
-  const key = `verificationCode_${purpose}_${email.toLowerCase()}`;
-  const data = { code, expires: Date.now() + 10 * 60 * 1000 }; // 10 minute expiry
-  sessionStorage.setItem(key, JSON.stringify(data));
-  alert(`(APENAS SIMULAÇÃO - NENHUM E-MAIL FOI ENVIADO)\n\nSeu código de verificação para ${email} é: ${code}`);
-};
-
-const verifyCode = (email: string, purpose: string, code: string): boolean => {
-  const key = `verificationCode_${purpose}_${email.toLowerCase()}`;
-  const dataStr = sessionStorage.getItem(key);
-  if (!dataStr) return false;
-
-  const data = JSON.parse(dataStr);
-  if (data.code === code && Date.now() < data.expires) {
-    sessionStorage.removeItem(key); // Code can only be used once
-    return true;
-  }
-  return false;
-};
-
-// --- END OF SIMULATED BACKEND LOGIC ---
-
 
 type AppUser = (User & Partial<UserProfile>);
 
@@ -62,13 +33,8 @@ interface AuthContextType {
   logout: () => Promise<void>;
   updateUserProfile: (displayName: string, phone: string) => Promise<void>;
   
-  // New code-based functions
   sendSignupVerificationCode: () => Promise<void>;
-  completeSignupVerification: (code: string) => Promise<void>;
-  sendPasswordResetCode: (email: string) => Promise<void>;
-  resetPasswordWithCode: (email: string, code: string, newPassword: string) => Promise<void>;
-  sendChangePasswordCode: () => Promise<void>;
-  changePasswordWithCode: (code: string, newPassword: string) => Promise<void>;
+  sendPasswordReset: (email: string) => Promise<void>;
   changePasswordWithOldPassword: (oldPassword: string, newPassword: string) => Promise<void>;
 }
 
@@ -98,7 +64,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const userDocRef = doc(db, 'users', authUser.uid);
         const unsubProfile = onSnapshot(userDocRef, (doc) => {
           const profileData = doc.data() as UserProfile;
-          setUser({ ...authUser, ...profileData });
+          // We need to merge the latest auth user object with profile data
+          // because properties like `emailVerified` can change.
+          const latestAuthUser = auth.currentUser;
+          if (latestAuthUser) {
+              setUser({ ...latestAuthUser, ...profileData });
+          }
           setLoading(false);
         });
         return () => unsubProfile(); // Cleanup profile listener on logout
@@ -120,6 +91,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Create user profile in Firestore
     const userDocRef = doc(db, 'users', userCredential.user.uid);
     await setDoc(userDocRef, { isVerified: false, firstName: '', lastName: '', phone: '' });
+
+    // Send verification email
+    await sendEmailVerification(userCredential.user);
 
     return userCredential;
   }
@@ -160,66 +134,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     await setDoc(userDocRef, { phone }, { merge: true });
   };
   
-  // --- New Code Verification Functions ---
-  
   const sendSignupVerificationCode = async () => {
     const currentUser = auth.currentUser;
-    if (!currentUser || !currentUser.email) throw new Error("Usuário não encontrado para enviar código.");
-    const code = generateCode();
-    storeCode(currentUser.email, 'signup', code);
+    if (!currentUser) throw new Error("Usuário não autenticado para reenviar verificação.");
+    await sendEmailVerification(currentUser);
   };
   
-  const completeSignupVerification = async (code: string) => {
-    const currentUser = auth.currentUser;
-    if (!currentUser || !currentUser.email) throw new Error("Usuário não encontrado para verificar.");
-
-    if (verifyCode(currentUser.email, 'signup', code)) {
-      const userDocRef = doc(db, 'users', currentUser.uid);
-      await setDoc(userDocRef, { isVerified: true }, { merge: true });
-    } else {
-      throw new Error("Código inválido.");
-    }
-  };
-
-  const sendPasswordResetCode = async (email: string) => {
-    const code = generateCode();
-    storeCode(email, 'reset', code);
-  };
-  
-  const resetPasswordWithCode = async (email: string, code: string, newPassword: string) => {
-    if (verifyCode(email, 'reset', code)) {
-      // In a real app, you would call a Firebase Function here
-      // which uses the Admin SDK to update the user's password, bypassing the need for the old one.
-      // e.g., admin.auth().updateUser(uid, { password: newPassword });
-      // For this simulation, we'll just log success.
-      console.log(`(Simulação) Senha para ${email} alterada com sucesso.`);
-      alert(`(Simulação) Senha para ${email} alterada com sucesso! Você já pode fazer login com a nova senha.`);
-    } else {
-      throw new Error("Código inválido.");
-    }
-  };
-
-  const sendChangePasswordCode = async () => {
-    const currentUser = auth.currentUser;
-    if (!currentUser || !currentUser.email) throw new Error("Usuário não encontrado para enviar código.");
-    const code = generateCode();
-    storeCode(currentUser.email, 'change', code);
-  };
-  
-  const changePasswordWithCode = async (code: string, newPassword: string) => {
-    const currentUser = auth.currentUser;
-    if (!currentUser || !currentUser.email) throw new Error("Usuário não encontrado.");
-    
-    if (verifyCode(currentUser.email, 'change', code)) {
-      // Firebase's client-side `updatePassword` is a sensitive operation and
-      // requires recent re-authentication with the OLD password.
-      // A custom code flow like this requires a backend (Firebase Function with Admin SDK)
-      // to bypass that requirement securely. We are simulating the success case here.
-      console.log(`(Simulação) Senha para ${currentUser.email} alterada com sucesso via código.`);
-      alert(`(Simulação) Senha para ${currentUser.email} alterada com sucesso.`);
-    } else {
-      throw new Error("Código inválido.");
-    }
+  const sendPasswordReset = async (email: string) => {
+    await sendPasswordResetEmail(auth, email);
   };
 
   const changePasswordWithOldPassword = async (oldPassword: string, newPassword: string) => {
@@ -242,11 +164,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     logout: () => signOut(auth),
     updateUserProfile,
     sendSignupVerificationCode,
-    completeSignupVerification,
-    sendPasswordResetCode,
-    resetPasswordWithCode,
-    sendChangePasswordCode,
-    changePasswordWithCode,
+    sendPasswordReset,
     changePasswordWithOldPassword
   };
 
