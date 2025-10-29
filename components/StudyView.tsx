@@ -1,5 +1,3 @@
-
-
 import React, { useContext, useState, useMemo, useEffect, useRef } from 'react';
 import { AppContext, useHistory } from '../App';
 import type { SpotType, Scenario } from '../types';
@@ -7,10 +5,20 @@ import { SPOT_TYPES } from '../constants';
 import ScenarioEditor from './ScenarioEditor';
 import ComparisonView from './ComparisonView';
 import ConfirmationModal from './ConfirmationModal';
+import { useComparison } from '../contexts/ComparisonContext';
 
 const PlusIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 flex-shrink-0"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
 );
+
+const UndoIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M9 14 4 9l5-5"/><path d="M4 9h12a5 5 0 0 1 5 5v0a5 5 0 0 1-5 5H9"/></svg>
+);
+
+const RedoIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="m15 14 5-5-5-5"/><path d="M20 9H8a5 5 0 0 0-5 5v0a5 5 0 0 0 5 5h7"/></svg>
+);
+
 
 const getLastActiveSpots = (uid: string): Record<string, SpotType> => {
     if (!uid) return {};
@@ -70,7 +78,11 @@ const setComparisonState = (uid: string, notebookId: string, scenarioIds: string
 
 const StudyView: React.FC = () => {
     const context = useContext(AppContext);
-    const { pushToHistory } = useHistory();
+    const { pushToHistory, undoLastAction, redoLastAction, canUndo, canRedo } = useHistory();
+    const { 
+        removeScenarioFromCompare: removeIntelligentCompare, 
+        removeMultipleScenariosFromCompare: removeMultipleIntelligentCompare 
+    } = useComparison();
 
     const [isDeleteAllModalOpen, setIsDeleteAllModalOpen] = useState(false);
     const [isDeleteSelectionModalOpen, setIsDeleteSelectionModalOpen] = useState(false);
@@ -221,7 +233,10 @@ const StudyView: React.FC = () => {
             createdAt: Date.now(),
         };
         addScenario(activeNotebook.id, newScenario);
-        pushToHistory(() => deleteScenario(activeNotebook.id, newScenario.id));
+        pushToHistory({
+          undo: () => deleteScenario(activeNotebook.id, newScenario.id),
+          redo: () => addScenario(activeNotebook.id, newScenario),
+        });
     };
 
     const handleUpdateScenario = (updatedScenario: Scenario) => {
@@ -234,7 +249,18 @@ const StudyView: React.FC = () => {
         const scenarioToDelete = activeNotebook.scenarios.find(s => s.id === scenarioId);
         if (scenarioToDelete) {
             deleteScenario(activeNotebook.id, scenarioId);
-            pushToHistory(() => addScenario(activeNotebook.id, scenarioToDelete));
+            pushToHistory({
+                undo: () => addScenario(activeNotebook.id, scenarioToDelete),
+                redo: () => deleteScenario(activeNotebook.id, scenarioId),
+            });
+            // Update quick compare
+            setScenariosToCompare(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(scenarioId);
+                return newSet;
+            });
+            // Update intelligent compare
+            removeIntelligentCompare(scenarioId);
         }
     };
     
@@ -250,7 +276,10 @@ const StudyView: React.FC = () => {
         };
 
         addScenario(activeNotebook.id, duplicatedScenario);
-        pushToHistory(() => deleteScenario(activeNotebook.id, duplicatedScenario.id));
+        pushToHistory({
+            undo: () => deleteScenario(activeNotebook.id, duplicatedScenario.id),
+            redo: () => addScenario(activeNotebook.id, duplicatedScenario)
+        });
     };
     
     const handleDeleteAll = () => {
@@ -260,7 +289,13 @@ const StudyView: React.FC = () => {
         const scenarioIdsToDelete = scenariosToDelete.map(s => s.id);
         
         deleteMultipleScenarios(activeNotebook.id, scenarioIdsToDelete);
-        pushToHistory(() => addMultipleScenarios(activeNotebook.id, scenariosToDelete));
+        pushToHistory({
+            undo: () => addMultipleScenarios(activeNotebook.id, scenariosToDelete),
+            redo: () => deleteMultipleScenarios(activeNotebook.id, scenarioIdsToDelete)
+        });
+        
+        // Update intelligent compare
+        removeMultipleIntelligentCompare(scenarioIdsToDelete);
         
         setLastActiveSpot(uid, activeNotebook.id, null);
         setActiveSpot(null); // Go back to spot selection
@@ -274,9 +309,16 @@ const StudyView: React.FC = () => {
         const scenarioIdsToDelete = Array.from(scenariosToCompare);
 
         deleteMultipleScenarios(activeNotebook.id, scenarioIdsToDelete);
-        pushToHistory(() => addMultipleScenarios(activeNotebook.id, scenariosToDelete));
+        pushToHistory({
+            undo: () => addMultipleScenarios(activeNotebook.id, scenariosToDelete),
+            redo: () => deleteMultipleScenarios(activeNotebook.id, scenarioIdsToDelete)
+        });
 
-        setScenariosToCompare(new Set());
+        // Update intelligent compare
+        removeMultipleIntelligentCompare(scenarioIdsToDelete);
+
+        // FIX: Explicitly type new Set() to avoid type pollution that causes downstream errors.
+        setScenariosToCompare(new Set<string>());
         setIsDeleteSelectionModalOpen(false);
 
         const remainingScenarios = filteredScenarios.filter(s => !scenarioIdsToDelete.includes(s.id));
@@ -287,7 +329,8 @@ const StudyView: React.FC = () => {
     };
 
     const toggleCompare = (scenarioId: string) => {
-        setScenariosToCompare(prev => {
+        // FIX: Explicitly type `prev` to avoid it being inferred as `unknown` in some TypeScript configurations, which was causing type pollution.
+        setScenariosToCompare((prev: Set<string>) => {
             const newSet = new Set(prev);
             if (newSet.has(scenarioId)) {
                 newSet.delete(scenarioId);
@@ -299,7 +342,8 @@ const StudyView: React.FC = () => {
     };
     
     const toggleScenarioCollapse = (scenarioId: string) => {
-        setCollapsedScenarios(prev => {
+        // FIX: Explicitly type `prev` to avoid it being inferred as `unknown` in some TypeScript configurations.
+        setCollapsedScenarios((prev: Set<string>) => {
             const newSet = new Set(prev);
             if (newSet.has(scenarioId)) {
                 newSet.delete(scenarioId);
@@ -311,7 +355,8 @@ const StudyView: React.FC = () => {
     };
 
     const handleClearCompare = () => {
-        setScenariosToCompare(new Set());
+        // FIX: Explicitly specify the type for the new Set to avoid type inference issues.
+        setScenariosToCompare(new Set<string>());
     };
 
     const handleSelectAll = () => {
@@ -326,7 +371,8 @@ const StudyView: React.FC = () => {
         if (activeNotebookId && uid) {
             setLastActiveSpot(uid, activeNotebookId, spot);
         }
-        setScenariosToCompare(new Set());
+        // FIX: Explicitly specify the type for the new Set to avoid type inference issues.
+        setScenariosToCompare(new Set<string>());
     };
     
     const handleBackToSpots = () => {
@@ -334,7 +380,8 @@ const StudyView: React.FC = () => {
             setLastActiveSpot(uid, activeNotebookId, null); // Clear the stored spot
         }
         setActiveSpot(null);
-        setScenariosToCompare(new Set());
+        // FIX: Explicitly specify the type for the new Set to avoid type inference issues.
+        setScenariosToCompare(new Set<string>());
     };
 
     const handleStartComparison = () => {
@@ -390,123 +437,142 @@ const StudyView: React.FC = () => {
 
     return (
         <div>
-            <div className="flex justify-between items-start mb-4">
-                <div>
-                    <button onClick={handleBackToSpots} className="text-sm font-bold text-brand-secondary hover:underline mb-2 inline-block">&larr; Voltar para Spots</button>
-                    <h2 className="text-2xl font-bold text-brand-text">{activeNotebook.name} / {activeSpot}</h2>
+            <div className="sticky top-0 z-10 bg-brand-bg pb-4">
+                <div className="flex justify-between items-start mb-4">
+                    <div>
+                        <button onClick={handleBackToSpots} className="text-sm font-bold text-brand-secondary hover:underline mb-2 inline-block">&larr; Voltar para Spots</button>
+                        <h2 className="text-2xl font-bold text-brand-text">{activeNotebook.name} / {activeSpot}</h2>
+                    </div>
                 </div>
-            </div>
-            
-            {filteredScenarios.length > 0 && (
-                <div className="flex justify-between items-center flex-wrap gap-4 mb-6 border-y border-brand-primary py-3">
-                    {/* LEFT GROUP */}
-                    <div className="flex items-center flex-wrap gap-4">
-                        <button
-                            onClick={handleAddNewScenario}
-                            className="bg-white hover:bg-gray-200 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors flex items-center gap-2 flex-shrink-0"
-                        >
-                            <PlusIcon />
-                            Novo Cenário
-                        </button>
-
-                        {filteredScenarios.length > 1 && (
-                            <>
-                                <div className="relative" ref={expandDropdownRef}>
-                                    <button
-                                        onClick={() => setExpandDropdownOpen(p => !p)}
-                                        disabled={scenariosToCompare.size === 0}
-                                        className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors text-sm disabled:bg-brand-secondary/50 disabled:cursor-not-allowed disabled:text-brand-primary/70"
-                                        title={scenariosToCompare.size === 0 ? "Selecione um ou mais cenários para usar esta função" : ""}
-                                    >
-                                        Expandir Cenários
-                                    </button>
-                                    {expandDropdownOpen && (
-                                        <div className="absolute top-full left-0 mt-2 w-48 bg-brand-bg rounded-md shadow-lg z-10 border border-brand-primary overflow-hidden">
-                                            <ul className="text-sm text-brand-text">
-                                                <li><button onClick={() => handleSectionControl('expand', 'all')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Expandir Tudo</button></li>
-                                                <li><button onClick={() => handleSectionControl('expand', 'params')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Parâmetros</button></li>
-                                                <li><button onClick={() => handleSectionControl('expand', 'media')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Mídia</button></li>
-                                                <li><button onClick={() => handleSectionControl('expand', 'notes')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Anotações</button></li>
-                                            </ul>
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="relative" ref={collapseDropdownRef}>
-                                    <button
-                                        onClick={() => setCollapseDropdownOpen(p => !p)}
-                                        disabled={scenariosToCompare.size === 0}
-                                        className="bg-brand-primary hover:bg-brand-primary/80 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                                        title={scenariosToCompare.size === 0 ? "Selecione um ou mais cenários para usar esta função" : ""}
-                                    >
-                                        Recolher Cenários
-                                    </button>
-                                     {collapseDropdownOpen && (
-                                        <div className="absolute top-full left-0 mt-2 w-48 bg-brand-bg rounded-md shadow-lg z-10 border border-brand-primary overflow-hidden">
-                                            <ul className="text-sm text-brand-text">
-                                                <li><button onClick={() => handleSectionControl('collapse', 'all')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Recolher Tudo</button></li>
-                                                <li><button onClick={() => handleSectionControl('collapse', 'params')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Parâmetros</button></li>
-                                                <li><button onClick={() => handleSectionControl('collapse', 'media')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Mídia</button></li>
-                                                <li><button onClick={() => handleSectionControl('collapse', 'notes')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Anotações</button></li>
-                                            </ul>
-                                        </div>
-                                    )}
-                                </div>
-                            </>
-                        )}
-                        
-                        {filteredScenarios.length > 1 && (
+                
+                {filteredScenarios.length > 0 && (
+                    <div className="flex justify-between items-center flex-wrap gap-4 border-y border-brand-primary py-3">
+                        {/* LEFT GROUP */}
+                        <div className="flex items-center flex-wrap gap-4">
                             <button
-                                onClick={handleSelectAll}
-                                className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors text-sm"
+                                onClick={handleAddNewScenario}
+                                className="bg-white hover:bg-gray-200 text-brand-primary font-bold py-2.5 px-4 rounded-md transition-colors flex items-center"
                             >
-                                Selecionar Todos
+                                Novo Cenário
                             </button>
-                        )}
-                        
-                        {scenariosToCompare.size > 0 && (
+
+                            {filteredScenarios.length > 1 && (
+                                <>
+                                    <div className="relative" ref={expandDropdownRef}>
+                                        <button
+                                            onClick={() => setExpandDropdownOpen(p => !p)}
+                                            disabled={scenariosToCompare.size === 0}
+                                            className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors text-sm disabled:bg-brand-secondary/50 disabled:cursor-not-allowed disabled:text-brand-primary/70"
+                                            title={scenariosToCompare.size === 0 ? "Selecione um ou mais cenários para usar esta função" : ""}
+                                        >
+                                            Expandir Cenários
+                                        </button>
+                                        {expandDropdownOpen && (
+                                            <div className="absolute top-full left-0 mt-2 w-48 bg-brand-bg rounded-md shadow-lg z-10 border border-brand-primary overflow-hidden">
+                                                <ul className="text-sm text-brand-text">
+                                                    <li><button onClick={() => handleSectionControl('expand', 'all')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Expandir Tudo</button></li>
+                                                    <li><button onClick={() => handleSectionControl('expand', 'params')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Parâmetros</button></li>
+                                                    <li><button onClick={() => handleSectionControl('expand', 'media')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Mídia</button></li>
+                                                    <li><button onClick={() => handleSectionControl('expand', 'notes')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Anotações</button></li>
+                                                </ul>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="relative" ref={collapseDropdownRef}>
+                                        <button
+                                            onClick={() => setCollapseDropdownOpen(p => !p)}
+                                            disabled={scenariosToCompare.size === 0}
+                                            className="bg-brand-primary hover:bg-brand-primary/80 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                            title={scenariosToCompare.size === 0 ? "Selecione um ou mais cenários para usar esta função" : ""}
+                                        >
+                                            Recolher Cenários
+                                        </button>
+                                         {collapseDropdownOpen && (
+                                            <div className="absolute top-full left-0 mt-2 w-48 bg-brand-bg rounded-md shadow-lg z-10 border border-brand-primary overflow-hidden">
+                                                <ul className="text-sm text-brand-text">
+                                                    <li><button onClick={() => handleSectionControl('collapse', 'all')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Recolher Tudo</button></li>
+                                                    <li><button onClick={() => handleSectionControl('collapse', 'params')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Parâmetros</button></li>
+                                                    <li><button onClick={() => handleSectionControl('collapse', 'media')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Mídia</button></li>
+                                                    <li><button onClick={() => handleSectionControl('collapse', 'notes')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Anotações</button></li>
+                                                </ul>
+                                            </div>
+                                        )}
+                                    </div>
+                                </>
+                            )}
+                            
+                            {filteredScenarios.length > 1 && (
                                 <button
-                                onClick={handleClearCompare}
-                                className="bg-brand-primary hover:bg-brand-primary/80 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm"
-                            >
-                                Desmarcar Todos
-                            </button>
-                        )}
+                                    onClick={handleSelectAll}
+                                    className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors text-sm"
+                                >
+                                    Selecionar Todos
+                                </button>
+                            )}
+                            
+                            {scenariosToCompare.size > 0 && (
+                                    <button
+                                    onClick={handleClearCompare}
+                                    className="bg-brand-primary hover:bg-brand-primary/80 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm"
+                                >
+                                    Desmarcar Todos
+                                </button>
+                            )}
 
-                        {scenariosToCompare.size > 0 && (
+                            {scenariosToCompare.size > 0 && (
+                                <button
+                                    onClick={handleStartComparison}
+                                    disabled={scenariosToCompare.size < 2}
+                                    className="bg-white hover:bg-gray-200 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed disabled:text-brand-primary/70"
+                                >
+                                    Comparar ({scenariosToCompare.size})
+                                </button>
+                            )}
+                        </div>
+
+                        {/* RIGHT GROUP */}
+                        <div className="flex items-center flex-wrap gap-4">
+                            {scenariosToCompare.size > 0 && (
+                                <button
+                                    onClick={() => setIsDeleteSelectionModalOpen(true)}
+                                    className="bg-orange-700 hover:bg-orange-800 text-white font-semibold py-2 px-4 rounded-md transition-colors text-sm"
+                                    title="Excluir os cenários selecionados"
+                                >
+                                    Excluir Seleção
+                                </button>
+                            )}
+                            
                             <button
-                                onClick={handleStartComparison}
-                                disabled={scenariosToCompare.size < 2}
-                                className="bg-white hover:bg-gray-200 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed disabled:text-brand-primary/70"
+                                onClick={undoLastAction}
+                                disabled={!canUndo}
+                                className="bg-brand-primary hover:bg-brand-primary/80 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                                title="Desfazer (Ctrl+Z)"
                             >
-                                Comparar ({scenariosToCompare.size})
+                                Undo
                             </button>
-                        )}
+                            
+                            <button
+                                onClick={redoLastAction}
+                                disabled={!canRedo}
+                                className="bg-brand-primary hover:bg-brand-primary/80 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                                title="Refazer (Ctrl+Y)"
+                            >
+                                Redo
+                            </button>
+
+                            {filteredScenarios.length > 0 && (
+                                <button
+                                    onClick={() => setIsDeleteAllModalOpen(true)}
+                                    className="bg-orange-700 hover:bg-orange-800 text-white font-semibold py-2 px-4 rounded-md transition-colors text-sm"
+                                    title="Excluir todos os cenários visíveis"
+                                >
+                                    Excluir Tudo
+                                </button>
+                            )}
+                        </div>
                     </div>
-
-                    {/* RIGHT GROUP */}
-                    <div className="flex items-center flex-wrap gap-4">
-                        {scenariosToCompare.size > 0 && (
-                            <button
-                                onClick={() => setIsDeleteSelectionModalOpen(true)}
-                                className="bg-orange-700 hover:bg-orange-800 text-white font-semibold py-2 px-4 rounded-md transition-colors text-sm"
-                                title="Excluir os cenários selecionados"
-                            >
-                                Excluir Seleção
-                            </button>
-                        )}
-
-                        {filteredScenarios.length > 0 && (
-                            <button
-                                onClick={() => setIsDeleteAllModalOpen(true)}
-                                className="bg-orange-700 hover:bg-orange-800 text-white font-semibold py-2 px-4 rounded-md transition-colors text-sm"
-                                title="Excluir todos os cenários visíveis"
-                            >
-                                Excluir Tudo
-                            </button>
-                        )}
-                    </div>
-                </div>
-            )}
+                )}
+            </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {filteredScenarios.map(scenario => (

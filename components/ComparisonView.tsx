@@ -48,70 +48,124 @@ const getScenarioTitle = (scenario: Scenario): string => {
     return `${rangeAction} (Incompleto)${gsSuffix}`;
 };
 
-// --- RangeZoomModal Component (for main range images) ---
-interface RangeZoomModalProps {
-    imageSrc: string;
-    onClose: () => void;
-}
-const RangeZoomModal: React.FC<RangeZoomModalProps> = ({ imageSrc, onClose }) => {
+const BackArrowIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 mr-2">
+        <line x1="19" y1="12" x2="5" y2="12"></line>
+        <polyline points="12 19 5 12 12 5"></polyline>
+    </svg>
+);
+
+// --- DraggableZoomModal Component (replaces old RangeZoomModal) ---
+const DraggableZoomModal: React.FC<{ imageSrc: string; onClose: () => void }> = ({ imageSrc, onClose }) => {
+    const [position, setPosition] = useState({ x: 50, y: 50 });
+    const [size, setSize] = useState({ width: window.innerWidth * 0.7, height: window.innerHeight * 0.7 });
     const [scale, setScale] = useState(1);
     const [offset, setOffset] = useState({ x: 0, y: 0 });
-    const imgRef = useRef<HTMLImageElement>(null);
-    const dragInfo = useRef({ isDragging: false, startX: 0, startY: 0, initialX: 0, initialY: 0 });
 
-    const handleZoomIn = () => setScale(s => Math.min(s * 1.2, 5));
-    const handleZoomOut = () => setScale(s => Math.max(s / 1.2, 1));
-    const handleZoomReset = () => { setScale(1); setOffset({ x: 0, y: 0 }); };
+    const stateRef = useRef({
+        isWindowDragging: false,
+        isImagePanning: false,
+        startX: 0,
+        startY: 0,
+        initialX: 0,
+        initialY: 0,
+    });
+    const nodeRef = useRef<HTMLDivElement>(null);
 
-    const handleMouseDown = (e: React.MouseEvent<HTMLImageElement>) => {
-        if (scale <= 1) return;
-        dragInfo.current = { isDragging: true, startX: e.clientX, startY: e.clientY, initialX: offset.x, initialY: offset.y };
-        e.currentTarget.style.cursor = 'grabbing';
+    const handleWindowDragStart = (e: React.MouseEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        stateRef.current = {
+            ...stateRef.current,
+            isWindowDragging: true,
+            startX: e.clientX,
+            startY: e.clientY,
+            initialX: position.x,
+            initialY: position.y,
+        };
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
     };
 
-    const handleMouseUp = (e: React.MouseEvent<HTMLImageElement>) => {
-        dragInfo.current.isDragging = false;
-        if (scale > 1) {
-            e.currentTarget.style.cursor = 'grab';
+    const handleImagePanStart = (e: React.MouseEvent<HTMLImageElement>) => {
+        if (scale <= 1) return;
+        e.preventDefault();
+        stateRef.current = {
+            ...stateRef.current,
+            isImagePanning: true,
+            startX: e.clientX,
+            startY: e.clientY,
+            initialX: offset.x,
+            initialY: offset.y,
+        };
+        e.currentTarget.style.cursor = 'grabbing';
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+        if (stateRef.current.isWindowDragging) {
+            const dx = e.clientX - stateRef.current.startX;
+            const dy = e.clientY - stateRef.current.startY;
+            setPosition({ x: stateRef.current.initialX + dx, y: stateRef.current.initialY + dy });
+        } else if (stateRef.current.isImagePanning) {
+            const dx = e.clientX - stateRef.current.startX;
+            const dy = e.clientY - stateRef.current.startY;
+            setOffset({ x: stateRef.current.initialX + dx, y: stateRef.current.initialY + dy });
         }
     };
 
-    const handleMouseMove = (e: React.MouseEvent<HTMLImageElement>) => {
-        if (!dragInfo.current.isDragging) return;
-        const dx = e.clientX - dragInfo.current.startX;
-        const dy = e.clientY - dragInfo.current.startY;
-        setOffset({ x: dragInfo.current.initialX + dx, y: dragInfo.current.initialY + dy });
+    const handleMouseUp = () => {
+        if (nodeRef.current && stateRef.current.isImagePanning) {
+            const img = nodeRef.current.querySelector('img');
+            if(img) img.style.cursor = 'grab';
+        }
+        stateRef.current.isWindowDragging = false;
+        stateRef.current.isImagePanning = false;
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
     };
     
     const handleWheel = (e: React.WheelEvent) => {
         e.preventDefault();
-        if (e.deltaY < 0) handleZoomIn();
-        else handleZoomOut();
+        e.stopPropagation();
+        const newScale = e.deltaY < 0 ? scale * 1.1 : scale / 1.1;
+        setScale(Math.max(1, Math.min(newScale, 10)));
     };
 
+    const handleZoomIn = (e: React.MouseEvent) => { e.stopPropagation(); setScale(s => Math.min(s * 1.2, 10)); };
+    const handleZoomOut = (e: React.MouseEvent) => { e.stopPropagation(); setScale(s => Math.max(s / 1.2, 1)); };
+    const handleZoomReset = (e: React.MouseEvent) => { e.stopPropagation(); setScale(1); setOffset({ x: 0, y: 0 }); };
+
     return (
-        <div className="fixed inset-0 flex flex-col justify-center items-center z-[10000] bg-black/80" onClick={onClose}>
-            <div className="absolute top-4 right-4 z-10 flex items-center gap-2 bg-brand-bg p-2 rounded-lg">
-                <button onClick={(e) => { e.stopPropagation(); handleZoomOut(); }} className="w-8 h-8 rounded-md bg-brand-primary text-lg font-bold">-</button>
-                <button onClick={(e) => { e.stopPropagation(); handleZoomIn(); }} className="w-8 h-8 rounded-md bg-brand-primary text-lg font-bold">+</button>
-                <button onClick={(e) => { e.stopPropagation(); handleZoomReset(); }} className="h-8 px-3 rounded-md bg-brand-primary text-sm">Reset</button>
-                <button onClick={onClose} className="w-8 h-8 rounded-md bg-red-700 text-lg font-bold">&times;</button>
+        <div
+            ref={nodeRef}
+            className="fixed bg-brand-primary rounded-lg shadow-2xl border-2 border-brand-secondary/50 flex flex-col"
+            style={{ left: position.x, top: position.y, width: size.width, height: size.height, zIndex: 10000 }}
+            onWheel={handleWheel}
+        >
+            <div
+                className="bg-brand-bg text-brand-text p-2 rounded-t-lg flex justify-between items-center cursor-move"
+                onMouseDown={handleWindowDragStart}
+            >
+                <div className="flex items-center gap-2">
+                    <button onClick={handleZoomOut} className="w-6 h-6 rounded-md bg-brand-primary text-lg font-bold">-</button>
+                    <button onClick={handleZoomIn} className="w-6 h-6 rounded-md bg-brand-primary text-lg font-bold">+</button>
+                    <button onClick={handleZoomReset} className="h-6 px-2 rounded-md bg-brand-primary text-xs">Reset</button>
+                </div>
+                <button onClick={onClose} className="text-white bg-red-600 hover:bg-red-700 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0">
+                    &times;
+                </button>
             </div>
-            <div className="w-[90vw] h-[90vh] flex items-center justify-center overflow-hidden" onWheel={handleWheel}>
+            <div className="p-2 flex-grow flex items-center justify-center relative overflow-hidden bg-brand-bg/20">
                 <img
-                    ref={imgRef}
                     src={imageSrc}
                     alt="Range ampliado"
                     className="max-w-none max-h-none transition-transform duration-100"
-                    style={{ 
+                    style={{
                         transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
-                        cursor: scale > 1 ? 'grab' : 'default'
+                        cursor: scale > 1 ? 'grab' : 'default',
                     }}
-                    onMouseDown={handleMouseDown}
-                    onMouseUp={handleMouseUp}
-                    onMouseMove={handleMouseMove}
-                    onMouseLeave={handleMouseUp} // Stop dragging if mouse leaves image
-                    onClick={(e) => e.stopPropagation()}
+                    onMouseDown={handleImagePanStart}
                 />
             </div>
         </div>
@@ -694,8 +748,8 @@ const ComparisonView: React.FC<ComparisonViewProps> = ({ scenarios, onBack }) =>
         : 'grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5';
     
     return (
-        <div>
-            <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-4 mb-6 p-3 rounded-lg bg-brand-primary border border-brand-bg">
+        <div className="flex flex-col h-full">
+            <div className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-x-6 gap-y-4 p-6 bg-brand-primary border-b border-brand-bg">
                 {/* Left side: Title */}
                 <div className="flex items-center gap-4 flex-shrink-0">
                     <h2 className="text-2xl font-bold text-brand-text">Análises/Comparações:</h2>
@@ -834,111 +888,114 @@ const ComparisonView: React.FC<ComparisonViewProps> = ({ scenarios, onBack }) =>
                             Fechar Tudo
                         </button>
                     )}
-                    <button onClick={onBack} className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors">
-                        &larr; Voltar
+                    <button onClick={onBack} className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors flex items-center">
+                        <BackArrowIcon />
+                        Voltar
                     </button>
                 </div>
             </div>
             
-            {scenarios.length < 2 ? (
-                 <div className="text-center py-12 text-brand-text-muted">
-                    <p>Selecione 2 ou mais cenários para comparar.</p>
-                </div>
-            ) : (
-                <div
-                    style={{
-                        transform: `scale(${zoomLevel})`,
-                        transformOrigin: 'top left',
-                        transition: 'transform 0.2s ease-out',
-                    }}
-                >
+            <div className="flex-grow p-6">
+                {scenarios.length < 2 ? (
+                     <div className="text-center py-12 text-brand-text-muted">
+                        <p>Selecione 2 ou mais cenários para comparar.</p>
+                    </div>
+                ) : (
                     <div
-                        ref={gridRef}
-                        className={`grid ${gridClassName} gap-4`}
-                        onDragEnd={handleDragEnd}
+                        style={{
+                            transform: `scale(${zoomLevel})`,
+                            transformOrigin: 'top left',
+                            transition: 'transform 0.2s ease-out',
+                        }}
                     >
-                        {displayItems.map((scenario, index) => {
-                            const isBeingDragged = draggedId === scenario?.id;
-                            
-                            // RENDER CARD
-                            if (scenario) {
+                        <div
+                            ref={gridRef}
+                            className={`grid ${gridClassName} gap-4`}
+                            onDragEnd={handleDragEnd}
+                        >
+                            {displayItems.map((scenario, index) => {
+                                const isBeingDragged = draggedId === scenario?.id;
+                                
+                                // RENDER CARD
+                                if (scenario) {
+                                    return (
+                                        <div
+                                            key={scenario.id}
+                                            className="relative"
+                                            onDragOver={(e) => handleDragOver(e, index)}
+                                            onDrop={(e) => handleDrop(e, index)}
+                                            onDragLeave={handleDragLeave}
+                                        >
+                                            <div className={`absolute -top-1 left-0 right-0 h-2 bg-brand-secondary rounded-full transition-transform duration-150 origin-center z-10 ${dropTarget?.index === index && dropTarget.position === 'top' ? 'scale-x-100' : 'scale-x-0'}`} />
+                                            <div className={`absolute -bottom-1 left-0 right-0 h-2 bg-brand-secondary rounded-full transition-transform duration-150 origin-center z-10 ${dropTarget?.index === index && dropTarget.position === 'bottom' ? 'scale-x-100' : 'scale-x-0'}`} />
+                                            <div className={`absolute -left-1 top-0 bottom-0 w-2 bg-brand-secondary rounded-full transition-transform duration-150 origin-center z-10 ${dropTarget?.index === index && dropTarget.position === 'left' ? 'scale-y-100' : 'scale-y-0'}`} />
+                                            <div className={`absolute -right-1 top-0 bottom-0 w-2 bg-brand-secondary rounded-full transition-transform duration-150 origin-center z-10 ${dropTarget?.index === index && dropTarget.position === 'right' ? 'scale-y-100' : 'scale-y-0'}`} />
+                                            
+                                            <div
+                                                draggable
+                                                onDragStart={(e) => handleDragStart(e, scenario.id)}
+                                                className={`w-full h-full bg-brand-primary rounded-lg p-3 border border-brand-bg cursor-move transition-opacity flex flex-col ${isBeingDragged ? 'opacity-20' : ''}`}
+                                            >
+                                                <h3 className="font-bold text-center text-brand-text truncate mb-2 flex-shrink-0" title={getScenarioTitle(scenario)}>
+                                                    {getScenarioTitle(scenario)}
+                                                </h3>
+                                                
+                                                <div className={`bg-brand-bg ${imageAspectRatioClass} rounded flex items-center justify-center relative flex-shrink-0`}>
+                                                    {scenario.rangeImage ? (
+                                                    <>
+                                                        <img src={scenario.rangeImage} alt="Range" className="max-w-full max-h-full object-contain"/>
+                                                        <div
+                                                        className="absolute inset-0 cursor-zoom-in"
+                                                        onClick={() => scenario.rangeImage && setZoomedImage(scenario.rangeImage)}
+                                                        title="Ampliar imagem"
+                                                        />
+                                                    </>
+                                                    ) : (
+                                                    <span className="text-gray-500 text-sm">Sem Imagem</span>
+                                                    )}
+                                                </div>
+                                                
+                                                {scenario.frequenciesImage && (
+                                                    <div className="bg-brand-bg aspect-[6/1] rounded flex items-center justify-center relative mt-2 flex-shrink-0">
+                                                    <img src={scenario.frequenciesImage} alt="Frequências" className="max-w-full max-h-full object-contain"/>
+                                                    <div
+                                                        className="absolute inset-0 cursor-zoom-in"
+                                                        onClick={() => setZoomedImage(scenario.frequenciesImage)}
+                                                        title="Ampliar imagem"
+                                                    />
+                                                    </div>
+                                                )}
+    
+                                                <div className="mt-auto pt-2 flex-shrink-0">
+                                                    {(scenario.printSpotImage || scenario.rpImage || scenario.tableViewImage || scenario.plusInfoImage) && (
+                                                        <div className="flex justify-center flex-wrap gap-1.5">
+                                                        {scenario.printSpotImage && <button onClick={() => handleOpenImage(scenario, 'printSpotImage')} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">HRC Table View</button>}
+                                                        {scenario.rpImage && <button onClick={() => handleOpenImage(scenario, 'rpImage')} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">RP</button>}
+                                                        {scenario.tableViewImage && <button onClick={() => handleOpenImage(scenario, 'tableViewImage')} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">Table View</button>}
+                                                        {scenario.plusInfoImage && <button onClick={() => handleOpenImage(scenario, 'plusInfoImage')} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">+Info</button>}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )
+                                }
+                                
+                                // RENDER EMPTY CELL
                                 return (
                                     <div
-                                        key={scenario.id}
-                                        className="relative"
+                                        key={`empty-${index}`}
+                                        className={`w-full min-h-[250px] rounded-lg transition-colors duration-150 ${isOverEmpty === index ? 'bg-brand-secondary/10 border-2 border-dashed border-brand-secondary' : ''}`}
                                         onDragOver={(e) => handleDragOver(e, index)}
                                         onDrop={(e) => handleDrop(e, index)}
                                         onDragLeave={handleDragLeave}
-                                    >
-                                        <div className={`absolute -top-1 left-0 right-0 h-2 bg-brand-secondary rounded-full transition-transform duration-150 origin-center z-10 ${dropTarget?.index === index && dropTarget.position === 'top' ? 'scale-x-100' : 'scale-x-0'}`} />
-                                        <div className={`absolute -bottom-1 left-0 right-0 h-2 bg-brand-secondary rounded-full transition-transform duration-150 origin-center z-10 ${dropTarget?.index === index && dropTarget.position === 'bottom' ? 'scale-x-100' : 'scale-x-0'}`} />
-                                        <div className={`absolute -left-1 top-0 bottom-0 w-2 bg-brand-secondary rounded-full transition-transform duration-150 origin-center z-10 ${dropTarget?.index === index && dropTarget.position === 'left' ? 'scale-y-100' : 'scale-y-0'}`} />
-                                        <div className={`absolute -right-1 top-0 bottom-0 w-2 bg-brand-secondary rounded-full transition-transform duration-150 origin-center z-10 ${dropTarget?.index === index && dropTarget.position === 'right' ? 'scale-y-100' : 'scale-y-0'}`} />
-                                        
-                                        <div
-                                            draggable
-                                            onDragStart={(e) => handleDragStart(e, scenario.id)}
-                                            className={`w-full h-full bg-brand-primary rounded-lg p-3 border border-brand-bg cursor-move transition-opacity flex flex-col ${isBeingDragged ? 'opacity-20' : ''}`}
-                                        >
-                                            <h3 className="font-bold text-center text-brand-text truncate mb-2 flex-shrink-0" title={getScenarioTitle(scenario)}>
-                                                {getScenarioTitle(scenario)}
-                                            </h3>
-                                            
-                                            <div className={`bg-brand-bg ${imageAspectRatioClass} rounded flex items-center justify-center relative flex-shrink-0`}>
-                                                {scenario.rangeImage ? (
-                                                <>
-                                                    <img src={scenario.rangeImage} alt="Range" className="max-w-full max-h-full object-contain"/>
-                                                    <div
-                                                    className="absolute inset-0 cursor-zoom-in"
-                                                    onClick={() => scenario.rangeImage && setZoomedImage(scenario.rangeImage)}
-                                                    title="Ampliar imagem"
-                                                    />
-                                                </>
-                                                ) : (
-                                                <span className="text-gray-500 text-sm">Sem Imagem</span>
-                                                )}
-                                            </div>
-                                            
-                                            {scenario.frequenciesImage && (
-                                                <div className="bg-brand-bg aspect-[6/1] rounded flex items-center justify-center relative mt-2 flex-shrink-0">
-                                                <img src={scenario.frequenciesImage} alt="Frequências" className="max-w-full max-h-full object-contain"/>
-                                                <div
-                                                    className="absolute inset-0 cursor-zoom-in"
-                                                    onClick={() => setZoomedImage(scenario.frequenciesImage)}
-                                                    title="Ampliar imagem"
-                                                />
-                                                </div>
-                                            )}
-
-                                            <div className="mt-auto pt-2 flex-shrink-0">
-                                                {(scenario.printSpotImage || scenario.rpImage || scenario.tableViewImage || scenario.plusInfoImage) && (
-                                                    <div className="flex justify-center flex-wrap gap-1.5">
-                                                    {scenario.printSpotImage && <button onClick={() => handleOpenImage(scenario, 'printSpotImage')} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">HRC Table View</button>}
-                                                    {scenario.rpImage && <button onClick={() => handleOpenImage(scenario, 'rpImage')} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">RP</button>}
-                                                    {scenario.tableViewImage && <button onClick={() => handleOpenImage(scenario, 'tableViewImage')} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">Table View</button>}
-                                                    {scenario.plusInfoImage && <button onClick={() => handleOpenImage(scenario, 'plusInfoImage')} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">+Info</button>}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
+                                    />
                                 )
-                            }
-                            
-                            // RENDER EMPTY CELL
-                            return (
-                                <div
-                                    key={`empty-${index}`}
-                                    className={`w-full min-h-[250px] rounded-lg transition-colors duration-150 ${isOverEmpty === index ? 'bg-brand-secondary/10 border-2 border-dashed border-brand-secondary' : ''}`}
-                                    onDragOver={(e) => handleDragOver(e, index)}
-                                    onDrop={(e) => handleDrop(e, index)}
-                                    onDragLeave={handleDragLeave}
-                                />
-                            )
-                        })}
+                            })}
+                        </div>
                     </div>
-                </div>
-            )}
+                )}
+            </div>
             
             {openModals.map(modal => (
                 <DraggableImageViewer
@@ -953,7 +1010,7 @@ const ComparisonView: React.FC<ComparisonViewProps> = ({ scenarios, onBack }) =>
                 />
             ))}
             {zoomedImage && (
-                <RangeZoomModal imageSrc={zoomedImage} onClose={() => setZoomedImage(null)} />
+                <DraggableZoomModal imageSrc={zoomedImage} onClose={() => setZoomedImage(null)} />
             )}
         </div>
     );

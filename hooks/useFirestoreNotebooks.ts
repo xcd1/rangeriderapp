@@ -126,8 +126,8 @@ const useFirestoreNotebooks = (uid: string | undefined): Omit<FirestoreNotebooks
             }
 
             // Update notebooks list, preserving existing scenarios to prevent UI flicker
-            // FIX: Explicitly type `prevNotebooks` to prevent it from being inferred as `unknown[]`,
-            // which was causing a type error when accessing the `scenarios` property.
+            // FIX: Explicitly typed `prevNotebooks` to prevent it from being inferred as `unknown[]`,
+            // which was causing a downstream type error in StudyView.tsx.
             setNotebooks((prevNotebooks: Notebook[]) => {
                 const prevNotebooksMap = new Map(prevNotebooks.map(n => [n.id, n]));
                 return notebooksFromDb.map(newNotebook => ({

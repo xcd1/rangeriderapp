@@ -4,6 +4,7 @@ interface ComparisonContextType {
   scenariosToCompare: string[];
   addScenarioToCompare: (scenarioId: string) => void;
   removeScenarioFromCompare: (scenarioId: string) => void;
+  removeMultipleScenariosFromCompare: (scenarioIds: string[]) => void;
   clearComparison: () => void;
 }
 
@@ -34,6 +35,11 @@ export const ComparisonProvider: React.FC<ComparisonProviderProps> = ({ children
   const removeScenarioFromCompare = useCallback((scenarioId: string) => {
     setScenariosToCompare(prev => prev.filter(id => id !== scenarioId));
   }, []);
+
+  const removeMultipleScenariosFromCompare = useCallback((scenarioIds: string[]) => {
+    const idsToRemove = new Set(scenarioIds);
+    setScenariosToCompare(prev => prev.filter(id => !idsToRemove.has(id)));
+  }, []);
   
   const clearComparison = useCallback(() => {
     setScenariosToCompare([]);
@@ -43,6 +49,7 @@ export const ComparisonProvider: React.FC<ComparisonProviderProps> = ({ children
     scenariosToCompare,
     addScenarioToCompare,
     removeScenarioFromCompare,
+    removeMultipleScenariosFromCompare,
     clearComparison,
   };
 

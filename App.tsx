@@ -13,12 +13,18 @@ import { useAuth } from './contexts/AuthContext';
 import { ComparisonProvider, useComparison } from './contexts/ComparisonContext';
 import VerificationBanner from './components/VerificationBanner';
 
-// --- History Context for Undo functionality ---
-type UndoableAction = () => void;
+// --- History Context for Undo/Redo functionality ---
+export interface UndoableAction {
+  undo: () => void;
+  redo: () => void;
+}
 
 interface HistoryContextType {
   pushToHistory: (action: UndoableAction) => void;
   undoLastAction: () => void;
+  redoLastAction: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
 }
 
 const HistoryContext = createContext<HistoryContextType | null>(null);
@@ -32,20 +38,49 @@ export const useHistory = (): HistoryContextType => {
 };
 
 const HistoryProvider: React.FC<{children: ReactNode}> = ({ children }) => {
-  const [historyStack, setHistoryStack] = useState<UndoableAction[]>([]);
+  const [undoStack, setUndoStack] = useState<UndoableAction[]>([]);
+  const [redoStack, setRedoStack] = useState<UndoableAction[]>([]);
 
-  const pushToHistory = useCallback((undoAction: UndoableAction) => {
-    setHistoryStack(prev => [undoAction, ...prev].slice(0, 20)); // Limit to 20 actions
+  const pushToHistory = useCallback((action: UndoableAction) => {
+    setUndoStack(prev => [...prev.slice(-19), action]); // Limit to 20 actions
+    setRedoStack([]); // Clear redo stack on new action
   }, []);
 
   const undoLastAction = useCallback(() => {
-    if (historyStack.length === 0) return;
-    const [lastUndoAction, ...rest] = historyStack;
-    lastUndoAction();
-    setHistoryStack(rest);
-  }, [historyStack]);
+    if (undoStack.length === 0) return;
+    
+    setUndoStack(prevStack => {
+      const newUndoStack = [...prevStack];
+      const lastAction = newUndoStack.pop();
+      if (lastAction) {
+        lastAction.undo();
+        setRedoStack(prevRedo => [lastAction, ...prevRedo]);
+      }
+      return newUndoStack;
+    });
+  }, [undoStack]);
   
-  const value = { pushToHistory, undoLastAction };
+  const redoLastAction = useCallback(() => {
+    if (redoStack.length === 0) return;
+
+    setRedoStack(prevStack => {
+      const newRedoStack = [...prevStack];
+      const lastAction = newRedoStack.shift();
+      if (lastAction) {
+        lastAction.redo();
+        setUndoStack(prevUndo => [...prevUndo, lastAction]);
+      }
+      return newRedoStack;
+    });
+  }, [redoStack]);
+  
+  const value = useMemo(() => ({
+    pushToHistory,
+    undoLastAction,
+    redoLastAction,
+    canUndo: undoStack.length > 0,
+    canRedo: redoStack.length > 0,
+  }), [pushToHistory, undoLastAction, redoLastAction, undoStack.length, redoStack.length]);
 
   return (
     <HistoryContext.Provider value={value}>
@@ -88,7 +123,7 @@ const LoadingSpinner: React.FC = () => (
 
 const AppContent: React.FC = () => {
   const { user, logout, loading: authLoading } = useAuth();
-  const { undoLastAction } = useHistory();
+  const { undoLastAction, redoLastAction, canUndo, canRedo } = useHistory();
   const { scenariosToCompare } = useComparison();
   const [activeNotebookId, setActiveNotebookId] = useState<string | null>(null);
   const [isGlobalComparing, setIsGlobalComparing] = useState(false);
@@ -183,9 +218,14 @@ const AppContent: React.FC = () => {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.key === 'z') {
-        event.preventDefault();
-        undoLastAction();
+      if (event.ctrlKey || event.metaKey) {
+          if (event.key === 'z') {
+              event.preventDefault();
+              undoLastAction();
+          } else if (event.key === 'y') {
+              event.preventDefault();
+              redoLastAction();
+          }
       }
     };
 
@@ -193,7 +233,7 @@ const AppContent: React.FC = () => {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [undoLastAction]);
+  }, [undoLastAction, redoLastAction]);
 
   const handleLogout = useCallback(async () => {
     try {
@@ -251,7 +291,7 @@ const AppContent: React.FC = () => {
   
   if (isGlobalComparing) {
       return (
-          <div className="p-6 overflow-y-auto min-w-0 h-screen">
+          <div className="overflow-y-auto min-w-0 h-screen">
             <ComparisonView 
                 scenarios={scenariosForGlobalComparison}
                 onBack={() => setIsGlobalComparing(false)}
