@@ -1,6 +1,8 @@
 
 
-import { Position, GameScenario, SpotType, RangeAction, BlindWarAction, BlindWarPosition } from './types';
+
+
+import { Position, GameScenario, SpotType, RangeAction, BlindWarAction, BlindWarPosition, ScenarioTemplate } from './types';
 
 export const POSITIONS: Position[] = ['UTG', 'EP', 'LJ', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
 export const GAME_SCENARIOS: GameScenario[] = ['CEv', 'Bounty CVD', 'Bounty CVN', 'Vanilla CVD', 'Vanilla CVN', 'Turbo', 'Hyper', 'Mistery'];
@@ -22,3 +24,28 @@ export const POSITION_ORDER: Record<Position, number> = {
     SB: 6,
     BB: 7
 };
+
+export const JARGON_DEFINITIONS: Record<string, string> = {
+    'Rfi': 'Raise First In: Quando você é o primeiro jogador a voluntariamente aumentar a aposta antes do flop.',
+    'Facing 2bet': 'Enfrentando um Aumento: Como responder quando outro jogador já fez um "raise" (2-bet).',
+    'Blind War': 'Guerra de Blinds: Ações que ocorrem quando apenas os jogadores nas posições de Small Blind e Big Blind estão na mão.',
+    'HRC Enviroment': 'Ambiente HRC: Cenários complexos, geralmente envolvendo múltiplos jogadores, analisados com a ajuda do software HoldemResources Calculator.',
+    'Action/Response': 'Define a ação principal do cenário (ex: RFI) ou a resposta a uma ação anterior (ex: F2bet).',
+    'First Raiser Position': 'A posição do jogador que fez o primeiro aumento na mão.',
+    'Hero Position': 'Sua posição na mesa para este cenário.',
+    '3bettor Position': 'A posição do jogador que fez o "re-raise" (3-bet) após o aumento inicial.',
+    'Cold Caller Position': 'A posição de um jogador que paga o aumento inicial ("cold call").',
+    'Aggressor Position': 'A posição do último agressor na mão, como o jogador que fez um 3-bet, 4-bet, etc.',
+    'Modalidade': 'O tipo de jogo ou torneio, que afeta a estratégia. Ex: CEv (Chip EV), Bounty (com recompensas), etc.',
+    'RP Mode': 'Rejam/Push Mode: Ativa cálculos específicos para situações de all-in (push) e re-shove (rejam) em torneios Bounty, calculando a "Drop Equity".',
+};
+
+export const SCENARIO_TEMPLATES: ScenarioTemplate[] = [
+    { name: "UTG RFI", spotType: 'Rfi', rangeAction: 'RFI', raiserPos: 'UTG' },
+    { name: "BTN RFI", spotType: 'Rfi', rangeAction: 'RFI', raiserPos: 'BTN' },
+    { name: "BB vs UTG F2bet", spotType: 'Facing 2bet', rangeAction: 'F2bet', raiserPos: 'UTG', heroPos: 'BB' },
+    { name: "BB vs BTN F2bet", spotType: 'Facing 2bet', rangeAction: 'F2bet', raiserPos: 'BTN', heroPos: 'BB' },
+    { name: "SB vs BB (vs. Limp)", spotType: 'Blind War', rangeAction: null, blindWarPosition: 'BB', blindWarAction: 'vs. Limp' },
+    { name: "SB vs BB (vs. Raise)", spotType: 'Blind War', rangeAction: null, blindWarPosition: 'BB', blindWarAction: 'vs. raise' },
+    { name: "HRC: F3bet BB vs BTN", spotType: 'HRC Enviroment', rangeAction: 'F3bet', raiserPos: 'BTN', heroPos: 'BB' },
+];

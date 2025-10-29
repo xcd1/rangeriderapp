@@ -1,10 +1,11 @@
 import React, { useRef, useEffect, useState, useLayoutEffect } from 'react';
 import type { Scenario, Position, GameScenario, RangeAction } from '../types';
-import { POSITIONS, GAME_SCENARIOS, FACING_2BET_ACTIONS, HRC_ACTIONS, POSITION_ORDER, BLIND_WAR_ACTIONS, BLIND_WAR_POSITIONS } from '../constants';
+import { POSITIONS, GAME_SCENARIOS, FACING_2BET_ACTIONS, HRC_ACTIONS, POSITION_ORDER, BLIND_WAR_ACTIONS, BLIND_WAR_POSITIONS, JARGON_DEFINITIONS } from '../constants';
 import ImageUploader from './ImageUploader';
 import ConfirmationModal from './ConfirmationModal';
 import { useHistory } from '../App';
 import { useComparison } from '../contexts/ComparisonContext';
+import InfoTooltip from './InfoTooltip';
 
 
 interface ScenarioEditorProps {
@@ -20,43 +21,33 @@ interface ScenarioEditorProps {
 }
 
 const TrashIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-);
-
-const BrushIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M9.06 11.9 3 18v3h3l6.94-6.94a1 1 0 0 0 0-1.41z"/><path d="m14 6-1-1-4 4 1 1"/><path d="M3 21h18"/><path d="M12.59 7.41a1 1 0 0 0 0 1.41l4 4a1 1 0 0 0 1.41 0l1.18-1.18a1 1 0 0 0 0-1.41l-4-4a1 1 0 0 0-1.41 0Z"/></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
 );
 
 const XIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
 );
 
-const ClearImageIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M12 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-9"/><path d="M7 12.5 9.5 10l2.5 2.5L17 8"/><path d="m21.5 2.5-6 6"/><path d="m15.5 2.5 6 6"/></svg>
-);
-
-const ClearTxtIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="m9.5 12.5 5 5"/><path d="m14.5 12.5-5 5"/></svg>
-);
-
-const ClearNotesIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M15.5 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.5L15.5 3z"/><polyline points="15 3 15 8 20 8"/><path d="m11.5 12.5 5 5"/><path d="m16.5 12.5-5 5"/></svg>
+const MoreVerticalIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
 );
 
 interface ButtonGroupProps {
     label: string;
+    jargonKey?: keyof typeof JARGON_DEFINITIONS;
     children: React.ReactNode;
     onClear: () => void;
     hasSelection: boolean;
     isDisabled?: boolean;
 }
 
-const ButtonGroup: React.FC<ButtonGroupProps> = ({ label, children, onClear, hasSelection, isDisabled = false }) => (
+const ButtonGroup: React.FC<ButtonGroupProps> = ({ label, jargonKey, children, onClear, hasSelection, isDisabled = false }) => (
     <div className={`${isDisabled ? 'opacity-50' : ''}`}>
-        <div className="flex items-center mb-1.5">
-            <label className="block text-sm font-medium text-brand-text-muted mr-2">{label}</label>
+        <div className="flex items-center mb-1.5 gap-2">
+            <label className="block text-sm font-medium text-brand-text-muted">{label}</label>
+            {jargonKey && <InfoTooltip text={JARGON_DEFINITIONS[jargonKey]} direction="bottom" />}
             {hasSelection && !isDisabled && (
-                <button onClick={onClear} className="text-brand-text-muted hover:text-brand-text p-1 rounded-full hover:bg-brand-bg" title="Limpar seleção">
+                <button onClick={onClear} className="text-brand-text-muted hover:text-brand-text p-1 rounded-full hover:bg-brand-bg -ml-1" title="Limpar seleção">
                     <XIcon />
                 </button>
             )}
@@ -334,9 +325,11 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
         notes: scenario.notes,
     });
     const [manualTitleInput, setManualTitleInput] = useState(scenario.manualTitle || '');
-    const [openSections, setOpenSections] = useState<Set<string>>(new Set());
+    const [openSections, setOpenSections] = useState<Set<string>>(new Set(['params']));
     const [isClearMenuOpen, setIsClearMenuOpen] = useState(false);
+    const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
     const clearMenuRef = useRef<HTMLDivElement>(null);
+    const actionMenuRef = useRef<HTMLDivElement>(null);
     
     const isSelectedForIntelligentCompare = intelligentScenarios.includes(scenario.id);
 
@@ -388,6 +381,9 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
         const handleClickOutside = (event: MouseEvent) => {
             if (clearMenuRef.current && !clearMenuRef.current.contains(event.target as Node)) {
                 setIsClearMenuOpen(false);
+            }
+            if (actionMenuRef.current && !actionMenuRef.current.contains(event.target as Node)) {
+                setIsActionMenuOpen(false);
             }
         };
         document.addEventListener("mousedown", handleClickOutside);
@@ -480,6 +476,7 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
         } else {
             handleUpdateWithHistory({ ...scenario, manualTitle: getAutoGeneratedTitle(scenario) });
         }
+        setIsActionMenuOpen(false);
     };
     
     const handleManualTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -732,6 +729,7 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
                         <label htmlFor={`rp-mode-${scenario.id}`} className="text-sm font-medium text-brand-text">
                             RP Mode
                         </label>
+                        <InfoTooltip text={JARGON_DEFINITIONS['RP Mode']} direction="bottom" />
                     </div>
 
                     {scenario.rpMode && (
@@ -829,17 +827,7 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
                                 <div className="mt-2 text-center flex items-center justify-center gap-2">
                                     <span className="text-sm font-medium text-brand-text-muted">Drop Equity: </span>
                                     <span className="text-lg font-bold text-brand-secondary">{dropEquity.toFixed(1)}%</span>
-                                    <div className="relative flex items-center group">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-brand-text-muted cursor-help">
-                                            <circle cx="12" cy="12" r="10"></circle>
-                                            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
-                                            <line x1="12" y1="17" x2="12.01" y2="17"></line>
-                                        </svg>
-                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-40 p-2 bg-brand-bg text-brand-text text-xs rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 whitespace-normal">
-                                            O cálculo da Drop Equity através desta metodologia (Bounty Power) é mais indicado para Early Stages.
-                                            <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-x-4 border-x-transparent border-t-4 border-t-brand-bg"></div>
-                                        </div>
-                                    </div>
+                                    <InfoTooltip text="O cálculo da Drop Equity através desta metodologia (Bounty Power) é mais indicado para Early Stages." direction="bottom" />
                                 </div>
                             )}
                         </div>
@@ -854,43 +842,18 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
     return (
         <>
             <div className="bg-brand-primary rounded-lg border border-brand-bg overflow-hidden">
-                <div className="bg-brand-bg p-3">
-                     <div className="flex items-center justify-between gap-2 cursor-pointer" onClick={() => onToggleCollapse(scenario.id)}>
-                        <div className="flex items-center min-w-0 flex-1">
-                            <input
-                                type="checkbox"
-                                checked={isSelectedForCompare}
-                                onChange={() => onToggleCompare(scenario.id)}
-                                onClick={(e) => e.stopPropagation()}
-                                className="h-4 w-4 mr-4 bg-brand-primary border-brand-bg rounded text-brand-secondary focus:ring-brand-secondary flex-shrink-0"
-                                title="Selecionar para comparação rápida (neste spot)"
-                            />
-                            {isManualMode ? (
-                                <input
-                                    type="text"
-                                    value={manualTitleInput}
-                                    onChange={handleManualTitleChange}
-                                    onBlur={handleManualTitleBlur}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter') e.currentTarget.blur();
-                                        if (e.key === 'Escape') {
-                                            setManualTitleInput(scenario.manualTitle || '');
-                                            e.currentTarget.blur();
-                                        }
-                                    }}
-                                    onClick={(e) => e.stopPropagation()}
-                                    placeholder="Digite o título do cenário"
-                                    className="font-bold text-lg text-brand-text bg-brand-primary rounded px-2 py-1 w-full min-w-0 focus:outline-none focus:ring-2 focus:ring-brand-secondary"
-                                />
-                            ) : (
-                                <h3 className="font-bold text-lg text-brand-text truncate py-1" title={scenarioTitle}>{scenarioTitle}</h3>
-                            )}
-                        </div>
-                        <button className="text-brand-text-muted hover:text-brand-text w-7 h-7 flex-shrink-0 flex items-center justify-center">
-                            {isCollapsed ? '▼' : '▲'}
-                        </button>
-                    </div>
-                    <div className="mt-2 py-1 flex items-center justify-center flex-wrap gap-2">
+                 {/* --- HEADER --- */}
+                <div className="bg-brand-bg p-3 flex items-center justify-between gap-2">
+                    {/* Left: Checkbox & Intelligent Compare */}
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                         <input
+                            type="checkbox"
+                            checked={isSelectedForCompare}
+                            onChange={() => onToggleCompare(scenario.id)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="h-4 w-4 bg-brand-primary border-brand-bg rounded text-brand-secondary focus:ring-brand-secondary flex-shrink-0"
+                            title="Selecionar para comparação rápida (neste spot)"
+                        />
                         <button 
                             onClick={handleToggleIntelligentCompare} 
                             className={`${buttonClass} border ${isSelectedForIntelligentCompare ? 'bg-brand-secondary/20 text-brand-secondary border-brand-secondary' : 'bg-transparent text-white hover:bg-white/10 border-white/50'}`} 
@@ -898,49 +861,73 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
                         >
                             Compare +
                         </button>
-                        <button 
-                            onClick={(e) => { e.stopPropagation(); handleToggleManualMode(); }} 
-                            className={`${buttonClass} bg-transparent text-blue-400 hover:bg-blue-400/10 border border-blue-400/50`} 
-                            title={isManualMode ? "Voltar para título automático" : "Editar título manualmente"}
-                        >
-                            Editar Título
-                        </button>
-                        <button 
-                            onClick={(e) => { e.stopPropagation(); onDuplicate(scenario.id); }} 
-                            className={`${buttonClass} bg-transparent text-brand-secondary hover:bg-brand-secondary/10 border border-brand-secondary/50`} 
-                            title="Duplicar cenário"
-                        >
-                            Duplicar Cenário
-                        </button>
-                        
-                        <div className="relative" ref={clearMenuRef}>
+                    </div>
+
+                    {/* Middle: Title */}
+                    <div className="flex-grow min-w-0 text-center" onClick={() => onToggleCollapse(scenario.id)}>
+                        {isManualMode ? (
+                            <input
+                                type="text"
+                                value={manualTitleInput}
+                                onChange={handleManualTitleChange}
+                                onBlur={handleManualTitleBlur}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') e.currentTarget.blur();
+                                    if (e.key === 'Escape') { setManualTitleInput(scenario.manualTitle || ''); e.currentTarget.blur(); }
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                                placeholder="Digite o título do cenário"
+                                className="font-bold text-lg text-brand-text bg-brand-primary rounded px-2 py-1 w-full max-w-md mx-auto focus:outline-none focus:ring-2 focus:ring-brand-secondary"
+                            />
+                        ) : (
+                            <h3 className="font-bold text-lg text-brand-text truncate cursor-pointer" title={scenarioTitle}>{scenarioTitle}</h3>
+                        )}
+                    </div>
+
+                    {/* Right: Actions Menu & Collapse Toggle */}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className="relative" ref={actionMenuRef}>
                             <button 
-                                onClick={() => setIsClearMenuOpen(p => !p)} 
-                                className={`${buttonClass} bg-transparent text-sky-400 hover:bg-sky-400/10 border border-sky-400/50`} 
-                                title="Opções de limpeza"
+                                onClick={() => setIsActionMenuOpen(p => !p)} 
+                                className="p-2 rounded-full text-brand-text-muted hover:bg-brand-primary hover:text-brand-text"
+                                title="Mais ações"
                             >
-                                Limpeza
+                                <MoreVerticalIcon />
                             </button>
-                            {isClearMenuOpen && (
-                                <div className="absolute top-full right-0 mt-2 w-48 bg-brand-bg rounded-md shadow-lg z-10 border border-brand-primary overflow-hidden">
+                            {isActionMenuOpen && (
+                                <div className="absolute top-full right-0 mt-2 w-48 bg-brand-bg rounded-md shadow-lg z-20 border border-brand-primary overflow-hidden">
                                     <ul>
-                                        {scenario.spotType === 'HRC Enviroment' && (
-                                            <li><button onClick={(e) => { e.stopPropagation(); handleClearAllSelections(); setIsClearMenuOpen(false); }} className="w-full text-left px-3 py-2 text-sm text-brand-text-muted hover:bg-brand-primary flex items-center gap-2 disabled:opacity-50" disabled={isManualMode}><BrushIcon /> Limpar Botões</button></li>
-                                        )}
-                                        <li><button onClick={(e) => { e.stopPropagation(); handleClearImages(); setIsClearMenuOpen(false); }} className="w-full text-left px-3 py-2 text-sm text-brand-text-muted hover:bg-brand-primary flex items-center gap-2"><ClearImageIcon /> Limpar Imagens</button></li>
-                                        <li><button onClick={(e) => { e.stopPropagation(); handleClearTexts(); setIsClearMenuOpen(false); }} className="w-full text-left px-3 py-2 text-sm text-brand-text-muted hover:bg-brand-primary flex items-center gap-2"><ClearTxtIcon /> Limpar .txt's</button></li>
-                                        <li><button onClick={(e) => { e.stopPropagation(); handleClearNotes(); setIsClearMenuOpen(false); }} className="w-full text-left px-3 py-2 text-sm text-brand-text-muted hover:bg-brand-primary flex items-center gap-2"><ClearNotesIcon /> Limpar Anotações</button></li>
+                                        <li><button onClick={handleToggleManualMode} className="w-full text-left px-3 py-2 text-sm text-brand-text hover:bg-brand-primary">{isManualMode ? "Usar Título Automático" : "Editar Título Manualmente"}</button></li>
+                                        <li><button onClick={() => { onDuplicate(scenario.id); setIsActionMenuOpen(false); }} className="w-full text-left px-3 py-2 text-sm text-brand-text hover:bg-brand-primary">Duplicar Cenário</button></li>
+                                        <li>
+                                             <div className="relative" ref={clearMenuRef}>
+                                                <button onClick={() => setIsClearMenuOpen(p => !p)} className="w-full text-left px-3 py-2 text-sm text-brand-text hover:bg-brand-primary flex justify-between items-center">
+                                                    Limpeza <span>{isClearMenuOpen ? '▾' : '▸'}</span>
+                                                </button>
+                                                {isClearMenuOpen && (
+                                                    <div className="bg-brand-bg/50 border-t border-brand-primary">
+                                                        <ul>
+                                                             {scenario.spotType === 'HRC Enviroment' && (
+                                                                <li><button onClick={(e) => { e.stopPropagation(); handleClearAllSelections(); setIsClearMenuOpen(false); setIsActionMenuOpen(false); }} className="w-full text-left pl-6 pr-3 py-2 text-sm text-brand-text-muted hover:bg-brand-primary flex items-center gap-2 disabled:opacity-50" disabled={isManualMode}>Limpar Botões</button></li>
+                                                            )}
+                                                            <li><button onClick={(e) => { e.stopPropagation(); handleClearImages(); setIsClearMenuOpen(false); setIsActionMenuOpen(false); }} className="w-full text-left pl-6 pr-3 py-2 text-sm text-brand-text-muted hover:bg-brand-primary flex items-center gap-2">Limpar Imagens</button></li>
+                                                            <li><button onClick={(e) => { e.stopPropagation(); handleClearTexts(); setIsClearMenuOpen(false); setIsActionMenuOpen(false); }} className="w-full text-left pl-6 pr-3 py-2 text-sm text-brand-text-muted hover:bg-brand-primary flex items-center gap-2">Limpar .txt's</button></li>
+                                                            <li><button onClick={(e) => { e.stopPropagation(); handleClearNotes(); setIsClearMenuOpen(false); setIsActionMenuOpen(false);}} className="w-full text-left pl-6 pr-3 py-2 text-sm text-brand-text-muted hover:bg-brand-primary flex items-center gap-2">Limpar Anotações</button></li>
+                                                        </ul>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </li>
+                                        <li><hr className="border-brand-primary" /></li>
+                                        <li><button onClick={() => { onDelete(scenario.id); setIsActionMenuOpen(false); }} className="w-full text-left px-3 py-2 text-sm text-orange-400 hover:bg-orange-500/20">Excluir Cenário</button></li>
                                     </ul>
                                 </div>
                             )}
                         </div>
-
-                        <button 
-                            onClick={(e) => { e.stopPropagation(); onDelete(scenario.id); }} 
-                            className={`${buttonClass} bg-transparent text-orange-500 hover:bg-orange-500/10 border border-orange-500/50`} 
-                            title="Excluir cenário"
-                        >
-                            Excluir
+                        <button onClick={() => onToggleCollapse(scenario.id)} className="p-2 rounded-full text-brand-text-muted hover:bg-brand-primary hover:text-brand-text" title={isCollapsed ? "Expandir" : "Recolher"}>
+                            <span className={`transform transition-transform duration-300 inline-block ${isCollapsed ? '' : 'rotate-180'}`}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                            </span>
                         </button>
                     </div>
                 </div>
@@ -952,78 +939,86 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
                             {scenario.spotType === 'HRC Enviroment' && (
                                 <div className="flex items-start gap-4">
                                     <div className="flex-grow space-y-4">
-                                        <ButtonGroup label="Action/Response" onClear={() => handleUpdate('rangeAction', null)} hasSelection={!!scenario.rangeAction} isDisabled={isManualMode}>
-                                            {HRC_ACTIONS.map(action => (
-                                                <button key={action} onClick={() => handleUpdate('rangeAction', action)} disabled={isManualMode} className={`px-3 py-1 text-xs rounded-md ${scenario.rangeAction === action ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isManualMode ? 'cursor-not-allowed' : ''}`}>{action}</button>
-                                            ))}
-                                        </ButtonGroup>
-
-                                        {isF3betSelected ? (
+                                        {!isManualMode && (
+                                            <ButtonGroup label="Action/Response" jargonKey="Action/Response" onClear={() => handleUpdate('rangeAction', null)} hasSelection={!!scenario.rangeAction}>
+                                                {HRC_ACTIONS.map(action => (
+                                                    <button key={action} onClick={() => handleUpdate('rangeAction', action)} className={`px-3 py-1 text-xs rounded-md ${scenario.rangeAction === action ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'}`}>{action}</button>
+                                                ))}
+                                            </ButtonGroup>
+                                        )}
+                                        
+                                        {!isManualMode && scenario.rangeAction && (
                                             <>
-                                                <ButtonGroup label="First Raiser Position" onClear={() => handleUpdate('raiserPos', null)} hasSelection={!!scenario.raiserPos} isDisabled={isManualMode}>
-                                                    {POSITIONS.filter(p => p !== 'BB').map(pos => (
-                                                        <button key={pos} onClick={() => handleUpdate('raiserPos', pos)} disabled={isManualMode} className={`px-3 py-1 text-xs rounded-md ${scenario.raiserPos === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isManualMode ? 'cursor-not-allowed' : ''}`}>{pos}</button>
-                                                    ))}
-                                                </ButtonGroup>
-                                                <ButtonGroup label="3bettor Position" onClear={() => handleUpdate('aggressorPos', null)} hasSelection={!!scenario.aggressorPos} isDisabled={isManualMode || !scenario.raiserPos}>
-                                                    {aggressorPositionsForF3bet.map(pos => (
-                                                        <button key={pos} onClick={() => handleUpdate('aggressorPos', pos)} disabled={isManualMode || !scenario.raiserPos} className={`px-3 py-1 text-xs rounded-md ${scenario.aggressorPos === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isManualMode || !scenario.raiserPos ? 'cursor-not-allowed' : ''}`}>{pos}</button>
-                                                    ))}
-                                                </ButtonGroup>
-                                                <ButtonGroup label="Hero Position" onClear={() => handleUpdate('heroPos', null)} hasSelection={!!scenario.heroPos} isDisabled={isManualMode || !scenario.aggressorPos}>
-                                                    {heroPositionsForF3bet.map(pos => (
-                                                        <button key={pos} onClick={() => handleUpdate('heroPos', pos)} disabled={isManualMode || !scenario.aggressorPos} className={`px-3 py-1 text-xs rounded-md ${scenario.heroPos === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isManualMode || !scenario.aggressorPos ? 'cursor-not-allowed' : ''}`}>{pos}</button>
-                                                    ))}
-                                                </ButtonGroup>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <ButtonGroup label="First Raiser Position" onClear={() => handleUpdate('raiserPos', null)} hasSelection={!!scenario.raiserPos} isDisabled={isManualMode}>
-                                                    {POSITIONS.filter(p => p !== 'BB').map(pos => (
-                                                        <button key={pos} onClick={() => handleUpdate('raiserPos', pos)} disabled={isManualMode} className={`px-3 py-1 text-xs rounded-md ${scenario.raiserPos === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isManualMode ? 'cursor-not-allowed' : ''}`}>{pos}</button>
-                                                    ))}
-                                                </ButtonGroup>
-                                                <ButtonGroup label="Hero Position" onClear={() => handleUpdate('heroPos', null)} hasSelection={!!scenario.heroPos} isDisabled={isRfiSelected || isManualMode}>
-                                                    {heroPositions.map(pos => (
-                                                        <button key={pos} onClick={() => handleUpdate('heroPos', pos)} disabled={isRfiSelected || isManualMode} className={`px-3 py-1 text-xs rounded-md ${scenario.heroPos === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isRfiSelected || isManualMode ? 'cursor-not-allowed' : ''}`}>{pos}</button>
-                                                    ))}
-                                                </ButtonGroup>
-                                                {!isRfiSelected && !isF2betSelected && (
+                                                {isF3betSelected ? (
                                                     <>
-                                                        <ButtonGroup label="Cold Caller Position (CC)" onClear={() => handleUpdate('coldCallerPos', null)} hasSelection={!!scenario.coldCallerPos} isDisabled={isManualMode}>
-                                                            {coldCallerPositions.map(pos => (
-                                                                <button key={pos} onClick={() => handleUpdate('coldCallerPos', pos)} disabled={isManualMode} className={`px-3 py-1 text-xs rounded-md ${scenario.coldCallerPos === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isManualMode ? 'cursor-not-allowed' : ''}`}>{pos}</button>
+                                                        <ButtonGroup label="First Raiser Position" jargonKey="First Raiser Position" onClear={() => handleUpdate('raiserPos', null)} hasSelection={!!scenario.raiserPos} isDisabled={!scenario.rangeAction}>
+                                                            {POSITIONS.filter(p => p !== 'BB').map(pos => (
+                                                                <button key={pos} onClick={() => handleUpdate('raiserPos', pos)} className={`px-3 py-1 text-xs rounded-md ${scenario.raiserPos === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'}`}>{pos}</button>
                                                             ))}
                                                         </ButtonGroup>
-                                                        <ButtonGroup label="3bettor/4bettor/5bettor/Squeezer Position" onClear={() => handleUpdate('aggressorPos', null)} hasSelection={!!scenario.aggressorPos} isDisabled={isManualMode}>
-                                                            {aggressorPositions.map(pos => (
-                                                                <button key={pos} onClick={() => handleUpdate('aggressorPos', pos)} disabled={isManualMode} className={`px-3 py-1 text-xs rounded-md ${scenario.aggressorPos === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isManualMode ? 'cursor-not-allowed' : ''}`}>{pos}</button>
+                                                        {scenario.raiserPos && (
+                                                            <ButtonGroup label="3bettor Position" jargonKey="3bettor Position" onClear={() => handleUpdate('aggressorPos', null)} hasSelection={!!scenario.aggressorPos} isDisabled={!scenario.raiserPos}>
+                                                                {aggressorPositionsForF3bet.map(pos => (
+                                                                    <button key={pos} onClick={() => handleUpdate('aggressorPos', pos)} className={`px-3 py-1 text-xs rounded-md ${scenario.aggressorPos === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'}`}>{pos}</button>
+                                                                ))}
+                                                            </ButtonGroup>
+                                                        )}
+                                                        {scenario.aggressorPos && (
+                                                             <ButtonGroup label="Hero Position" jargonKey="Hero Position" onClear={() => handleUpdate('heroPos', null)} hasSelection={!!scenario.heroPos} isDisabled={!scenario.aggressorPos}>
+                                                                {heroPositionsForF3bet.map(pos => (
+                                                                    <button key={pos} onClick={() => handleUpdate('heroPos', pos)} className={`px-3 py-1 text-xs rounded-md ${scenario.heroPos === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'}`}>{pos}</button>
+                                                                ))}
+                                                            </ButtonGroup>
+                                                        )}
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <ButtonGroup label="First Raiser Position" jargonKey="First Raiser Position" onClear={() => handleUpdate('raiserPos', null)} hasSelection={!!scenario.raiserPos}>
+                                                            {POSITIONS.filter(p => p !== 'BB').map(pos => (
+                                                                <button key={pos} onClick={() => handleUpdate('raiserPos', pos)} className={`px-3 py-1 text-xs rounded-md ${scenario.raiserPos === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'}`}>{pos}</button>
                                                             ))}
                                                         </ButtonGroup>
+                                                        
+                                                        {scenario.raiserPos && !isRfiSelected && (
+                                                            <ButtonGroup label="Hero Position" jargonKey="Hero Position" onClear={() => handleUpdate('heroPos', null)} hasSelection={!!scenario.heroPos}>
+                                                                {heroPositions.map(pos => (
+                                                                    <button key={pos} onClick={() => handleUpdate('heroPos', pos)} className={`px-3 py-1 text-xs rounded-md ${scenario.heroPos === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'}`}>{pos}</button>
+                                                                ))}
+                                                            </ButtonGroup>
+                                                        )}
+                                                        
+                                                        {scenario.heroPos && !isRfiSelected && !isF2betSelected && !isF3betSelected && (
+                                                            <>
+                                                                <ButtonGroup label="Cold Caller Position (CC)" jargonKey="Cold Caller Position" onClear={() => handleUpdate('coldCallerPos', null)} hasSelection={!!scenario.coldCallerPos}>
+                                                                    {coldCallerPositions.map(pos => (
+                                                                        <button key={pos} onClick={() => handleUpdate('coldCallerPos', pos)} className={`px-3 py-1 text-xs rounded-md ${scenario.coldCallerPos === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'}`}>{pos}</button>
+                                                                    ))}
+                                                                </ButtonGroup>
+                                                                <ButtonGroup label="3bettor/4bettor/5bettor/Squeezer Position" jargonKey="Aggressor Position" onClear={() => handleUpdate('aggressorPos', null)} hasSelection={!!scenario.aggressorPos}>
+                                                                    {aggressorPositions.map(pos => (
+                                                                        <button key={pos} onClick={() => handleUpdate('aggressorPos', pos)} className={`px-3 py-1 text-xs rounded-md ${scenario.aggressorPos === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'}`}>{pos}</button>
+                                                                    ))}
+                                                                </ButtonGroup>
+                                                            </>
+                                                        )}
                                                     </>
                                                 )}
                                             </>
                                         )}
                                     </div>
                                     <div className="flex-shrink-0 w-48">
-                                        <div className={`${isManualMode ? 'opacity-50' : ''}`}>
-                                            <div className="mb-2">
-                                                <div className="flex items-center justify-center mb-1.5">
-                                                    <label className="block text-sm font-medium text-brand-text-muted mr-2">Modalidade</label>
-                                                    {!!scenario.gameScenario && !isManualMode && (
-                                                        <button onClick={() => handleGameScenarioUpdate(null)} className="text-brand-text-muted hover:text-brand-text p-1 rounded-full hover:bg-brand-bg" title="Limpar seleção">
-                                                            <XIcon />
-                                                        </button>
-                                                    )}
+                                        {(isManualMode || scenario.rangeAction) && (
+                                            <div className={`${isManualMode ? 'opacity-50' : ''}`}>
+                                                <div className="mb-2">
+                                                    <ButtonGroup label="Modalidade" jargonKey="Modalidade" onClear={() => handleGameScenarioUpdate(null)} hasSelection={!!scenario.gameScenario} isDisabled={isManualMode}>
+                                                        {HRC_GAME_SCENARIOS_ORDER.map(gs => (
+                                                            <button key={gs} onClick={() => handleGameScenarioUpdate(gs)} disabled={isManualMode} className={`w-full truncate text-center px-2 py-1 text-xs rounded-md ${scenario.gameScenario === gs ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isManualMode ? 'cursor-not-allowed' : ''}`}>{gs}</button>
+                                                        ))}
+                                                    </ButtonGroup>
                                                 </div>
-                                                <div className="grid grid-cols-2 gap-1.5">
-                                                    {HRC_GAME_SCENARIOS_ORDER.map(gs => (
-                                                        <button key={gs} onClick={() => handleGameScenarioUpdate(gs)} disabled={isManualMode} className={`w-full truncate text-center px-2 py-1 text-xs rounded-md ${scenario.gameScenario === gs ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isManualMode ? 'cursor-not-allowed' : ''}`}>{gs}</button>
-                                                    ))}
-                                                </div>
+                                                <BountyControls />
                                             </div>
-                                            <BountyControls />
-                                        </div>
+                                        )}
                                         {renderInserirButtons()}
                                     </div>
                                 </div>
@@ -1031,31 +1026,39 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
                              {/* Blind War */}
                             {scenario.spotType === 'Blind War' && (
                                 <div className="flex flex-wrap items-start justify-center gap-x-8 gap-y-4">
-                                    <ButtonGroup label="Position" onClear={() => handleUpdate('blindWarPosition', null)} hasSelection={!!scenario.blindWarPosition} isDisabled={isManualMode}>
-                                        {BLIND_WAR_POSITIONS.map(pos => (
-                                            <button key={pos} onClick={() => handleUpdate('blindWarPosition', pos)} disabled={isManualMode} className={`px-4 py-2 rounded-md ${scenario.blindWarPosition === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isManualMode ? 'cursor-not-allowed' : ''}`}>{pos}</button>
-                                        ))}
-                                    </ButtonGroup>
-                                    <ButtonGroup label="Action" onClear={() => handleUpdate('blindWarAction', null)} hasSelection={!!scenario.blindWarAction} isDisabled={isManualMode || !scenario.blindWarPosition}>
-                                        {BLIND_WAR_ACTIONS.map(action => {
-                                            if (action === 'em Gap' && scenario.blindWarPosition !== 'SB') return null;
-                                            const isVsLimpDisabled = scenario.blindWarPosition === 'SB' && action === 'vs. Limp';
-                                            const isVsRaiseDisabled = scenario.blindWarPosition === 'SB' && action === 'vs. raise';
-                                            const isVsIsoDisabled = scenario.blindWarPosition === 'BB' && action === 'vs. ISO';
-                                            const isVs3betDisabled = scenario.blindWarPosition === 'BB' && action === 'vs. 3bet';
-                                            const baseDisabled = isVsLimpDisabled || isVsRaiseDisabled || isVsIsoDisabled || isVs3betDisabled || isManualMode || !scenario.blindWarPosition;
-                                            return (
-                                                <button key={action} onClick={() => handleUpdate('blindWarAction', action)} disabled={baseDisabled} className={`px-4 py-2 rounded-md transition-opacity ${scenario.blindWarAction === action ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${baseDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}>{action}</button>
-                                            );
-                                        })}
-                                    </ButtonGroup>
+                                     {!isManualMode && (
+                                        <>
+                                            <ButtonGroup label="Position" onClear={() => handleUpdate('blindWarPosition', null)} hasSelection={!!scenario.blindWarPosition}>
+                                                {BLIND_WAR_POSITIONS.map(pos => (
+                                                    <button key={pos} onClick={() => handleUpdate('blindWarPosition', pos)} className={`px-4 py-2 rounded-md ${scenario.blindWarPosition === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'}`}>{pos}</button>
+                                                ))}
+                                            </ButtonGroup>
+                                            {scenario.blindWarPosition && (
+                                                <ButtonGroup label="Action" onClear={() => handleUpdate('blindWarAction', null)} hasSelection={!!scenario.blindWarAction} isDisabled={!scenario.blindWarPosition}>
+                                                    {BLIND_WAR_ACTIONS.map(action => {
+                                                        if (action === 'em Gap' && scenario.blindWarPosition !== 'SB') return null;
+                                                        const isVsLimpDisabled = scenario.blindWarPosition === 'SB' && action === 'vs. Limp';
+                                                        const isVsRaiseDisabled = scenario.blindWarPosition === 'SB' && action === 'vs. raise';
+                                                        const isVsIsoDisabled = scenario.blindWarPosition === 'BB' && action === 'vs. ISO';
+                                                        const isVs3betDisabled = scenario.blindWarPosition === 'BB' && action === 'vs. 3bet';
+                                                        const baseDisabled = isVsLimpDisabled || isVsRaiseDisabled || isVsIsoDisabled || isVs3betDisabled || !scenario.blindWarPosition;
+                                                        return (
+                                                            <button key={action} onClick={() => handleUpdate('blindWarAction', action)} disabled={baseDisabled} className={`px-4 py-2 rounded-md transition-opacity ${scenario.blindWarAction === action ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${baseDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}>{action}</button>
+                                                        );
+                                                    })}
+                                                </ButtonGroup>
+                                            )}
+                                        </>
+                                    )}
                                     <div>
-                                        <ButtonGroup label="Modalidade" onClear={() => handleGameScenarioUpdate(null)} hasSelection={!!scenario.gameScenario} isDisabled={isManualMode}>
-                                            {GAME_SCENARIOS.map(gs => (
-                                                <button key={gs} onClick={() => handleGameScenarioUpdate(gs)} disabled={isManualMode} className={`px-4 py-2 rounded-md ${scenario.gameScenario === gs ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isManualMode ? 'cursor-not-allowed' : ''}`}>{gs}</button>
-                                            ))}
-                                        </ButtonGroup>
-                                        <BountyControls />
+                                        {(isManualMode || scenario.blindWarPosition) && (
+                                            <ButtonGroup label="Modalidade" jargonKey="Modalidade" onClear={() => handleGameScenarioUpdate(null)} hasSelection={!!scenario.gameScenario} isDisabled={isManualMode}>
+                                                {GAME_SCENARIOS.map(gs => (
+                                                    <button key={gs} onClick={() => handleGameScenarioUpdate(gs)} disabled={isManualMode} className={`px-4 py-2 rounded-md ${scenario.gameScenario === gs ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isManualMode ? 'cursor-not-allowed' : ''}`}>{gs}</button>
+                                                ))}
+                                            </ButtonGroup>
+                                        )}
+                                        {(isManualMode || scenario.blindWarPosition) && <BountyControls />}
                                         {renderInserirButtons()}
                                     </div>
                                 </div>
@@ -1063,32 +1066,40 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
                             {/* Facing 2bet & Rfi */}
                             {(scenario.spotType === 'Facing 2bet' || scenario.spotType === 'Rfi') && (
                                 <div className={`flex flex-wrap items-start gap-x-6 gap-y-4`}>
-                                    {scenario.spotType === 'Facing 2bet' && (
-                                        <ButtonGroup label="Action" onClear={() => handleUpdate('rangeAction', null)} hasSelection={!!scenario.rangeAction} isDisabled={isManualMode}>
-                                            {FACING_2BET_ACTIONS.map(action => (
-                                                <button key={action} onClick={() => handleUpdate('rangeAction', action)} disabled={isManualMode} className={`px-3.5 py-1.5 text-sm rounded-md ${scenario.rangeAction === action ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isManualMode ? 'cursor-not-allowed' : ''}`}>{action}</button>
-                                            ))}
-                                        </ButtonGroup>
-                                    )}
-                                    <ButtonGroup label={scenario.rangeAction === 'RFI' ? 'Posição' : 'First Raiser Position'} onClear={() => handleUpdate('raiserPos', null)} hasSelection={!!scenario.raiserPos} isDisabled={isManualMode}>
-                                        {POSITIONS.filter(p => p !== 'BB').map(pos => (
-                                            <button key={pos} onClick={() => handleUpdate('raiserPos', pos)} disabled={isManualMode} className={`px-3.5 py-1.5 text-sm rounded-md ${scenario.raiserPos === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isManualMode ? 'cursor-not-allowed' : ''}`}>{pos}</button>
-                                        ))}
-                                    </ButtonGroup>
-                                    {scenario.rangeAction !== 'RFI' && (
-                                        <ButtonGroup label="Hero Position" onClear={() => handleUpdate('heroPos', null)} hasSelection={!!scenario.heroPos} isDisabled={isManualMode}>
-                                            {heroPositions.map(pos => (
-                                                <button key={pos} onClick={() => handleUpdate('heroPos', pos)} disabled={isManualMode} className={`px-3.5 py-1.5 text-sm rounded-md ${scenario.heroPos === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isManualMode ? 'cursor-not-allowed' : ''}`}>{pos}</button>
-                                            ))}
-                                        </ButtonGroup>
+                                    {!isManualMode && (
+                                        <>
+                                            {scenario.spotType === 'Facing 2bet' && (
+                                                <ButtonGroup label="Action" onClear={() => handleUpdate('rangeAction', null)} hasSelection={!!scenario.rangeAction}>
+                                                    {FACING_2BET_ACTIONS.map(action => (
+                                                        <button key={action} onClick={() => handleUpdate('rangeAction', action)} className={`px-3.5 py-1.5 text-sm rounded-md ${scenario.rangeAction === action ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'}`}>{action}</button>
+                                                    ))}
+                                                </ButtonGroup>
+                                            )}
+                                            {scenario.rangeAction && (
+                                                <ButtonGroup label={scenario.rangeAction === 'RFI' ? 'Posição' : 'First Raiser Position'} onClear={() => handleUpdate('raiserPos', null)} hasSelection={!!scenario.raiserPos}>
+                                                    {POSITIONS.filter(p => p !== 'BB').map(pos => (
+                                                        <button key={pos} onClick={() => handleUpdate('raiserPos', pos)} className={`px-3.5 py-1.5 text-sm rounded-md ${scenario.raiserPos === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'}`}>{pos}</button>
+                                                    ))}
+                                                </ButtonGroup>
+                                            )}
+                                            {scenario.rangeAction !== 'RFI' && scenario.raiserPos &&(
+                                                <ButtonGroup label="Hero Position" onClear={() => handleUpdate('heroPos', null)} hasSelection={!!scenario.heroPos}>
+                                                    {heroPositions.map(pos => (
+                                                        <button key={pos} onClick={() => handleUpdate('heroPos', pos)} className={`px-3.5 py-1.5 text-sm rounded-md ${scenario.heroPos === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'}`}>{pos}</button>
+                                                    ))}
+                                                </ButtonGroup>
+                                            )}
+                                        </>
                                     )}
                                     <div>
-                                        <ButtonGroup label="Modalidade" onClear={() => handleGameScenarioUpdate(null)} hasSelection={!!scenario.gameScenario} isDisabled={isManualMode}>
-                                            {GAME_SCENARIOS.map(gs => (
-                                                <button key={gs} onClick={() => handleGameScenarioUpdate(gs)} disabled={isManualMode} className={`px-3.5 py-1.5 text-sm rounded-md ${scenario.gameScenario === gs ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isManualMode ? 'cursor-not-allowed' : ''}`}>{gs}</button>
-                                            ))}
-                                        </ButtonGroup>
-                                        <BountyControls />
+                                        {(isManualMode || scenario.rangeAction) && (
+                                             <ButtonGroup label="Modalidade" jargonKey="Modalidade" onClear={() => handleGameScenarioUpdate(null)} hasSelection={!!scenario.gameScenario} isDisabled={isManualMode}>
+                                                {GAME_SCENARIOS.map(gs => (
+                                                    <button key={gs} onClick={() => handleGameScenarioUpdate(gs)} disabled={isManualMode} className={`px-3.5 py-1.5 text-sm rounded-md ${scenario.gameScenario === gs ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isManualMode ? 'cursor-not-allowed' : ''}`}>{gs}</button>
+                                                ))}
+                                            </ButtonGroup>
+                                        )}
+                                        {(isManualMode || scenario.rangeAction) && <BountyControls />}
                                         {renderInserirButtons()}
                                     </div>
                                 </div>

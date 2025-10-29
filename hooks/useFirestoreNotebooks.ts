@@ -145,7 +145,9 @@ const useFirestoreNotebooks = (uid: string | undefined): Omit<FirestoreNotebooks
                             .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
                         
                         // Update the specific notebook with its scenarios
-                        setNotebooks(prev => prev.map(n => 
+                        // FIX: Explicitly typed `prev` to prevent it from being inferred as `unknown[]`,
+                        // which was causing a downstream type error in StudyView.tsx.
+                        setNotebooks((prev: Notebook[]) => prev.map(n => 
                             n.id === notebook.id ? { ...n, scenarios: scenariosData } : n
                         ));
                     }, (error) => {

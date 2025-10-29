@@ -9,24 +9,20 @@ interface State {
 }
 
 class ErrorBoundary extends React.Component<Props, State> {
-  // FIX: Initializing state in the constructor is a more robust pattern
-  // that avoids potential type inference issues in some TypeScript/build environments,
-  // which can lead to errors like "Property 'state' does not exist".
-  constructor(props: Props) {
-    super(props);
-    this.state = { hasError: false };
-  }
+  // FIX: Using a class property to initialize state. The constructor-based
+  // initialization was causing type errors in this environment.
+  public state: State = { hasError: false };
 
-  static getDerivedStateFromError(_: Error): State {
+  public static getDerivedStateFromError(_: Error): State {
     // Update state so the next render will show the fallback UI.
     return { hasError: true };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("Uncaught error:", error, errorInfo);
   }
 
-  render() {
+  public render() {
     if (this.state.hasError) {
       return (
         <div className="flex items-center justify-center h-screen bg-brand-bg text-brand-text">

@@ -1,23 +1,21 @@
 import React, { useContext, useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { AppContext, useHistory } from '../App';
-import type { SpotType, Scenario } from '../types';
-import { SPOT_TYPES } from '../constants';
+import type { SpotType, Scenario, ScenarioTemplate } from '../types';
+import { SPOT_TYPES, JARGON_DEFINITIONS } from '../constants';
 import ScenarioEditor from './ScenarioEditor';
 import ComparisonView from './ComparisonView';
 import ConfirmationModal from './ConfirmationModal';
 import { useComparison } from '../contexts/ComparisonContext';
 import NotebookNotesEditor from './NotebookNotesEditor';
+import InfoTooltip from './InfoTooltip';
+import TemplateModal from './TemplateModal';
 
 const PlusIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
 );
 
-const UndoIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M9 14 4 9l5-5"/><path d="M4 9h12a5 5 0 0 1 5 5v0a5 5 0 0 1-5 5H9"/></svg>
-);
-
-const RedoIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="m15 14 5-5-5-5"/><path d="M20 9H8a5 5 0 0 0-5 5v0a5 5 0 0 0 5 5h7"/></svg>
+const TemplateIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 mr-2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
 );
 
 
@@ -62,6 +60,7 @@ const StudyView: React.FC = () => {
 
     const [isDeleteAllModalOpen, setIsDeleteAllModalOpen] = useState(false);
     const [isDeleteSelectionModalOpen, setIsDeleteSelectionModalOpen] = useState(false);
+    const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
 
     // Dropdown states
     const [expandDropdownOpen, setExpandDropdownOpen] = useState(false);
@@ -171,6 +170,43 @@ const StudyView: React.FC = () => {
             .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
     }, [activeNotebook, activeSpot]);
 
+    const handleCreateScenarioFromTemplate = (template: ScenarioTemplate) => {
+        if (!activeNotebook) return;
+        const newScenario: Scenario = {
+            id: crypto.randomUUID(),
+            createdAt: Date.now(),
+            spotType: template.spotType,
+            rangeAction: template.rangeAction,
+            raiserPos: template.raiserPos ?? null,
+            heroPos: template.heroPos ?? null,
+            blindWarPosition: template.blindWarPosition ?? null,
+            blindWarAction: template.blindWarAction ?? null,
+            coldCallerPos: null,
+            aggressorPos: null,
+            gameScenario: null,
+            manualTitle: null,
+            printSpotImage: null,
+            rpImage: null,
+            tableViewImage: null,
+            plusInfoImage: null,
+            rangeImage: null,
+            frequenciesImage: null,
+            raiseSmallText: '',
+            raiseBigText: '',
+            callText: '',
+            notes: '',
+        };
+        addScenario(activeNotebook.id, newScenario);
+        pushToHistory({
+            undo: () => deleteScenario(activeNotebook.id, newScenario.id),
+            redo: () => addScenario(activeNotebook.id, newScenario)
+        });
+        
+        // Directly navigate to the spot of the created template
+        setActiveSpot(template.spotType);
+        setIsTemplateModalOpen(false);
+    };
+
     const handleAddNewScenario = () => {
         if (!activeNotebook || !activeSpot) return;
 
@@ -219,7 +255,9 @@ const StudyView: React.FC = () => {
                 redo: () => deleteScenario(activeNotebook.id, scenarioId),
             });
             // Update quick compare
-            setScenariosToCompare(prev => {
+            // FIX: Explicitly type the `prev` parameter in the state setter to prevent type pollution.
+            // Untyped `prev` can be inferred as `unknown`, causing downstream type errors.
+            setScenariosToCompare((prev: Set<string>) => {
                 const newSet = new Set(prev);
                 newSet.delete(scenarioId);
                 return newSet;
@@ -403,8 +441,17 @@ const StudyView: React.FC = () => {
 
     if (!activeNotebook) {
         return (
-            <div className="flex items-center justify-center h-full text-brand-text-muted">
-                <p>Selecione ou crie um caderno para começar.</p>
+            <div className="flex flex-col items-center justify-center h-full text-center text-brand-text-muted">
+                <h2 className="text-3xl font-bold text-brand-text mb-2">Bem-vindo ao Range Rider!</h2>
+                <p className="text-lg mb-6">Para começar, crie ou selecione um caderno na barra lateral.</p>
+                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" className="animate-bounce-horizontal"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+                 <style>{`
+                    @keyframes bounce-horizontal {
+                        0%, 100% { transform: translateX(0); }
+                        50% { transform: translateX(-15px); }
+                    }
+                    .animate-bounce-horizontal { animation: bounce-horizontal 2s infinite; }
+                `}</style>
             </div>
         );
     }
@@ -427,57 +474,58 @@ const StudyView: React.FC = () => {
     if (!activeSpot) {
         return (
             <div className="text-center flex flex-col items-center justify-start h-full pt-8">
-                {/* Part 1 */}
-                <h2 className="text-3xl font-bold mb-8 text-brand-text">{activeNotebook.name}</h2>
+                <h2 className="text-3xl font-bold mb-2 text-brand-text">{activeNotebook.name}</h2>
+                <button
+                    onClick={() => setIsTemplateModalOpen(true)}
+                    className="mb-8 bg-brand-secondary/20 hover:bg-brand-secondary/40 text-brand-secondary font-bold py-4 px-5 rounded-lg text-lg transition-transform transform hover:scale-105 flex items-center"
+                >
+                    <TemplateIcon />
+                    Criar a partir de um Modelo
+                </button>
         
-                {/* Part 2 */}
-                <div className="w-full max-w-4xl mx-auto mb-12">
-                    <p className="text-lg text-brand-text-muted mb-6">What do you wanna master?</p>
+                <div className="w-full max-w-4xl mx-auto mb-10">
+                    <div className="flex items-center justify-center mb-6">
+                        <p className="text-lg text-brand-text-muted mr-2">What do you wanna master?</p>
+                        <InfoTooltip text="Spots são situações de poker comuns. Escolha uma categoria para começar a adicionar seus cenários de estudo." />
+                    </div>
                     <div className="flex justify-center gap-6">
                         {['Rfi', 'Facing 2bet', 'Blind War'].map(spot => (
-                            <button
-                                key={spot}
-                                onClick={() => handleSelectSpot(spot as SpotType)}
-                                className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-8 px-4 rounded-lg text-xl transition-transform transform hover:scale-105 flex-1"
-                            >
+                            <button key={spot} onClick={() => handleSelectSpot(spot as SpotType)} className="group relative bg-brand-primary hover:bg-brand-bg text-brand-text font-bold py-8 px-4 rounded-lg text-xl transition-all transform hover:-translate-y-1 shadow-lg w-52">
                                 {spot}
+                                <span className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-48 text-xs font-normal text-brand-text-muted opacity-0 group-hover:opacity-100 transition-opacity whitespace-normal bg-brand-bg px-2 py-1 rounded shadow-lg z-10">
+                                  {JARGON_DEFINITIONS[spot]}
+                                </span>
                             </button>
                         ))}
                     </div>
                 </div>
         
-                {/* Part 3 */}
-                <div className="w-full max-w-4xl mx-auto mb-12">
+                <div className="w-full max-w-4xl mx-auto mb-10">
                     <p className="text-lg text-brand-text-muted mb-6">GTO Factory</p>
                     <div className="flex justify-center gap-6">
-                         <button
-                            key={'HRC Enviroment'}
-                            onClick={() => handleSelectSpot('HRC Enviroment')}
-                            className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-8 px-4 rounded-lg text-xl transition-transform transform hover:scale-105"
-                            style={{minWidth: '200px'}}
-                        >
+                         <button key={'HRC Enviroment'} onClick={() => handleSelectSpot('HRC Enviroment')} className="group relative bg-brand-primary hover:bg-brand-bg text-brand-text font-bold py-8 px-4 rounded-lg text-xl transition-all transform hover:-translate-y-1 shadow-lg w-52">
                             HRC Enviroment
+                            <span className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-48 text-xs font-normal text-brand-text-muted opacity-0 group-hover:opacity-100 transition-opacity whitespace-normal bg-brand-bg px-2 py-1 rounded shadow-lg z-10">
+                              {JARGON_DEFINITIONS['HRC Enviroment']}
+                            </span>
                         </button>
                     </div>
                 </div>
                 
-                {/* Part 4 */}
                 <div className="w-full max-w-4xl mx-auto">
                     <p className="text-lg text-brand-text-muted mb-6">Notes Section</p>
                     <div className="flex justify-center">
-                        <button
-                            onClick={handleSelectNotesView}
-                            className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-8 px-4 rounded-lg text-xl transition-transform transform hover:scale-105"
-                            style={{minWidth: '200px'}}
-                        >
+                        <button onClick={handleSelectNotesView} className="bg-brand-primary hover:bg-brand-bg text-brand-text font-bold py-8 px-4 rounded-lg text-xl transition-all transform hover:-translate-y-1 shadow-lg w-52">
                             Anotações
                         </button>
                     </div>
                 </div>
+                <TemplateModal isOpen={isTemplateModalOpen} onClose={() => setIsTemplateModalOpen(false)} onSelect={handleCreateScenarioFromTemplate} />
             </div>
         );
     }
 
+    // --- MAIN VIEW (WITH SCENARIOS) ---
     return (
         <div>
             <div className="sticky top-0 z-10 bg-brand-bg pb-4">
@@ -488,81 +536,20 @@ const StudyView: React.FC = () => {
                     </div>
                 </div>
                 
-                {filteredScenarios.length > 0 && (
-                    <div className="flex justify-between items-center flex-wrap gap-4 border-y border-brand-primary py-3">
-                        {/* LEFT GROUP */}
-                        <div className="flex items-center flex-wrap gap-4">
-                            <button
-                                onClick={handleAddNewScenario}
-                                className="bg-white hover:bg-gray-200 text-brand-primary font-bold py-2.5 px-4 rounded-md transition-colors flex items-center"
-                            >
-                                Novo Cenário
-                            </button>
+                {/* --- CONTROL BAR --- */}
+                <div className="flex justify-between items-center flex-wrap gap-4 border-y border-brand-primary py-3">
+                    {/* LEFT GROUP */}
+                    <div className="flex items-center flex-wrap gap-4">
+                        <button
+                            onClick={handleAddNewScenario}
+                            className="bg-white hover:bg-gray-200 text-brand-primary font-bold py-2.5 px-4 rounded-md transition-colors flex items-center"
+                        >
+                            Novo Cenário
+                        </button>
 
-                            {filteredScenarios.length > 1 && (
-                                <>
-                                    <div className="relative" ref={expandDropdownRef}>
-                                        <button
-                                            onClick={() => setExpandDropdownOpen(p => !p)}
-                                            disabled={scenariosToCompare.size === 0}
-                                            className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors text-sm disabled:bg-brand-secondary/50 disabled:cursor-not-allowed disabled:text-brand-primary/70"
-                                            title={scenariosToCompare.size === 0 ? "Selecione um ou mais cenários para usar esta função" : ""}
-                                        >
-                                            Expandir Cenários
-                                        </button>
-                                        {expandDropdownOpen && (
-                                            <div className="absolute top-full left-0 mt-2 w-48 bg-brand-bg rounded-md shadow-lg z-10 border border-brand-primary overflow-hidden">
-                                                <ul className="text-sm text-brand-text">
-                                                    <li><button onClick={() => handleSectionControl('expand', 'all')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Expandir Tudo</button></li>
-                                                    <li><button onClick={() => handleSectionControl('expand', 'params')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Parâmetros</button></li>
-                                                    <li><button onClick={() => handleSectionControl('expand', 'media')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Mídia</button></li>
-                                                    <li><button onClick={() => handleSectionControl('expand', 'notes')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Anotações</button></li>
-                                                </ul>
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="relative" ref={collapseDropdownRef}>
-                                        <button
-                                            onClick={() => setCollapseDropdownOpen(p => !p)}
-                                            disabled={scenariosToCompare.size === 0}
-                                            className="bg-brand-primary hover:bg-brand-primary/80 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                                            title={scenariosToCompare.size === 0 ? "Selecione um ou mais cenários para usar esta função" : ""}
-                                        >
-                                            Recolher Cenários
-                                        </button>
-                                         {collapseDropdownOpen && (
-                                            <div className="absolute top-full left-0 mt-2 w-48 bg-brand-bg rounded-md shadow-lg z-10 border border-brand-primary overflow-hidden">
-                                                <ul className="text-sm text-brand-text">
-                                                    <li><button onClick={() => handleSectionControl('collapse', 'all')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Recolher Tudo</button></li>
-                                                    <li><button onClick={() => handleSectionControl('collapse', 'params')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Parâmetros</button></li>
-                                                    <li><button onClick={() => handleSectionControl('collapse', 'media')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Mídia</button></li>
-                                                    <li><button onClick={() => handleSectionControl('collapse', 'notes')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Anotações</button></li>
-                                                </ul>
-                                            </div>
-                                        )}
-                                    </div>
-                                </>
-                            )}
-                            
-                            {filteredScenarios.length > 1 && (
-                                <button
-                                    onClick={handleSelectAll}
-                                    className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors text-sm"
-                                >
-                                    Selecionar Todos
-                                </button>
-                            )}
-                            
-                            {scenariosToCompare.size > 0 && (
-                                    <button
-                                    onClick={handleClearCompare}
-                                    className="bg-brand-primary hover:bg-brand-primary/80 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm"
-                                >
-                                    Desmarcar Todos
-                                </button>
-                            )}
-
-                            {scenariosToCompare.size > 0 && (
+                        {/* --- Progressive Disclosure: Buttons shown only when items are selected --- */}
+                        {scenariosToCompare.size > 0 && (
+                            <>
                                 <button
                                     onClick={handleStartComparison}
                                     disabled={scenariosToCompare.size < 2}
@@ -570,51 +557,68 @@ const StudyView: React.FC = () => {
                                 >
                                     Comparar ({scenariosToCompare.size})
                                 </button>
-                            )}
-                        </div>
-
-                        {/* RIGHT GROUP */}
-                        <div className="flex items-center flex-wrap gap-4">
-                            {scenariosToCompare.size > 0 && (
-                                <button
-                                    onClick={() => setIsDeleteSelectionModalOpen(true)}
-                                    className="bg-orange-700 hover:bg-orange-800 text-white font-semibold py-2 px-4 rounded-md transition-colors text-sm"
-                                    title="Excluir os cenários selecionados"
-                                >
+                                <div className="relative" ref={expandDropdownRef}>
+                                    <button onClick={() => setExpandDropdownOpen(p => !p)} className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors text-sm">
+                                        Expandir Cenários
+                                    </button>
+                                    {expandDropdownOpen && (
+                                        <div className="absolute top-full left-0 mt-2 w-48 bg-brand-bg rounded-md shadow-lg z-10 border border-brand-primary overflow-hidden">
+                                            <ul className="text-sm text-brand-text">
+                                                <li><button onClick={() => handleSectionControl('expand', 'all')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Expandir Tudo</button></li>
+                                                <li><button onClick={() => handleSectionControl('expand', 'params')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Parâmetros</button></li>
+                                                <li><button onClick={() => handleSectionControl('expand', 'media')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Mídia</button></li>
+                                                <li><button onClick={() => handleSectionControl('expand', 'notes')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Anotações</button></li>
+                                            </ul>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="relative" ref={collapseDropdownRef}>
+                                    <button onClick={() => setCollapseDropdownOpen(p => !p)} className="bg-brand-primary hover:bg-brand-primary/80 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm">
+                                        Recolher Cenários
+                                    </button>
+                                     {collapseDropdownOpen && (
+                                        <div className="absolute top-full left-0 mt-2 w-48 bg-brand-bg rounded-md shadow-lg z-10 border border-brand-primary overflow-hidden">
+                                            <ul className="text-sm text-brand-text">
+                                                <li><button onClick={() => handleSectionControl('collapse', 'all')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Recolher Tudo</button></li>
+                                                <li><button onClick={() => handleSectionControl('collapse', 'params')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Parâmetros</button></li>
+                                                <li><button onClick={() => handleSectionControl('collapse', 'media')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Mídia</button></li>
+                                                <li><button onClick={() => handleSectionControl('collapse', 'notes')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Anotações</button></li>
+                                            </ul>
+                                        </div>
+                                    )}
+                                </div>
+                                <button onClick={handleClearCompare} className="bg-brand-primary hover:bg-brand-primary/80 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm">
+                                    Desmarcar Todos
+                                </button>
+                                <button onClick={() => setIsDeleteSelectionModalOpen(true)} className="bg-orange-700 hover:bg-orange-800 text-white font-semibold py-2 px-4 rounded-md transition-colors text-sm">
                                     Excluir Seleção
                                 </button>
-                            )}
-                            
-                            <button
-                                onClick={undoLastAction}
-                                disabled={!canUndo}
-                                className="bg-brand-primary hover:bg-brand-primary/80 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
-                                title="Desfazer (Ctrl+Z)"
-                            >
-                                Undo
-                            </button>
-                            
-                            <button
-                                onClick={redoLastAction}
-                                disabled={!canRedo}
-                                className="bg-brand-primary hover:bg-brand-primary/80 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
-                                title="Refazer (Ctrl+Y)"
-                            >
-                                Redo
-                            </button>
+                            </>
+                        )}
+                    </div>
 
-                            {filteredScenarios.length > 0 && (
-                                <button
-                                    onClick={() => setIsDeleteAllModalOpen(true)}
-                                    className="bg-orange-700 hover:bg-orange-800 text-white font-semibold py-2 px-4 rounded-md transition-colors text-sm"
-                                    title="Excluir todos os cenários visíveis"
-                                >
+                    {/* RIGHT GROUP */}
+                    <div className="flex items-center flex-wrap gap-4">
+                       {filteredScenarios.length > 1 && scenariosToCompare.size === 0 && (
+                            <button onClick={handleSelectAll} className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors text-sm">
+                                Selecionar Todos
+                            </button>
+                        )}
+                        {filteredScenarios.length > 0 && (
+                            <>
+                                <button onClick={undoLastAction} disabled={!canUndo} className="bg-brand-primary hover:bg-brand-primary/80 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm flex items-center disabled:opacity-50 disabled:cursor-not-allowed" title="Desfazer (Ctrl+Z)">
+                                    Desfazer
+                                </button>
+                                <button onClick={redoLastAction} disabled={!canRedo} className="bg-brand-primary hover:bg-brand-primary/80 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm flex items-center disabled:opacity-50 disabled:cursor-not-allowed" title="Refazer (Ctrl+Y)">
+                                    Refazer
+                                </button>
+                                <button onClick={() => setIsDeleteAllModalOpen(true)} className="bg-orange-700 hover:bg-orange-800 text-white font-semibold py-2 px-4 rounded-md transition-colors text-sm" title="Excluir todos os cenários neste spot">
                                     Excluir Tudo
                                 </button>
-                            )}
-                        </div>
+                            </>
+                        )}
                     </div>
-                )}
+                </div>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -636,13 +640,14 @@ const StudyView: React.FC = () => {
 
             {filteredScenarios.length === 0 && (
                 <div className="text-center py-16 text-brand-text-muted">
-                    <p>Nenhum cenário para este spot.</p>
+                    <h3 className="text-xl font-semibold text-brand-text mb-4">Este spot está vazio.</h3>
+                    <p className="mb-6">Adicione seu primeiro cenário para começar a estudar.</p>
                     <button
                         onClick={handleAddNewScenario}
-                        className="mt-4 bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors flex items-center gap-2 mx-auto"
+                        className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-3 px-6 rounded-lg transition-colors flex items-center gap-2 mx-auto text-lg transform hover:scale-105"
                     >
                         <PlusIcon />
-                        Clique aqui para começar
+                        Adicionar Novo Cenário
                     </button>
                 </div>
             )}

@@ -26,19 +26,22 @@ export const ComparisonProvider: React.FC<ComparisonProviderProps> = ({ children
   const [scenariosToCompare, setScenariosToCompare] = useState<string[]>([]);
 
   const addScenarioToCompare = useCallback((scenarioId: string) => {
-    setScenariosToCompare(prev => {
+    // FIX: Explicitly type `prev` to avoid type pollution.
+    setScenariosToCompare((prev: string[]) => {
       if (prev.includes(scenarioId)) return prev;
       return [...prev, scenarioId];
     });
   }, []);
 
   const removeScenarioFromCompare = useCallback((scenarioId: string) => {
-    setScenariosToCompare(prev => prev.filter(id => id !== scenarioId));
+    // FIX: Explicitly type `prev` to avoid type pollution.
+    setScenariosToCompare((prev: string[]) => prev.filter(id => id !== scenarioId));
   }, []);
 
   const removeMultipleScenariosFromCompare = useCallback((scenarioIds: string[]) => {
     const idsToRemove = new Set(scenarioIds);
-    setScenariosToCompare(prev => prev.filter(id => !idsToRemove.has(id)));
+    // FIX: Explicitly type `prev` to avoid type pollution.
+    setScenariosToCompare((prev: string[]) => prev.filter(id => !idsToRemove.has(id)));
   }, []);
   
   const clearComparison = useCallback(() => {

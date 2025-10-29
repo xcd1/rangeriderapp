@@ -1,5 +1,3 @@
-
-
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import type { Scenario } from '../types';
 
@@ -49,7 +47,7 @@ const getScenarioTitle = (scenario: Scenario): string => {
 };
 
 const BackArrowIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 mr-2">
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 mr-2">
         <line x1="19" y1="12" x2="5" y2="12"></line>
         <polyline points="12 19 5 12 12 5"></polyline>
     </svg>
@@ -372,6 +370,40 @@ const gridColClassMap: { [key: number]: string } = {
     5: 'grid-cols-5',
 };
 
+const SimpleScenarioCard: React.FC<{ scenario: Scenario; onZoom: (src: string) => void }> = ({ scenario, onZoom }) => {
+    return (
+        <div className="w-full h-full bg-brand-primary rounded-lg p-3 border border-brand-bg flex flex-col">
+            <h3 className="font-bold text-center text-brand-text truncate mb-2 flex-shrink-0" title={getScenarioTitle(scenario)}>
+                {getScenarioTitle(scenario)}
+            </h3>
+            <div className="bg-brand-bg aspect-square rounded flex items-center justify-center relative flex-shrink-0">
+                {scenario.rangeImage ? (
+                    <>
+                        <img src={scenario.rangeImage} alt="Range" className="max-w-full max-h-full object-contain"/>
+                        <div
+                            className="absolute inset-0 cursor-zoom-in"
+                            onClick={() => scenario.rangeImage && onZoom(scenario.rangeImage)}
+                            title="Ampliar imagem"
+                        />
+                    </>
+                ) : (
+                    <span className="text-gray-500 text-sm">Sem Imagem</span>
+                )}
+            </div>
+            {scenario.frequenciesImage && (
+                <div className="bg-brand-bg aspect-[6/1] rounded flex items-center justify-center relative mt-2 flex-shrink-0">
+                    <img src={scenario.frequenciesImage} alt="Frequências" className="max-w-full max-h-full object-contain"/>
+                    <div
+                        className="absolute inset-0 cursor-zoom-in"
+                        onClick={() => onZoom(scenario.frequenciesImage)}
+                        title="Ampliar imagem"
+                    />
+                </div>
+            )}
+        </div>
+    );
+};
+
 const ComparisonView: React.FC<ComparisonViewProps> = ({ scenarios, onBack }) => {
     const gridRef = useRef<HTMLDivElement>(null);
     const [openModals, setOpenModals] = useState<OpenModal[]>([]);
@@ -390,6 +422,8 @@ const ComparisonView: React.FC<ComparisonViewProps> = ({ scenarios, onBack }) =>
     const [gridCols, setGridCols] = useState<number | null>(null);
     const [zoomLevel, setZoomLevel] = useState(1);
     
+    const [isSimpleMode, setIsSimpleMode] = useState(true);
+
     const handleZoomIn = () => setZoomLevel(prev => Math.min(prev + 0.1, 2));
     const handleZoomOut = () => setZoomLevel(prev => Math.max(prev - 0.1, 0.5));
 
@@ -757,130 +791,137 @@ const ComparisonView: React.FC<ComparisonViewProps> = ({ scenarios, onBack }) =>
 
                 {/* Middle section: All controls, centered */}
                 <div className="flex-grow flex flex-wrap items-center justify-center gap-x-6 gap-y-3">
-                    {/* Control buttons */}
-                    <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-sm font-semibold text-brand-text-muted mr-2">Controles:</span>
-                        <button 
-                            onClick={handleAdjustLayout}
-                            disabled={!orderedScenarios.some(s => s === null)}
-                            className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-2 px-3 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                            title="Remover espaços vazios e ajustar o grid"
-                        >
-                            Ajustar
-                        </button>
-                        <button 
-                            onClick={handleUndo} 
-                            disabled={history.length === 0}
-                            className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-2 px-3 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                            title="Desfazer (Ctrl+Z)"
-                        >
-                            Desfazer
-                        </button>
-                        <button 
-                            onClick={handleResetLayout}
-                            className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-2 px-3 rounded-md transition-colors text-sm"
-                        >
-                            Layout Original
-                        </button>
-                    </div>
+                    {/* Advanced controls - only show in advanced mode */}
+                    {!isSimpleMode && (
+                        <>
+                            {/* Control buttons */}
+                            <div className="flex flex-wrap items-center gap-2">
+                                <span className="text-sm font-semibold text-brand-text-muted mr-2">Controles:</span>
+                                <button 
+                                    onClick={handleAdjustLayout}
+                                    disabled={!orderedScenarios.some(s => s === null)}
+                                    className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-2 px-3 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                                    title="Remover espaços vazios e ajustar o grid"
+                                >
+                                    Ajustar
+                                </button>
+                                <button 
+                                    onClick={handleUndo} 
+                                    disabled={history.length === 0}
+                                    className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-2 px-3 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                                    title="Desfazer (Ctrl+Z)"
+                                >
+                                    Desfazer
+                                </button>
+                                <button 
+                                    onClick={handleResetLayout}
+                                    className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-2 px-3 rounded-md transition-colors text-sm"
+                                >
+                                    Layout Original
+                                </button>
+                            </div>
 
-                    {/* Express layout buttons */}
-                    <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-sm font-semibold text-brand-text-muted mr-2">Layouts:</span>
-                        {layouts.map((layout) => {
-                            if (layout.type === 'single') {
-                                const enabled = isLayoutEnabled(layout.rows, layout.cols, numActiveScenarios);
-                                return (
-                                    <button
-                                        key={layout.label}
-                                        onClick={() => handleExpressLayout(layout.rows, layout.cols)}
-                                        disabled={!enabled}
-                                        className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1.5 px-3 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                                        title={enabled ? `Organizar em ${layout.label}` : `Requer um número diferente de cenários`}
-                                    >
-                                        {layout.label}
-                                    </button>
-                                );
-                            }
+                            {/* Express layout buttons */}
+                            <div className="flex flex-wrap items-center gap-2">
+                                <span className="text-sm font-semibold text-brand-text-muted mr-2">Layouts:</span>
+                                {layouts.map((layout) => {
+                                    if (layout.type === 'single') {
+                                        const enabled = isLayoutEnabled(layout.rows, layout.cols, numActiveScenarios);
+                                        return (
+                                            <button
+                                                key={layout.label}
+                                                onClick={() => handleExpressLayout(layout.rows, layout.cols)}
+                                                disabled={!enabled}
+                                                className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1.5 px-3 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                                                title={enabled ? `Organizar em ${layout.label}` : `Requer um número diferente de cenários`}
+                                            >
+                                                {layout.label}
+                                            </button>
+                                        );
+                                    }
 
-                            if (layout.type === 'dual') {
-                                const enabled1 = isLayoutEnabled(layout.layouts[0].rows, layout.layouts[0].cols, numActiveScenarios);
-                                const enabled2 = isLayoutEnabled(layout.layouts[1].rows, layout.layouts[1].cols, numActiveScenarios);
-                                
-                                const title1 = enabled1 ? `Organizar em ${layout.layouts[0].rows}x${layout.layouts[0].cols}` : 'Requer um número diferente de cenários';
-                                const title2 = enabled2 ? `Organizar em ${layout.layouts[1].rows}x${layout.layouts[1].cols}` : 'Requer um número diferente de cenários';
-                                
-                                return (
-                                    <div
-                                        key={`${layout.labels[0]}x${layout.labels[1]}`}
-                                        className={`flex items-center justify-center bg-brand-bg text-brand-text font-semibold rounded-md transition-colors text-sm ${(!enabled1 && !enabled2) ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                    >
-                                        <span
-                                            onClick={(e) => {
-                                                if (enabled1) {
-                                                    e.stopPropagation();
-                                                    handleExpressLayout(layout.layouts[0].rows, layout.layouts[0].cols);
-                                                }
-                                            }}
-                                            className={`py-1.5 px-3 rounded-l-md ${enabled1 ? 'hover:bg-brand-primary cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}
-                                            title={title1}
-                                        >
-                                            {layout.labels[0]}
-                                        </span>
-                                        <span className="text-brand-text-muted text-xs select-none">x</span>
-                                        <span
-                                            onClick={(e) => {
-                                                if (enabled2) {
-                                                    e.stopPropagation();
-                                                    handleExpressLayout(layout.layouts[1].rows, layout.layouts[1].cols);
-                                                }
-                                            }}
-                                            className={`py-1.5 px-3 rounded-r-md ${enabled2 ? 'hover:bg-brand-primary cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}
-                                            title={title2}
-                                        >
-                                            {layout.labels[1]}
-                                        </span>
-                                    </div>
-                                );
-                            }
-                            return null;
-                        })}
-                    </div>
-                    
-                    {/* Zoom Controls */}
-                    <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-sm font-semibold text-brand-text-muted mr-2">Zoom:</span>
-                        <button
-                            onClick={handleZoomOut}
-                            className="bg-brand-bg hover:brightness-125 text-brand-text font-bold w-8 h-8 rounded-md transition-colors text-lg flex items-center justify-center"
-                            title="Diminuir zoom"
-                        >
-                            -
-                        </button>
-                        <input
-                            type="range"
-                            min="0.5"
-                            max="2"
-                            step="0.01"
-                            value={zoomLevel}
-                            onChange={(e) => setZoomLevel(parseFloat(e.target.value))}
-                            className="w-32 h-2 bg-brand-bg rounded-lg appearance-none cursor-pointer accent-brand-secondary"
-                            title={`Zoom: ${Math.round(zoomLevel * 100)}%`}
-                        />
-                        <button
-                            onClick={handleZoomIn}
-                            className="bg-brand-bg hover:brightness-125 text-brand-text font-bold w-8 h-8 rounded-md transition-colors text-lg flex items-center justify-center"
-                            title="Aumentar zoom"
-                        >
-                            +
-                        </button>
-                    </div>
-
+                                    if (layout.type === 'dual') {
+                                        const enabled1 = isLayoutEnabled(layout.layouts[0].rows, layout.layouts[0].cols, numActiveScenarios);
+                                        const enabled2 = isLayoutEnabled(layout.layouts[1].rows, layout.layouts[1].cols, numActiveScenarios);
+                                        
+                                        const title1 = enabled1 ? `Organizar em ${layout.layouts[0].rows}x${layout.layouts[0].cols}` : 'Requer um número diferente de cenários';
+                                        const title2 = enabled2 ? `Organizar em ${layout.layouts[1].rows}x${layout.layouts[1].cols}` : 'Requer um número diferente de cenários';
+                                        
+                                        return (
+                                            <div
+                                                key={`${layout.labels[0]}x${layout.labels[1]}`}
+                                                className={`flex items-center justify-center bg-brand-bg text-brand-text font-semibold rounded-md transition-colors text-sm ${(!enabled1 && !enabled2) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                            >
+                                                <span
+                                                    onClick={(e) => {
+                                                        if (enabled1) {
+                                                            e.stopPropagation();
+                                                            handleExpressLayout(layout.layouts[0].rows, layout.layouts[0].cols);
+                                                        }
+                                                    }}
+                                                    className={`py-1.5 px-3 rounded-l-md ${enabled1 ? 'hover:bg-brand-primary cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}
+                                                    title={title1}
+                                                >
+                                                    {layout.labels[0]}
+                                                </span>
+                                                <span className="text-brand-text-muted text-xs select-none">x</span>
+                                                <span
+                                                    onClick={(e) => {
+                                                        if (enabled2) {
+                                                            e.stopPropagation();
+                                                            handleExpressLayout(layout.layouts[1].rows, layout.layouts[1].cols);
+                                                        }
+                                                    }}
+                                                    className={`py-1.5 px-3 rounded-r-md ${enabled2 ? 'hover:bg-brand-primary cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}
+                                                    title={title2}
+                                                >
+                                                    {layout.labels[1]}
+                                                </span>
+                                            </div>
+                                        );
+                                    }
+                                    return null;
+                                })}
+                            </div>
+                            
+                            {/* Zoom Controls */}
+                            <div className="flex flex-wrap items-center gap-2">
+                                <span className="text-sm font-semibold text-brand-text-muted mr-2">Zoom:</span>
+                                <button
+                                    onClick={handleZoomOut}
+                                    className="bg-brand-bg hover:brightness-125 text-brand-text font-bold w-8 h-8 rounded-md transition-colors text-lg flex items-center justify-center"
+                                    title="Diminuir zoom"
+                                >
+                                    -
+                                </button>
+                                <input
+                                    type="range"
+                                    min="0.5"
+                                    max="2"
+                                    step="0.01"
+                                    value={zoomLevel}
+                                    onChange={(e) => setZoomLevel(parseFloat(e.target.value))}
+                                    className="w-32 h-2 bg-brand-bg rounded-lg appearance-none cursor-pointer accent-brand-secondary"
+                                    title={`Zoom: ${Math.round(zoomLevel * 100)}%`}
+                                />
+                                <button
+                                    onClick={handleZoomIn}
+                                    className="bg-brand-bg hover:brightness-125 text-brand-text font-bold w-8 h-8 rounded-md transition-colors text-lg flex items-center justify-center"
+                                    title="Aumentar zoom"
+                                >
+                                    +
+                                </button>
+                            </div>
+                        </>
+                    )}
                 </div>
 
-                {/* Right side: Back button */}
+                {/* Right side: Back button & Mode Toggle */}
                 <div className="flex items-center flex-shrink-0 gap-4">
-                    {openModals.length > 1 && (
+                    <button onClick={() => setIsSimpleMode(p => !p)} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm">
+                        {isSimpleMode ? 'Modo Avançado' : 'Modo Simples'}
+                    </button>
+                    {!isSimpleMode && openModals.length > 1 && (
                         <button 
                             onClick={handleCloseAll}
                             className="bg-red-700 hover:bg-red-800 text-white font-bold py-2 px-4 rounded-md shadow-lg transition-transform hover:scale-105"
@@ -895,12 +936,20 @@ const ComparisonView: React.FC<ComparisonViewProps> = ({ scenarios, onBack }) =>
                 </div>
             </div>
             
-            <div className="flex-grow p-6">
+            <div className="flex-grow p-6 overflow-y-auto">
                 {scenarios.length < 2 ? (
                      <div className="text-center py-12 text-brand-text-muted">
                         <p>Selecione 2 ou mais cenários para comparar.</p>
                     </div>
+                ) : isSimpleMode ? (
+                    // --- SIMPLE MODE ---
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
+                        {scenarios.map(scenario => (
+                            <SimpleScenarioCard key={scenario.id} scenario={scenario} onZoom={(src) => setZoomedImage(src)} />
+                        ))}
+                    </div>
                 ) : (
+                    // --- ADVANCED MODE ---
                     <div
                         style={{
                             transform: `scale(${zoomLevel})`,
@@ -997,7 +1046,7 @@ const ComparisonView: React.FC<ComparisonViewProps> = ({ scenarios, onBack }) =>
                 )}
             </div>
             
-            {openModals.map(modal => (
+            {!isSimpleMode && openModals.map(modal => (
                 <DraggableImageViewer
                     key={modal.id}
                     id={modal.id}
