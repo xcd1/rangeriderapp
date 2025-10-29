@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
 import {
   User,
   createUserWithEmailAndPassword,
@@ -18,7 +18,7 @@ import {
   sendPasswordResetEmail,
   sendEmailVerification,
 } from 'firebase/auth';
-import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import type { UserProfile } from '../types';
 
@@ -32,7 +32,7 @@ interface AuthContextType {
   loginWithGoogle: (rememberMe: boolean) => Promise<any>;
   logout: () => Promise<void>;
   updateUserProfile: (displayName: string, phone: string) => Promise<void>;
-  
+  forceReloadUser: () => void;
   sendSignupVerificationCode: () => Promise<void>;
   sendPasswordReset: (email: string) => Promise<void>;
   changePasswordWithOldPassword: (oldPassword: string, newPassword: string) => Promise<void>;
@@ -57,12 +57,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // This listener handles both auth state changes and Firestore profile updates
+    let unsubProfile = () => {};
     const unsubscribe = onAuthStateChanged(auth, (authUser) => {
+      unsubProfile(); // Clean up previous profile listener
       if (authUser) {
         // User is logged in, now listen for profile changes in Firestore
         const userDocRef = doc(db, 'users', authUser.uid);
-        const unsubProfile = onSnapshot(userDocRef, (doc) => {
+        unsubProfile = onSnapshot(userDocRef, (doc) => {
           const profileData = doc.data() as UserProfile;
           // We need to merge the latest auth user object with profile data
           // because properties like `emailVerified` can change.
@@ -71,8 +72,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               setUser({ ...latestAuthUser, ...profileData });
           }
           setLoading(false);
+        }, (error) => {
+            console.error("Error listening to profile updates:", error);
+            setLoading(false);
         });
-        return () => unsubProfile(); // Cleanup profile listener on logout
       } else {
         // User is logged out
         setUser(null);
@@ -80,7 +83,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     });
 
-    return () => unsubscribe(); // Cleanup auth listener on unmount
+    return () => {
+      unsubscribe(); // Cleanup auth listener on unmount
+      unsubProfile(); // Cleanup profile listener on unmount
+    };
   }, []);
   
   const signup = async (email: string, password: string, rememberMe: boolean) => {
@@ -90,7 +96,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     
     // Create user profile in Firestore
     const userDocRef = doc(db, 'users', userCredential.user.uid);
-    await setDoc(userDocRef, { isVerified: false, firstName: '', lastName: '', phone: '' });
+    await setDoc(userDocRef, { firstName: '', lastName: '', phone: '' });
 
     // Send verification email
     await sendEmailVerification(userCredential.user);
@@ -113,7 +119,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // On first Google login, create their Firestore profile
       const userDocRef = doc(db, 'users', result.user.uid);
       await setDoc(userDocRef, { 
-        isVerified: true, // Google accounts are considered verified
         firstName: result.user.displayName?.split(' ')[0] || '',
         lastName: result.user.displayName?.split(' ').slice(1).join(' ') || '',
         phone: result.user.phoneNumber || ''
@@ -134,6 +139,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     await setDoc(userDocRef, { phone }, { merge: true });
   };
   
+  const forceReloadUser = useCallback(() => {
+    const currentUser = auth.currentUser;
+    if (currentUser) {
+        // Re-fetch profile and merge with latest auth user.
+        const userDocRef = doc(db, 'users', currentUser.uid);
+        getDoc(userDocRef).then((docSnap) => {
+            // auth.currentUser is already up-to-date from a recent reload() call.
+            if (auth.currentUser) {
+               const profileData = docSnap.data() as UserProfile;
+               setUser({ ...auth.currentUser, ...profileData });
+            }
+        });
+    }
+  }, []);
+
   const sendSignupVerificationCode = async () => {
     const currentUser = auth.currentUser;
     if (!currentUser) throw new Error("Usuário não autenticado para reenviar verificação.");
@@ -163,6 +183,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     loginWithGoogle,
     logout: () => signOut(auth),
     updateUserProfile,
+    forceReloadUser,
     sendSignupVerificationCode,
     sendPasswordReset,
     changePasswordWithOldPassword

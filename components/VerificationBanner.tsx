@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { auth } from '../firebase';
 
 const SpinnerIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg className={`animate-spin ${className}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -9,9 +10,23 @@ const SpinnerIcon: React.FC<{ className?: string }> = ({ className }) => (
 );
 
 const VerificationBanner: React.FC = () => {
-  const { sendSignupVerificationCode } = useAuth();
+  const { sendSignupVerificationCode, forceReloadUser } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    const intervalId = setInterval(async () => {
+      if (auth.currentUser) {
+        await auth.currentUser.reload();
+        if (auth.currentUser.emailVerified) {
+          clearInterval(intervalId);
+          forceReloadUser(); // This will update the context and hide the banner
+        }
+      }
+    }, 5000); // Check every 5 seconds
+
+    return () => clearInterval(intervalId);
+  }, [forceReloadUser]);
 
   const handleResend = async () => {
     setIsLoading(true);

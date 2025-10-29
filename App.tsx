@@ -270,7 +270,7 @@ const AppContent: React.FC = () => {
             title="Arraste para redimensionar"
         />
         <main className="flex-1 p-6 min-w-0 flex flex-col">
-          {user && !user.isVerified && <VerificationBanner />}
+          {user && !user.emailVerified && <VerificationBanner />}
           <div className="flex-grow overflow-y-auto">
             <StudyView key={activeNotebookId} />
           </div>

@@ -11,7 +11,6 @@ export interface UserProfile {
   firstName: string;
   lastName: string;
   phone: string;
-  isVerified?: boolean;
 }
 
 export interface Scenario {
