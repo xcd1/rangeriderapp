@@ -1,5 +1,7 @@
 
 
+
+
 export type Position = 'UTG' | 'EP' | 'LJ' | 'HJ' | 'CO' | 'BTN' | 'SB' | 'BB';
 export type GameScenario = 'CEv' | 'Bounty CVD' | 'Bounty CVN' | 'Vanilla CVD' | 'Vanilla CVN' | 'Turbo' | 'Hyper' | 'Mistery';
 export type SpotType = 'Blind War' | 'Facing 2bet' | 'HRC Enviroment' | 'Rfi';
@@ -61,4 +63,6 @@ export interface Notebook {
   scenarios: Scenario[];
   folderId?: string | null;
   createdAt: number;
+  notes?: string;
+  defaultSpot?: SpotType | 'notes' | null;
 }

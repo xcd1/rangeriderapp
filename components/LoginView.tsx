@@ -21,6 +21,7 @@ const LoginView: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [isForgotPassModalOpen, setIsForgotPassModalOpen] = useState(false);
+  const [isCapsLockOn, setIsCapsLockOn] = useState(false);
   
   const { signup, login, loginWithGoogle } = useAuth();
 
@@ -121,6 +122,12 @@ const LoginView: React.FC = () => {
     }
   }
 
+  const checkCapsLock = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (typeof event.getModifierState === 'function') {
+        setIsCapsLockOn(event.getModifierState('CapsLock'));
+    }
+  };
+
   return (
     <>
     <div className="flex items-center justify-center h-screen bg-brand-bg">
@@ -154,14 +161,22 @@ const LoginView: React.FC = () => {
               required
               className="w-full px-3 py-2 text-brand-text bg-brand-bg border border-brand-bg rounded-md focus:outline-none focus:ring-2 focus:ring-brand-secondary"
             />
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Senha (mín. 6 caracteres)"
-              required
-              className="w-full px-3 py-2 text-brand-text bg-brand-bg border border-brand-bg rounded-md focus:outline-none focus:ring-2 focus:ring-brand-secondary"
-            />
+            <div>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyUp={checkCapsLock}
+                placeholder="Senha (mín. 6 caracteres)"
+                required
+                className="w-full px-3 py-2 text-brand-text bg-brand-bg border border-brand-bg rounded-md focus:outline-none focus:ring-2 focus:ring-brand-secondary"
+              />
+              {isCapsLockOn && (
+                  <p className="text-yellow-400 text-xs text-center pt-2">
+                      Aviso: Caps Lock está ativado.
+                  </p>
+              )}
+            </div>
             <div className="flex items-center justify-between">
                 <div className="flex items-center">
                     <input 

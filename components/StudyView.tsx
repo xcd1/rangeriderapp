@@ -1,4 +1,4 @@
-import React, { useContext, useState, useMemo, useEffect, useRef } from 'react';
+import React, { useContext, useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { AppContext, useHistory } from '../App';
 import type { SpotType, Scenario } from '../types';
 import { SPOT_TYPES } from '../constants';
@@ -6,6 +6,7 @@ import ScenarioEditor from './ScenarioEditor';
 import ComparisonView from './ComparisonView';
 import ConfirmationModal from './ConfirmationModal';
 import { useComparison } from '../contexts/ComparisonContext';
+import NotebookNotesEditor from './NotebookNotesEditor';
 
 const PlusIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
@@ -20,33 +21,7 @@ const RedoIcon = () => (
 );
 
 
-const getLastActiveSpots = (uid: string): Record<string, SpotType> => {
-    if (!uid) return {};
-    try {
-        const item = localStorage.getItem(`lastActiveSpots-${uid}`);
-        return item ? JSON.parse(item) : {};
-    } catch (error) {
-        console.error("Error reading lastActiveSpots from localStorage", error);
-        return {};
-    }
-};
-
-const setLastActiveSpot = (uid: string, notebookId: string, spot: SpotType | null) => {
-    if (!uid) return;
-    try {
-        const spots = getLastActiveSpots(uid);
-        if (spot) {
-            spots[notebookId] = spot;
-        } else {
-            delete spots[notebookId];
-        }
-        localStorage.setItem(`lastActiveSpots-${uid}`, JSON.stringify(spots));
-    } catch (error) {
-        console.error("Error writing lastActiveSpots to localStorage", error);
-    }
-};
-
-type ComparisonStateObject = { scenarioIds: string[]; fromSpot: SpotType | null };
+type ComparisonStateObject = { scenarioIds: string[]; fromSpot: SpotType | null; isComparing: boolean };
 type ComparisonState = Record<string, ComparisonStateObject>;
 
 const getComparisonState = (uid: string): ComparisonState => {
@@ -60,12 +35,13 @@ const getComparisonState = (uid: string): ComparisonState => {
     }
 };
 
-const setComparisonState = (uid: string, notebookId: string, scenarioIds: string[], fromSpot: SpotType | null) => {
+const setComparisonState = (uid: string, notebookId: string, scenarioIds: string[], fromSpot: SpotType | null, isComparing?: boolean) => {
     if (!uid) return;
     try {
         const state = getComparisonState(uid);
         if (scenarioIds.length > 0) {
-            state[notebookId] = { scenarioIds, fromSpot };
+            const currentlyComparing = state[notebookId]?.isComparing ?? false;
+            state[notebookId] = { scenarioIds, fromSpot, isComparing: isComparing ?? currentlyComparing };
         } else {
             delete state[notebookId];
         }
@@ -93,8 +69,7 @@ const StudyView: React.FC = () => {
     const [sectionControl, setSectionControl] = useState<{action: 'expand' | 'collapse', target: 'all' | 'params' | 'media' | 'notes', key: number} | null>(null);
     const expandDropdownRef = useRef<HTMLDivElement>(null);
     const collapseDropdownRef = useRef<HTMLDivElement>(null);
-
-
+    
     if (!context) return null;
     const { 
         notebooks, 
@@ -104,7 +79,8 @@ const StudyView: React.FC = () => {
         updateScenario, 
         deleteScenario,
         addMultipleScenarios,
-        deleteMultipleScenarios
+        deleteMultipleScenarios,
+        updateNotebook
     } = context;
 
     const uid = user?.uid;
@@ -113,46 +89,35 @@ const StudyView: React.FC = () => {
         return notebooks.find(n => n.id === activeNotebookId);
     }, [notebooks, activeNotebookId]);
 
-    // Synchronously determine the initial state to prevent UI flashing on notebook switch.
-    const initialViewState = useMemo(() => {
+    const initialComparisonState = useMemo(() => {
         if (activeNotebook && uid) {
             const comparisonStates = getComparisonState(uid);
             const savedComparison = comparisonStates[activeNotebook.id];
-
             if (savedComparison && savedComparison.scenarioIds.length > 0) {
                 return {
-                    isComparing: true,
+                    isComparing: savedComparison.isComparing,
                     scenariosToCompare: new Set<string>(savedComparison.scenarioIds),
-                    activeSpot: null as SpotType | null,
-                    comparisonOriginSpot: savedComparison.fromSpot,
-                };
-            } else {
-                const lastSpot = getLastActiveSpots(uid)[activeNotebook.id];
-                return {
-                    isComparing: false,
-                    scenariosToCompare: new Set<string>(),
-                    activeSpot: lastSpot || null,
-                    comparisonOriginSpot: null as SpotType | null,
                 };
             }
         }
-        return {
-            isComparing: false,
-            scenariosToCompare: new Set<string>(),
-            activeSpot: null as SpotType | null,
-            comparisonOriginSpot: null as SpotType | null,
-        };
+        return { isComparing: false, scenariosToCompare: new Set<string>() };
     }, [activeNotebook, uid]);
 
-    const [activeSpot, setActiveSpot] = useState<SpotType | null>(initialViewState.activeSpot);
-    const [scenariosToCompare, setScenariosToCompare] = useState<Set<string>>(initialViewState.scenariosToCompare);
-    const [isComparing, setIsComparing] = useState<boolean>(initialViewState.isComparing);
-    const [comparisonOriginSpot, setComparisonOriginSpot] = useState<SpotType | null>(initialViewState.comparisonOriginSpot);
+    const [isComparing, setIsComparing] = useState<boolean>(initialComparisonState.isComparing);
+    const [scenariosToCompare, setScenariosToCompare] = useState<Set<string>>(initialComparisonState.scenariosToCompare);
 
+    const [view, setView] = useState<'spots' | 'notes'>(() => activeNotebook?.defaultSpot === 'notes' ? 'notes' : 'spots');
+    const [activeSpot, setActiveSpot] = useState<SpotType | null>(() => {
+        if (activeNotebook?.defaultSpot && activeNotebook.defaultSpot !== 'notes') {
+            return activeNotebook.defaultSpot as SpotType;
+        }
+        return null;
+    });
+    
     const initialCollapsedState = useMemo(() => {
-        if (activeNotebook && uid && initialViewState.activeSpot) {
+        if (activeNotebook && uid && activeSpot) {
              try {
-                const key = `collapsedScenarios-${uid}-${activeNotebook.id}-${initialViewState.activeSpot}`;
+                const key = `collapsedScenarios-${uid}-${activeNotebook.id}-${activeSpot}`;
                 const saved = localStorage.getItem(key);
                 return saved ? new Set<string>(JSON.parse(saved)) : new Set<string>();
             } catch (e) {
@@ -161,7 +126,7 @@ const StudyView: React.FC = () => {
             }
         }
         return new Set<string>();
-    }, [activeNotebook, uid, initialViewState.activeSpot]);
+    }, [activeNotebook, uid, activeSpot]);
 
     const [collapsedScenarios, setCollapsedScenarios] = useState<Set<string>>(initialCollapsedState);
     
@@ -297,7 +262,6 @@ const StudyView: React.FC = () => {
         // Update intelligent compare
         removeMultipleIntelligentCompare(scenarioIdsToDelete);
         
-        setLastActiveSpot(uid, activeNotebook.id, null);
         setActiveSpot(null); // Go back to spot selection
         setIsDeleteAllModalOpen(false);
     };
@@ -323,7 +287,6 @@ const StudyView: React.FC = () => {
 
         const remainingScenarios = filteredScenarios.filter(s => !scenarioIdsToDelete.includes(s.id));
         if (remainingScenarios.length === 0) {
-            setLastActiveSpot(uid, activeNotebook.id, null);
             setActiveSpot(null); // Go back to spot selection
         }
     };
@@ -357,6 +320,9 @@ const StudyView: React.FC = () => {
     const handleClearCompare = () => {
         // FIX: Explicitly specify the type for the new Set to avoid type inference issues.
         setScenariosToCompare(new Set<string>());
+        if (activeNotebookId && uid) {
+            setComparisonState(uid, activeNotebookId, [], null);
+        }
     };
 
     const handleSelectAll = () => {
@@ -367,26 +333,35 @@ const StudyView: React.FC = () => {
     const scenariosForComparisonView = activeNotebook?.scenarios?.filter(s => scenariosToCompare.has(s.id)) || [];
     
     const handleSelectSpot = (spot: SpotType) => {
-        setActiveSpot(spot);
-        if (activeNotebookId && uid) {
-            setLastActiveSpot(uid, activeNotebookId, spot);
+        if (activeNotebook) {
+            updateNotebook(activeNotebook.id, { defaultSpot: spot });
         }
-        // FIX: Explicitly specify the type for the new Set to avoid type inference issues.
+        setActiveSpot(spot);
         setScenariosToCompare(new Set<string>());
+    };
+
+    const handleSelectNotesView = () => {
+        if (activeNotebook) {
+            updateNotebook(activeNotebook.id, { defaultSpot: 'notes' });
+        }
+        setView('notes');
     };
     
     const handleBackToSpots = () => {
-        if (activeNotebookId && uid) {
-            setLastActiveSpot(uid, activeNotebookId, null); // Clear the stored spot
+        if (activeNotebook) {
+            updateNotebook(activeNotebook.id, { defaultSpot: null });
         }
         setActiveSpot(null);
-        // FIX: Explicitly specify the type for the new Set to avoid type inference issues.
+        setView('spots');
         setScenariosToCompare(new Set<string>());
+        if (activeNotebookId && uid) {
+            setComparisonState(uid, activeNotebookId, [], null);
+        }
     };
 
     const handleStartComparison = () => {
         if (activeNotebookId && uid && scenariosToCompare.size >= 2) {
-            setComparisonState(uid, activeNotebookId, Array.from(scenariosToCompare), activeSpot);
+            setComparisonState(uid, activeNotebookId, Array.from(scenariosToCompare), activeSpot, true);
             setIsComparing(true);
         }
     };
@@ -394,14 +369,37 @@ const StudyView: React.FC = () => {
     const handleBackFromComparison = () => {
         setIsComparing(false);
         if (activeNotebookId && uid) {
-            setComparisonState(uid, activeNotebookId, [], null); // Limpa o estado salvo
-            const lastSpot = getLastActiveSpots(uid)[activeNotebookId];
-            setActiveSpot(lastSpot || null);
-        } else {
-            setActiveSpot(null);
+            const comparisonStates = getComparisonState(uid);
+            const savedComparison = comparisonStates[activeNotebookId];
+            
+            if (savedComparison) {
+                // Persist the selection but mark as not comparing
+                setComparisonState(
+                    uid,
+                    activeNotebookId,
+                    savedComparison.scenarioIds,
+                    savedComparison.fromSpot,
+                    false
+                );
+                // Restore the spot to return to the scenario list
+                if (savedComparison.fromSpot) {
+                    setActiveSpot(savedComparison.fromSpot);
+                } else {
+                    setActiveSpot(null);
+                    setView('spots');
+                }
+            } else {
+                 // Fallback
+                setActiveSpot(null);
+                setView('spots');
+            }
         }
     };
-
+    
+    const handleSaveNotes = useCallback(async (notebookId: string, updates: { notes: string }) => {
+        if (!context) return;
+        await context.updateNotebook(notebookId, updates);
+    }, [context]);
 
     if (!activeNotebook) {
         return (
@@ -415,21 +413,66 @@ const StudyView: React.FC = () => {
         return <ComparisonView scenarios={scenariosForComparisonView} onBack={handleBackFromComparison} />;
     }
 
+    if (view === 'notes') {
+        return (
+            <NotebookNotesEditor
+                notebookId={activeNotebook.id}
+                initialContent={activeNotebook.notes || ''}
+                onSave={handleSaveNotes}
+                onBack={handleBackToSpots}
+            />
+        );
+    }
+
     if (!activeSpot) {
         return (
-            <div className="text-center">
-                <h2 className="text-3xl font-bold mb-6 text-brand-text">{activeNotebook.name}</h2>
-                <p className="text-lg text-brand-text-muted mb-8">What do you wanna master?</p>
-                <div className="grid grid-cols-2 gap-6 max-w-md mx-auto">
-                    {SPOT_TYPES.map(spot => (
-                        <button
-                            key={spot}
-                            onClick={() => handleSelectSpot(spot)}
-                            className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-8 px-4 rounded-lg text-xl transition-transform transform hover:scale-105 flex items-center justify-center"
+            <div className="text-center flex flex-col items-center justify-start h-full pt-8">
+                {/* Part 1 */}
+                <h2 className="text-3xl font-bold mb-8 text-brand-text">{activeNotebook.name}</h2>
+        
+                {/* Part 2 */}
+                <div className="w-full max-w-4xl mx-auto mb-12">
+                    <p className="text-lg text-brand-text-muted mb-6">What do you wanna master?</p>
+                    <div className="flex justify-center gap-6">
+                        {['Rfi', 'Facing 2bet', 'Blind War'].map(spot => (
+                            <button
+                                key={spot}
+                                onClick={() => handleSelectSpot(spot as SpotType)}
+                                className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-8 px-4 rounded-lg text-xl transition-transform transform hover:scale-105 flex-1"
+                            >
+                                {spot}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+        
+                {/* Part 3 */}
+                <div className="w-full max-w-4xl mx-auto mb-12">
+                    <p className="text-lg text-brand-text-muted mb-6">GTO Factory</p>
+                    <div className="flex justify-center gap-6">
+                         <button
+                            key={'HRC Enviroment'}
+                            onClick={() => handleSelectSpot('HRC Enviroment')}
+                            className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-8 px-4 rounded-lg text-xl transition-transform transform hover:scale-105"
+                            style={{minWidth: '200px'}}
                         >
-                            {spot}
+                            HRC Enviroment
                         </button>
-                    ))}
+                    </div>
+                </div>
+                
+                {/* Part 4 */}
+                <div className="w-full max-w-4xl mx-auto">
+                    <p className="text-lg text-brand-text-muted mb-6">Notes Section</p>
+                    <div className="flex justify-center">
+                        <button
+                            onClick={handleSelectNotesView}
+                            className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-8 px-4 rounded-lg text-xl transition-transform transform hover:scale-105"
+                            style={{minWidth: '200px'}}
+                        >
+                            Anotações
+                        </button>
+                    </div>
                 </div>
             </div>
         );

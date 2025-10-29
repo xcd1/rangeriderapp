@@ -1,5 +1,3 @@
-
-
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { db } from '../firebase';
 import {
@@ -23,7 +21,7 @@ interface FirestoreNotebooksResult {
     loading: boolean;
     addNotebook: (name: string) => Promise<void>;
     deleteNotebook: (notebookId: string) => Promise<void>;
-    updateNotebook: (notebookId: string, updates: Partial<Pick<Notebook, 'name' | 'folderId'>>) => Promise<void>;
+    updateNotebook: (notebookId: string, updates: Partial<Pick<Notebook, 'name' | 'folderId' | 'notes' | 'defaultSpot'>>) => Promise<void>;
     addFolder: (name: string) => Promise<void>;
     deleteFolder: (folderId: string) => Promise<void>;
     updateFolder: (folderId: string, updates: Partial<Pick<Folder, 'name' | 'parentId'>>) => Promise<void>;
@@ -75,12 +73,13 @@ const cleanScenario = (scenario: any): Scenario => {
 };
 
 
-const useFirestoreNotebooks = (uid: string | undefined): Omit<FirestoreNotebooksResult, 'addScenario' | 'updateScenario' | 'deleteScenario' | 'addMultipleScenarios' | 'deleteMultipleScenarios'> & {
+const useFirestoreNotebooks = (uid: string | undefined): Omit<FirestoreNotebooksResult, 'addScenario' | 'updateScenario' | 'deleteScenario' | 'addMultipleScenarios' | 'deleteMultipleScenarios' | 'updateNotebook'> & {
     addScenario: (notebookId: string, scenario: Scenario) => Promise<void>;
     updateScenario: (notebookId: string, scenario: Scenario) => Promise<void>;
     deleteScenario: (notebookId: string, scenarioId: string) => Promise<void>;
     addMultipleScenarios: (notebookId: string, scenariosToAdd: Scenario[]) => Promise<void>;
     deleteMultipleScenarios: (notebookId: string, scenarioIds: string[]) => Promise<void>;
+    updateNotebook: (notebookId: string, updates: Partial<Pick<Notebook, 'name' | 'folderId' | 'notes' | 'defaultSpot'>>) => Promise<void>;
     swapItemsOrder: (item1: { id: string, type: 'notebook' | 'folder', createdAt: number }, item2: { id: string, type: 'notebook' | 'folder', createdAt: number }) => Promise<void>;
 } => {
     const [notebooks, setNotebooks] = useState<Notebook[]>([]);
@@ -110,6 +109,7 @@ const useFirestoreNotebooks = (uid: string | undefined): Omit<FirestoreNotebooks
                     ...data,
                     id: doc.id,
                     createdAt: data.createdAt || 0, // Garante a ordenação de itens antigos
+                    notes: data.notes || '',
                 } as Omit<Notebook, 'scenarios'>;
             }).sort((a, b) => a.createdAt - b.createdAt);
 
@@ -185,10 +185,10 @@ const useFirestoreNotebooks = (uid: string | undefined): Omit<FirestoreNotebooks
 
     const addNotebook = useCallback(async (name: string) => {
         if (!uid) throw new Error("User not authenticated");
-        await addDoc(collection(db, 'users', uid, 'notebooks'), { name, folderId: null, createdAt: Date.now() });
+        await addDoc(collection(db, 'users', uid, 'notebooks'), { name, folderId: null, createdAt: Date.now(), notes: '' });
     }, [uid]);
 
-    const updateNotebook = useCallback(async (notebookId: string, updates: Partial<Pick<Notebook, 'name' | 'folderId'>>) => {
+    const updateNotebook = useCallback(async (notebookId: string, updates: Partial<Pick<Notebook, 'name' | 'folderId' | 'notes' | 'defaultSpot'>>) => {
         if (!uid) throw new Error("User not authenticated");
         const notebookRef = doc(db, 'users', uid, 'notebooks', notebookId);
         await updateDoc(notebookRef, updates);

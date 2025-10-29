@@ -147,7 +147,7 @@ const ImageViewerModal: React.FC<ImageViewerModalProps> = ({ imageSrc, onClose, 
                 onClick={onClose}
                 title="Fechar (Esc)"
             >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24" stroke="currentColor" strokeWidth="2">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
             </button>
@@ -514,6 +514,35 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
             }
         }
 
+        // Reset dependent positions when a primary selection changes
+        if (key === 'rangeAction' && value !== scenario.rangeAction) {
+            newScenario.raiserPos = null;
+            newScenario.heroPos = null;
+            newScenario.coldCallerPos = null;
+            newScenario.aggressorPos = null;
+        }
+
+        if (scenario.spotType === 'HRC Enviroment') {
+            if (key === 'raiserPos' && value !== scenario.raiserPos) {
+                newScenario.heroPos = null;
+                newScenario.aggressorPos = null;
+                newScenario.coldCallerPos = null;
+            }
+
+            // F3bet has a different selection order: Raiser -> Aggressor -> Hero
+            if (scenario.rangeAction === 'F3bet') {
+                 if (key === 'aggressorPos' && value !== scenario.aggressorPos) {
+                    newScenario.heroPos = null;
+                }
+            } 
+            // Other actions have order: Raiser -> Hero -> (CC/Aggressor)
+            else {
+                if (key === 'heroPos' && value !== scenario.heroPos) {
+                    newScenario.aggressorPos = null;
+                }
+            }
+        }
+
         if (key === 'rangeAction') {
             if (value === 'RFI') {
                 newScenario.heroPos = null;
@@ -628,13 +657,18 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
         const raiserIndex = POSITION_ORDER[raiserPos];
         return POSITIONS.filter(p => POSITION_ORDER[p] > raiserIndex);
     };
+    
+    const isRfiSelected = scenario.rangeAction === 'RFI';
+    const isF2betSelected = scenario.rangeAction === 'F2bet';
+    const isF3betSelected = scenario.rangeAction === 'F3bet';
 
     const heroPositions = getPositionsAfter(scenario.raiserPos);
     const coldCallerPositions = getPositionsAfter(scenario.raiserPos);
     const aggressorPositions = getPositionsAfter(scenario.heroPos || scenario.raiserPos);
+    // Define position options specific to the F3bet flow
+    const aggressorPositionsForF3bet = getPositionsAfter(scenario.raiserPos);
+    const heroPositionsForF3bet = getPositionsAfter(scenario.aggressorPos);
 
-    const isRfiSelected = scenario.rangeAction === 'RFI';
-    const isF2betSelected = scenario.rangeAction === 'F2bet';
 
     const initialImageDataForModal = uploaderTarget ? scenario[uploaderTarget] : null;
     
@@ -923,28 +957,51 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
                                                 <button key={action} onClick={() => handleUpdate('rangeAction', action)} disabled={isManualMode} className={`px-3 py-1 text-xs rounded-md ${scenario.rangeAction === action ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isManualMode ? 'cursor-not-allowed' : ''}`}>{action}</button>
                                             ))}
                                         </ButtonGroup>
-                                        <ButtonGroup label="First Raiser Position" onClear={() => handleUpdate('raiserPos', null)} hasSelection={!!scenario.raiserPos} isDisabled={isManualMode}>
-                                            {POSITIONS.filter(p => p !== 'BB').map(pos => (
-                                                <button key={pos} onClick={() => handleUpdate('raiserPos', pos)} disabled={isManualMode} className={`px-3 py-1 text-xs rounded-md ${scenario.raiserPos === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isManualMode ? 'cursor-not-allowed' : ''}`}>{pos}</button>
-                                            ))}
-                                        </ButtonGroup>
-                                        <ButtonGroup label="Hero Position" onClear={() => handleUpdate('heroPos', null)} hasSelection={!!scenario.heroPos} isDisabled={isRfiSelected || isManualMode}>
-                                            {heroPositions.map(pos => (
-                                                <button key={pos} onClick={() => handleUpdate('heroPos', pos)} disabled={isRfiSelected || isManualMode} className={`px-3 py-1 text-xs rounded-md ${scenario.heroPos === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isRfiSelected || isManualMode ? 'cursor-not-allowed' : ''}`}>{pos}</button>
-                                            ))}
-                                        </ButtonGroup>
-                                        {!isRfiSelected && !isF2betSelected && (
+
+                                        {isF3betSelected ? (
                                             <>
-                                                <ButtonGroup label="Cold Caller Position (CC)" onClear={() => handleUpdate('coldCallerPos', null)} hasSelection={!!scenario.coldCallerPos} isDisabled={isManualMode}>
-                                                    {coldCallerPositions.map(pos => (
-                                                        <button key={pos} onClick={() => handleUpdate('coldCallerPos', pos)} disabled={isManualMode} className={`px-3 py-1 text-xs rounded-md ${scenario.coldCallerPos === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isManualMode ? 'cursor-not-allowed' : ''}`}>{pos}</button>
+                                                <ButtonGroup label="First Raiser Position" onClear={() => handleUpdate('raiserPos', null)} hasSelection={!!scenario.raiserPos} isDisabled={isManualMode}>
+                                                    {POSITIONS.filter(p => p !== 'BB').map(pos => (
+                                                        <button key={pos} onClick={() => handleUpdate('raiserPos', pos)} disabled={isManualMode} className={`px-3 py-1 text-xs rounded-md ${scenario.raiserPos === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isManualMode ? 'cursor-not-allowed' : ''}`}>{pos}</button>
                                                     ))}
                                                 </ButtonGroup>
-                                                <ButtonGroup label="3bettor/4bettor/5bettor/Squeezer Position" onClear={() => handleUpdate('aggressorPos', null)} hasSelection={!!scenario.aggressorPos} isDisabled={isManualMode}>
-                                                    {aggressorPositions.map(pos => (
-                                                        <button key={pos} onClick={() => handleUpdate('aggressorPos', pos)} disabled={isManualMode} className={`px-3 py-1 text-xs rounded-md ${scenario.aggressorPos === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isManualMode ? 'cursor-not-allowed' : ''}`}>{pos}</button>
+                                                <ButtonGroup label="3bettor Position" onClear={() => handleUpdate('aggressorPos', null)} hasSelection={!!scenario.aggressorPos} isDisabled={isManualMode || !scenario.raiserPos}>
+                                                    {aggressorPositionsForF3bet.map(pos => (
+                                                        <button key={pos} onClick={() => handleUpdate('aggressorPos', pos)} disabled={isManualMode || !scenario.raiserPos} className={`px-3 py-1 text-xs rounded-md ${scenario.aggressorPos === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isManualMode || !scenario.raiserPos ? 'cursor-not-allowed' : ''}`}>{pos}</button>
                                                     ))}
                                                 </ButtonGroup>
+                                                <ButtonGroup label="Hero Position" onClear={() => handleUpdate('heroPos', null)} hasSelection={!!scenario.heroPos} isDisabled={isManualMode || !scenario.aggressorPos}>
+                                                    {heroPositionsForF3bet.map(pos => (
+                                                        <button key={pos} onClick={() => handleUpdate('heroPos', pos)} disabled={isManualMode || !scenario.aggressorPos} className={`px-3 py-1 text-xs rounded-md ${scenario.heroPos === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isManualMode || !scenario.aggressorPos ? 'cursor-not-allowed' : ''}`}>{pos}</button>
+                                                    ))}
+                                                </ButtonGroup>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <ButtonGroup label="First Raiser Position" onClear={() => handleUpdate('raiserPos', null)} hasSelection={!!scenario.raiserPos} isDisabled={isManualMode}>
+                                                    {POSITIONS.filter(p => p !== 'BB').map(pos => (
+                                                        <button key={pos} onClick={() => handleUpdate('raiserPos', pos)} disabled={isManualMode} className={`px-3 py-1 text-xs rounded-md ${scenario.raiserPos === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isManualMode ? 'cursor-not-allowed' : ''}`}>{pos}</button>
+                                                    ))}
+                                                </ButtonGroup>
+                                                <ButtonGroup label="Hero Position" onClear={() => handleUpdate('heroPos', null)} hasSelection={!!scenario.heroPos} isDisabled={isRfiSelected || isManualMode}>
+                                                    {heroPositions.map(pos => (
+                                                        <button key={pos} onClick={() => handleUpdate('heroPos', pos)} disabled={isRfiSelected || isManualMode} className={`px-3 py-1 text-xs rounded-md ${scenario.heroPos === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isRfiSelected || isManualMode ? 'cursor-not-allowed' : ''}`}>{pos}</button>
+                                                    ))}
+                                                </ButtonGroup>
+                                                {!isRfiSelected && !isF2betSelected && (
+                                                    <>
+                                                        <ButtonGroup label="Cold Caller Position (CC)" onClear={() => handleUpdate('coldCallerPos', null)} hasSelection={!!scenario.coldCallerPos} isDisabled={isManualMode}>
+                                                            {coldCallerPositions.map(pos => (
+                                                                <button key={pos} onClick={() => handleUpdate('coldCallerPos', pos)} disabled={isManualMode} className={`px-3 py-1 text-xs rounded-md ${scenario.coldCallerPos === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isManualMode ? 'cursor-not-allowed' : ''}`}>{pos}</button>
+                                                            ))}
+                                                        </ButtonGroup>
+                                                        <ButtonGroup label="3bettor/4bettor/5bettor/Squeezer Position" onClear={() => handleUpdate('aggressorPos', null)} hasSelection={!!scenario.aggressorPos} isDisabled={isManualMode}>
+                                                            {aggressorPositions.map(pos => (
+                                                                <button key={pos} onClick={() => handleUpdate('aggressorPos', pos)} disabled={isManualMode} className={`px-3 py-1 text-xs rounded-md ${scenario.aggressorPos === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isManualMode ? 'cursor-not-allowed' : ''}`}>{pos}</button>
+                                                            ))}
+                                                        </ButtonGroup>
+                                                    </>
+                                                )}
                                             </>
                                         )}
                                     </div>
