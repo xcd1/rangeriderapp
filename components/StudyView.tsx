@@ -6,18 +6,9 @@ import ScenarioEditor from './ScenarioEditor';
 import ComparisonView from './ComparisonView';
 import ConfirmationModal from './ConfirmationModal';
 import { useComparison } from '../contexts/ComparisonContext';
-import NotebookNotesEditor from './NotebookNotesEditor';
+import { NotebookNotesEditor } from './NotebookNotesEditor';
 import InfoTooltip from './InfoTooltip';
 import TemplateModal from './TemplateModal';
-
-const PlusIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-);
-
-const TemplateIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 mr-2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
-);
-
 
 type ComparisonStateObject = { scenarioIds: string[]; fromSpot: SpotType | null; isComparing: boolean };
 type ComparisonState = Record<string, ComparisonStateObject>;
@@ -170,6 +161,8 @@ const StudyView: React.FC = () => {
             .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
     }, [activeNotebook, activeSpot]);
 
+    const isNotebookEmpty = activeNotebook ? activeNotebook.scenarios.length === 0 : true;
+
     const handleCreateScenarioFromTemplate = (template: ScenarioTemplate) => {
         if (!activeNotebook) return;
         const newScenario: Scenario = {
@@ -319,7 +312,7 @@ const StudyView: React.FC = () => {
         // Update intelligent compare
         removeMultipleIntelligentCompare(scenarioIdsToDelete);
 
-        // FIX: Explicitly type new Set() to avoid type pollution that causes downstream errors.
+        // FIX: Explicitly define the generic type for `new Set()` as `<string>` to match the state's type `Set<string>`. This prevents a type inference issue where an empty Set was being typed as `Set<unknown>`, causing downstream errors.
         setScenariosToCompare(new Set<string>());
         setIsDeleteSelectionModalOpen(false);
 
@@ -375,6 +368,7 @@ const StudyView: React.FC = () => {
             updateNotebook(activeNotebook.id, { defaultSpot: spot });
         }
         setActiveSpot(spot);
+        // FIX: Explicitly specify the generic type for new Set() to resolve a TypeScript type inference error.
         setScenariosToCompare(new Set<string>());
     };
 
@@ -391,6 +385,7 @@ const StudyView: React.FC = () => {
         }
         setActiveSpot(null);
         setView('spots');
+        // FIX: Explicitly specify the generic type for new Set() to resolve a TypeScript type inference error.
         setScenariosToCompare(new Set<string>());
         if (activeNotebookId && uid) {
             setComparisonState(uid, activeNotebookId, [], null);
@@ -444,7 +439,6 @@ const StudyView: React.FC = () => {
             <div className="flex flex-col items-center justify-center h-full text-center text-brand-text-muted">
                 <h2 className="text-3xl font-bold text-brand-text mb-2">Bem-vindo ao Range Rider!</h2>
                 <p className="text-lg mb-6">Para começar, crie ou selecione um caderno na barra lateral.</p>
-                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" className="animate-bounce-horizontal"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
                  <style>{`
                     @keyframes bounce-horizontal {
                         0%, 100% { transform: translateX(0); }
@@ -477,22 +471,22 @@ const StudyView: React.FC = () => {
                 <h2 className="text-3xl font-bold mb-2 text-brand-text">{activeNotebook.name}</h2>
                 <button
                     onClick={() => setIsTemplateModalOpen(true)}
-                    className="mb-8 bg-brand-secondary/20 hover:bg-brand-secondary/40 text-brand-secondary font-bold py-4 px-5 rounded-lg text-lg transition-transform transform hover:scale-105 flex items-center"
+                    className="mb-8 bg-brand-secondary/20 hover:bg-brand-secondary/40 text-brand-secondary font-bold py-5 px-5 rounded-lg text-lg transition-transform transform hover:scale-105 flex items-center justify-center gap-2"
                 >
-                    <TemplateIcon />
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v1h-1V4a1 1 0 00-1-1H7a1 1 0 00-1 1v1H5V4zM5 7v10a2 2 0 002 2h6a2 2 0 002-2V7H5zm4 3a1 1 0 011-1h2a1 1 0 110 2h-2a1 1 0 01-1-1z" /></svg>
                     Criar a partir de um Modelo
                 </button>
         
-                <div className="w-full max-w-4xl mx-auto mb-10">
+                <div className="w-full max-w-4xl mx-auto mb-12">
                     <div className="flex items-center justify-center mb-6">
                         <p className="text-lg text-brand-text-muted mr-2">What do you wanna master?</p>
                         <InfoTooltip text="Spots são situações de poker comuns. Escolha uma categoria para começar a adicionar seus cenários de estudo." />
                     </div>
-                    <div className="flex justify-center gap-6">
+                    <div className="flex justify-center gap-8">
                         {['Rfi', 'Facing 2bet', 'Blind War'].map(spot => (
-                            <button key={spot} onClick={() => handleSelectSpot(spot as SpotType)} className="group relative bg-brand-primary hover:bg-brand-bg text-brand-text font-bold py-8 px-4 rounded-lg text-xl transition-all transform hover:-translate-y-1 shadow-lg w-52">
+                            <button key={spot} onClick={() => handleSelectSpot(spot as SpotType)} className="group relative bg-brand-primary hover:bg-brand-bg text-brand-text font-bold py-6 px-4 rounded-lg text-xl transition-all transform hover:-translate-y-1 shadow-lg w-52">
                                 {spot}
-                                <span className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-48 text-xs font-normal text-brand-text-muted opacity-0 group-hover:opacity-100 transition-opacity whitespace-normal bg-brand-bg px-2 py-1 rounded shadow-lg z-10">
+                                <span className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-72 text-sm font-normal text-brand-text-muted opacity-0 group-hover:opacity-100 transition-opacity whitespace-normal bg-brand-primary border border-brand-bg p-3 rounded shadow-lg z-20">
                                   {JARGON_DEFINITIONS[spot]}
                                 </span>
                             </button>
@@ -500,12 +494,12 @@ const StudyView: React.FC = () => {
                     </div>
                 </div>
         
-                <div className="w-full max-w-4xl mx-auto mb-10">
+                <div className="w-full max-w-4xl mx-auto mb-12">
                     <p className="text-lg text-brand-text-muted mb-6">GTO Factory</p>
-                    <div className="flex justify-center gap-6">
-                         <button key={'HRC Enviroment'} onClick={() => handleSelectSpot('HRC Enviroment')} className="group relative bg-brand-primary hover:bg-brand-bg text-brand-text font-bold py-8 px-4 rounded-lg text-xl transition-all transform hover:-translate-y-1 shadow-lg w-52">
+                    <div className="flex justify-center gap-8">
+                         <button key={'HRC Enviroment'} onClick={() => handleSelectSpot('HRC Enviroment')} className="group relative bg-brand-primary hover:bg-brand-bg text-brand-text font-bold py-6 px-4 rounded-lg text-xl transition-all transform hover:-translate-y-1 shadow-lg w-52">
                             HRC Enviroment
-                            <span className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-48 text-xs font-normal text-brand-text-muted opacity-0 group-hover:opacity-100 transition-opacity whitespace-normal bg-brand-bg px-2 py-1 rounded shadow-lg z-10">
+                            <span className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-72 text-sm font-normal text-brand-text-muted opacity-0 group-hover:opacity-100 transition-opacity whitespace-normal bg-brand-primary border border-brand-bg p-3 rounded shadow-lg z-20">
                               {JARGON_DEFINITIONS['HRC Enviroment']}
                             </span>
                         </button>
@@ -516,7 +510,7 @@ const StudyView: React.FC = () => {
                     <p className="text-lg text-brand-text-muted mb-6">Notes Section</p>
                     <div className="flex justify-center">
                         <button onClick={handleSelectNotesView} className="bg-brand-primary hover:bg-brand-bg text-brand-text font-bold py-8 px-4 rounded-lg text-xl transition-all transform hover:-translate-y-1 shadow-lg w-52">
-                            Anotações
+                            Notes
                         </button>
                     </div>
                 </div>
@@ -531,7 +525,10 @@ const StudyView: React.FC = () => {
             <div className="sticky top-0 z-10 bg-brand-bg pb-4">
                 <div className="flex justify-between items-start mb-4">
                     <div>
-                        <button onClick={handleBackToSpots} className="text-sm font-bold text-brand-secondary hover:underline mb-2 inline-block">&larr; Voltar para Spots</button>
+                        <button onClick={handleBackToSpots} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-2.5 px-5 rounded-lg transition-colors flex items-center justify-center gap-2 mb-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" /></svg>
+                           Voltar
+                        </button>
                         <h2 className="text-2xl font-bold text-brand-text">{activeNotebook.name} / {activeSpot}</h2>
                     </div>
                 </div>
@@ -540,12 +537,15 @@ const StudyView: React.FC = () => {
                 <div className="flex justify-between items-center flex-wrap gap-4 border-y border-brand-primary py-3">
                     {/* LEFT GROUP */}
                     <div className="flex items-center flex-wrap gap-4">
-                        <button
-                            onClick={handleAddNewScenario}
-                            className="bg-white hover:bg-gray-200 text-brand-primary font-bold py-2.5 px-4 rounded-md transition-colors flex items-center"
-                        >
-                            Novo Cenário
-                        </button>
+                        {!isNotebookEmpty && (
+                            <button
+                                onClick={handleAddNewScenario}
+                                className="bg-white hover:bg-gray-200 text-brand-primary font-bold py-2.5 px-4 rounded-md transition-colors flex items-center justify-center gap-2"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" /></svg>
+                                Novo Cenário
+                            </button>
+                        )}
 
                         {/* --- Progressive Disclosure: Buttons shown only when items are selected --- */}
                         {scenariosToCompare.size > 0 && (
@@ -553,8 +553,9 @@ const StudyView: React.FC = () => {
                                 <button
                                     onClick={handleStartComparison}
                                     disabled={scenariosToCompare.size < 2}
-                                    className="bg-white hover:bg-gray-200 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed disabled:text-brand-primary/70"
+                                    className="bg-white hover:bg-gray-200 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed disabled:text-brand-primary/70 flex items-center justify-center gap-2"
                                 >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M2 5a2 2 0 012-2h12a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V5zm14 0H4v10h12V5zM6 7a1 1 0 00-1 1v5a1 1 0 102 0V8a1 1 0 00-1-1zm4 0a1 1 0 00-1 1v5a1 1 0 102 0V8a1 1 0 00-1-1z" /></svg>
                                     Comparar ({scenariosToCompare.size})
                                 </button>
                                 <div className="relative" ref={expandDropdownRef}>
@@ -565,9 +566,9 @@ const StudyView: React.FC = () => {
                                         <div className="absolute top-full left-0 mt-2 w-48 bg-brand-bg rounded-md shadow-lg z-10 border border-brand-primary overflow-hidden">
                                             <ul className="text-sm text-brand-text">
                                                 <li><button onClick={() => handleSectionControl('expand', 'all')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Expandir Tudo</button></li>
-                                                <li><button onClick={() => handleSectionControl('expand', 'params')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Parâmetros</button></li>
-                                                <li><button onClick={() => handleSectionControl('expand', 'media')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Mídia</button></li>
-                                                <li><button onClick={() => handleSectionControl('expand', 'notes')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Anotações</button></li>
+                                                <li><button onClick={() => handleSectionControl('expand', 'params')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Spot Informations</button></li>
+                                                <li><button onClick={() => handleSectionControl('expand', 'media')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Imagem/Dados</button></li>
+                                                <li><button onClick={() => handleSectionControl('expand', 'notes')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Notes</button></li>
                                             </ul>
                                         </div>
                                     )}
@@ -580,9 +581,9 @@ const StudyView: React.FC = () => {
                                         <div className="absolute top-full left-0 mt-2 w-48 bg-brand-bg rounded-md shadow-lg z-10 border border-brand-primary overflow-hidden">
                                             <ul className="text-sm text-brand-text">
                                                 <li><button onClick={() => handleSectionControl('collapse', 'all')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Recolher Tudo</button></li>
-                                                <li><button onClick={() => handleSectionControl('collapse', 'params')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Parâmetros</button></li>
-                                                <li><button onClick={() => handleSectionControl('collapse', 'media')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Mídia</button></li>
-                                                <li><button onClick={() => handleSectionControl('collapse', 'notes')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Anotações</button></li>
+                                                <li><button onClick={() => handleSectionControl('collapse', 'params')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Spot Informations</button></li>
+                                                <li><button onClick={() => handleSectionControl('collapse', 'media')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Imagem/Dados</button></li>
+                                                <li><button onClick={() => handleSectionControl('collapse', 'notes')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Notes</button></li>
                                             </ul>
                                         </div>
                                     )}
@@ -590,7 +591,8 @@ const StudyView: React.FC = () => {
                                 <button onClick={handleClearCompare} className="bg-brand-primary hover:bg-brand-primary/80 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm">
                                     Desmarcar Todos
                                 </button>
-                                <button onClick={() => setIsDeleteSelectionModalOpen(true)} className="bg-orange-700 hover:bg-orange-800 text-white font-semibold py-2 px-4 rounded-md transition-colors text-sm">
+                                <button onClick={() => setIsDeleteSelectionModalOpen(true)} className="bg-orange-700 hover:bg-orange-800 text-white font-semibold py-2 px-4 rounded-md transition-colors text-sm flex items-center justify-center gap-2">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" /></svg>
                                     Excluir Seleção
                                 </button>
                             </>
@@ -606,13 +608,16 @@ const StudyView: React.FC = () => {
                         )}
                         {filteredScenarios.length > 0 && (
                             <>
-                                <button onClick={undoLastAction} disabled={!canUndo} className="bg-brand-primary hover:bg-brand-primary/80 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm flex items-center disabled:opacity-50 disabled:cursor-not-allowed" title="Desfazer (Ctrl+Z)">
+                                <button onClick={undoLastAction} disabled={!canUndo} className="bg-brand-primary hover:bg-brand-primary/80 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" title="Desfazer (Ctrl+Z)">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" /></svg>
                                     Desfazer
                                 </button>
-                                <button onClick={redoLastAction} disabled={!canRedo} className="bg-brand-primary hover:bg-brand-primary/80 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm flex items-center disabled:opacity-50 disabled:cursor-not-allowed" title="Refazer (Ctrl+Y)">
+                                <button onClick={redoLastAction} disabled={!canRedo} className="bg-brand-primary hover:bg-brand-primary/80 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" title="Refazer (Ctrl+Y)">
                                     Refazer
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
                                 </button>
-                                <button onClick={() => setIsDeleteAllModalOpen(true)} className="bg-orange-700 hover:bg-orange-800 text-white font-semibold py-2 px-4 rounded-md transition-colors text-sm" title="Excluir todos os cenários neste spot">
+                                <button onClick={() => setIsDeleteAllModalOpen(true)} className="bg-orange-700 hover:bg-orange-800 text-white font-semibold py-2 px-4 rounded-md transition-colors text-sm flex items-center justify-center gap-2" title="Excluir todos os cenários neste spot">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" /></svg>
                                     Excluir Tudo
                                 </button>
                             </>
@@ -639,17 +644,30 @@ const StudyView: React.FC = () => {
             </div>
 
             {filteredScenarios.length === 0 && (
-                <div className="text-center py-16 text-brand-text-muted">
-                    <h3 className="text-xl font-semibold text-brand-text mb-4">Este spot está vazio.</h3>
-                    <p className="mb-6">Adicione seu primeiro cenário para começar a estudar.</p>
-                    <button
-                        onClick={handleAddNewScenario}
-                        className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-3 px-6 rounded-lg transition-colors flex items-center gap-2 mx-auto text-lg transform hover:scale-105"
-                    >
-                        <PlusIcon />
-                        Adicionar Novo Cenário
-                    </button>
-                </div>
+                isNotebookEmpty ? (
+                    <div className="text-center py-16 text-brand-text-muted">
+                        <h3 className="text-xl font-semibold text-brand-text mb-6">Crie seu primeiro estudo com o range rider</h3>
+                        <button
+                            onClick={handleAddNewScenario}
+                            className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 mx-auto text-lg transform hover:scale-105"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" /></svg>
+                            Adicionar Novo Estudo
+                        </button>
+                    </div>
+                ) : (
+                    <div className="text-center py-16 text-brand-text-muted">
+                        <h3 className="text-xl font-semibold text-brand-text mb-4">Este spot está vazio.</h3>
+                        <p className="mb-6">Adicione seu primeiro cenário para começar a estudar.</p>
+                        <button
+                            onClick={handleAddNewScenario}
+                            className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 mx-auto text-lg transform hover:scale-105"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" /></svg>
+                            Adicionar Novo Cenário
+                        </button>
+                    </div>
+                )
             )}
             
             <ConfirmationModal

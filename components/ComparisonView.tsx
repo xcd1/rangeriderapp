@@ -46,13 +46,6 @@ const getScenarioTitle = (scenario: Scenario): string => {
     return `${rangeAction} (Incompleto)${gsSuffix}`;
 };
 
-const BackArrowIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 mr-2">
-        <line x1="19" y1="12" x2="5" y2="12"></line>
-        <polyline points="12 19 5 12 12 5"></polyline>
-    </svg>
-);
-
 // --- DraggableZoomModal Component (replaces old RangeZoomModal) ---
 const DraggableZoomModal: React.FC<{ imageSrc: string; onClose: () => void }> = ({ imageSrc, onClose }) => {
     const [position, setPosition] = useState({ x: 50, y: 50 });
@@ -146,12 +139,12 @@ const DraggableZoomModal: React.FC<{ imageSrc: string; onClose: () => void }> = 
                 onMouseDown={handleWindowDragStart}
             >
                 <div className="flex items-center gap-2">
-                    <button onClick={handleZoomOut} className="w-6 h-6 rounded-md bg-brand-primary text-lg font-bold">-</button>
-                    <button onClick={handleZoomIn} className="w-6 h-6 rounded-md bg-brand-primary text-lg font-bold">+</button>
+                    <button onClick={handleZoomOut} className="w-6 h-6 rounded-md bg-brand-primary text-lg font-bold flex items-center justify-center">-</button>
+                    <button onClick={handleZoomIn} className="w-6 h-6 rounded-md bg-brand-primary text-lg font-bold flex items-center justify-center">+</button>
                     <button onClick={handleZoomReset} className="h-6 px-2 rounded-md bg-brand-primary text-xs">Reset</button>
                 </div>
                 <button onClick={onClose} className="text-white bg-red-600 hover:bg-red-700 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0">
-                    &times;
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-2 w-2" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
                 </button>
             </div>
             <div className="p-2 flex-grow flex items-center justify-center relative overflow-hidden bg-brand-bg/20">
@@ -288,7 +281,7 @@ const DraggableImageViewer: React.FC<DraggableImageViewerProps> = ({ id, title, 
                     onClick={() => onClose(id)}
                     className="text-white bg-red-600 hover:bg-red-700 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0"
                 >
-                    &times;
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-2 w-2" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
                 </button>
             </div>
             <div className="p-2 flex-grow flex items-center justify-center relative overflow-hidden bg-brand-bg/20">
@@ -808,9 +801,10 @@ const ComparisonView: React.FC<ComparisonViewProps> = ({ scenarios, onBack }) =>
                                 <button 
                                     onClick={handleUndo} 
                                     disabled={history.length === 0}
-                                    className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-2 px-3 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                                    className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-2 px-3 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center justify-center gap-2"
                                     title="Desfazer (Ctrl+Z)"
                                 >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-2 w-2" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" /></svg>
                                     Desfazer
                                 </button>
                                 <button 
@@ -929,8 +923,8 @@ const ComparisonView: React.FC<ComparisonViewProps> = ({ scenarios, onBack }) =>
                             Fechar Tudo
                         </button>
                     )}
-                    <button onClick={onBack} className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors flex items-center">
-                        <BackArrowIcon />
+                    <button onClick={onBack} className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors flex items-center justify-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-2 w-2" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" /></svg>
                         Voltar
                     </button>
                 </div>

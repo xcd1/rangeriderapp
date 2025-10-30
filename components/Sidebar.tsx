@@ -4,55 +4,6 @@ import ConfirmationModal from './ConfirmationModal';
 import type { Folder, Notebook } from '../types';
 import ProfileModal from './ProfileModal';
 
-const FolderIcon = ({ isOpen }: { isOpen?: boolean }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-3 h-5 w-5 text-brand-secondary flex-shrink-0">
-        {isOpen ? (
-            <path d="M20 12.58V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2h5.44"/>
-        ) : (
-            <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/>
-        )}
-    </svg>
-);
-
-const NotebookIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-3 h-5 w-5 text-brand-text-muted"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
-);
-
-const PlusIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2 h-4 w-4"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-);
-
-const LogoutIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2 h-4 w-4"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-);
-
-const TrashIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-);
-
-const PencilIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
-);
-
-const SpinnerIcon = () => (
-    <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-    </svg>
-);
-
-const ArrowUpIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
-);
-
-const ArrowDownIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
-);
-
-const GearIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-);
-
 // Helper to prevent dropping a folder into itself or its children
 const isAncestor = (draggedId: string, targetId: string | null, allFolders: Folder[]): boolean => {
     if (!targetId) return false;
@@ -99,7 +50,6 @@ const NotebookItem: React.FC<NotebookItemProps> = ({
         >
             {isEditing ? (
                 <>
-                    <NotebookIcon />
                     <input
                         type="text"
                         value={editedName}
@@ -115,60 +65,63 @@ const NotebookItem: React.FC<NotebookItemProps> = ({
                 <>
                     <div
                         onClick={onSelect}
-                        className={`flex items-center truncate flex-grow ${isDeleting ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                        className={`flex items-center flex-grow truncate ${isDeleting ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                     >
-                        <NotebookIcon />
+                         <svg xmlns="http://www.w3.org/2000/svg" className="h-[19px] w-[19px] mr-2 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M9 2a2 2 0 00-2 2v8a2 2 0 002 2h6a2 2 0 002-2V6.414A2 2 0 0016.414 5L14 2.586A2 2 0 0012.586 2H9z" />
+                            <path d="M3 8a2 2 0 012-2v8a2 2 0 01-2 2H3a2 2 0 01-2-2v-4a2 2 0 012-2h1z" />
+                        </svg>
                         <span className="truncate pr-2" title={notebook.name}>{notebook.name}</span>
                     </div>
                     
-                    <div className="flex-shrink-0 flex items-center">
+                    <div className="flex-shrink-0 flex items-center gap-1">
                         <button
                             onClick={() => onMove('up')}
                             disabled={isFirst || isDeleting}
-                            className={`p-1 rounded-full transition-opacity flex items-center justify-center w-6 h-6 disabled:opacity-20 disabled:cursor-not-allowed ${
+                            className={`w-6 h-6 flex items-center justify-center rounded transition-opacity disabled:opacity-20 disabled:cursor-not-allowed ${
                                 isActive
                                 ? 'opacity-100 text-brand-primary/70 hover:text-green-500'
                                 : 'opacity-0 group-hover:opacity-100 text-gray-400 hover:text-green-500'
                             }`}
                             title="Mover para cima"
                         >
-                            <ArrowUpIcon />
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-[19px] w-[19px]" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" /></svg>
                         </button>
                         <button
                             onClick={() => onMove('down')}
                             disabled={isLast || isDeleting}
-                            className={`p-1 rounded-full transition-opacity flex items-center justify-center w-6 h-6 disabled:opacity-20 disabled:cursor-not-allowed ${
+                            className={`w-6 h-6 flex items-center justify-center rounded transition-opacity disabled:opacity-20 disabled:cursor-not-allowed ${
                                 isActive
                                 ? 'opacity-100 text-brand-primary/70 hover:text-green-500'
                                 : 'opacity-0 group-hover:opacity-100 text-gray-400 hover:text-green-500'
                             }`}
                             title="Mover para baixo"
                         >
-                            <ArrowDownIcon />
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-[19px] w-[19px]" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
                         </button>
                         <button 
                             onClick={onStartEditing}
                             disabled={isDeleting}
-                            className={`ml-1 p-1 rounded-full transition-opacity flex items-center justify-center w-6 h-6 disabled:opacity-50 disabled:cursor-not-allowed ${
+                            className={`w-6 h-6 flex items-center justify-center rounded transition-opacity disabled:opacity-50 disabled:cursor-not-allowed ${
                                 isActive
                                 ? 'opacity-100 text-brand-primary/70 hover:text-blue-500'
                                 : 'opacity-0 group-hover:opacity-100 text-gray-400 hover:text-blue-500'
                             }`}
                             title={`Editar nome do caderno ${notebook.name}`}
                         >
-                            <PencilIcon />
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-[19px] w-[19px]" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
                         </button>
                         <button 
                             onClick={onPromptDelete}
                             disabled={isDeleting}
-                            className={`ml-1 p-1 rounded-full transition-opacity flex items-center justify-center w-6 h-6 disabled:opacity-50 disabled:cursor-not-allowed ${
+                            className={`w-6 h-6 flex items-center justify-center rounded transition-opacity disabled:opacity-50 disabled:cursor-not-allowed ${
                                 isActive
                                 ? 'opacity-100 text-brand-primary/70 hover:text-red-500'
                                 : 'opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500'
                             }`}
                             title={`Excluir caderno ${notebook.name}`}
                         >
-                            {isDeleting ? <SpinnerIcon /> : <TrashIcon />}
+                            {isDeleting ? <div className="animate-spin rounded-full h-[19px] w-[19px] border-t-2 border-b-2 border-red-500"></div> : <svg xmlns="http://www.w3.org/2000/svg" className="h-[19px] w-[19px]" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" /></svg>}
                         </button>
                     </div>
                 </>
@@ -522,35 +475,46 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
             <div className="group flex items-center justify-between p-2 text-sm rounded-md text-brand-text hover:bg-brand-bg/50 cursor-pointer" onClick={() => toggleFolderCollapse(folder.id)}>
                 {isEditing ? (
                     <>
-                        <FolderIcon isOpen={!isCollapsed} />
                         <input type="text" value={editedFolderName} onChange={(e) => setEditedFolderName(e.target.value)} onKeyDown={handleFolderNameKeyDown} onBlur={handleSaveFolderName} autoFocus className="flex-grow bg-brand-bg text-brand-text rounded-md px-2 py-0.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-secondary mx-2 w-full" onClick={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()}/>
                     </>
                 ) : (
                     <>
                         <div className="flex items-center truncate flex-grow">
-                            <FolderIcon isOpen={!isCollapsed} />
+                             {isCollapsed ? (
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-[19px] w-[19px] mr-2 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                                    <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
+                                </svg>
+                            ) : (
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-[19px] w-[19px] mr-2 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                                    <path d="M5 12a2 2 0 100 4h10a2 2 0 100-4H5z" />
+                                    <path fillRule="evenodd" d="M3 4a2 2 0 012-2h6l2 2h4a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V4zm2 1v1h12V5H5z" clipRule="evenodd" />
+                                </svg>
+                            )}
                             <span className="truncate pr-2 font-semibold" title={folder.name}>{folder.name}</span>
                         </div>
-                        <div className="flex items-center">
+                        <div className="flex items-center gap-1">
                             <button
                                 onClick={(e) => { e.stopPropagation(); handleMoveItem(folder.id, 'folder', 'up'); }}
                                 disabled={isFirst || isAnyItemBeingEdited}
-                                className="p-1 rounded opacity-0 group-hover:opacity-100 hover:text-green-400 disabled:opacity-20 disabled:cursor-not-allowed"
+                                className="w-6 h-6 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:text-green-400 disabled:opacity-20 disabled:cursor-not-allowed"
                                 title="Mover para cima"
                             >
-                                <ArrowUpIcon />
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-[19px] w-[19px]" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" /></svg>
                             </button>
                             <button
                                 onClick={(e) => { e.stopPropagation(); handleMoveItem(folder.id, 'folder', 'down'); }}
                                 disabled={isLast || isAnyItemBeingEdited}
-                                className="p-1 rounded opacity-0 group-hover:opacity-100 hover:text-green-400 disabled:opacity-20 disabled:cursor-not-allowed"
+                                className="w-6 h-6 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:text-green-400 disabled:opacity-20 disabled:cursor-not-allowed"
                                 title="Mover para baixo"
                             >
-                                <ArrowDownIcon />
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-[19px] w-[19px]" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
                             </button>
-                            <button onClick={(e) => {e.stopPropagation(); handleStartEditingFolder(folder);}} className="p-1 rounded opacity-0 group-hover:opacity-100 hover:text-blue-400" title="Renomear pasta"><PencilIcon/></button>
-                            <button disabled={notebooksInFolder.length > 0 || childFolders.length > 0} onClick={(e) => {e.stopPropagation(); setFolderToDelete(folder);}} className="p-1 rounded opacity-0 group-hover:opacity-100 hover:text-red-400 disabled:opacity-20 disabled:cursor-not-allowed" title={(notebooksInFolder.length > 0 || childFolders.length > 0) ? "Esvazie a pasta para excluir" : "Excluir pasta"}><TrashIcon/></button>
-                            <span className="ml-2 w-4 text-center">{isCollapsed ? '▸' : '▾'}</span>
+                            <button onClick={(e) => {e.stopPropagation(); handleStartEditingFolder(folder);}} className="w-6 h-6 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:text-blue-400" title="Renomear pasta">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-[19px] w-[19px]" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
+                            </button>
+                            <button disabled={notebooksInFolder.length > 0 || childFolders.length > 0} onClick={(e) => {e.stopPropagation(); setFolderToDelete(folder);}} className="w-6 h-6 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:text-red-400 disabled:opacity-20 disabled:cursor-not-allowed" title={(notebooksInFolder.length > 0 || childFolders.length > 0) ? "Esvazie a pasta para excluir" : "Excluir pasta"}>
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-[19px] w-[19px]" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" /></svg>
+                            </button>
                         </div>
                     </>
                 )}
@@ -566,6 +530,7 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
     );
   };
 
+  const areAllFoldersCollapsed = folders.length > 0 && collapsedFolders.size === folders.length;
 
   return (
     <>
@@ -581,17 +546,26 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
           <div className="space-y-3 mb-4">
             <div className="flex" title="Digite o nome da pasta">
                 <input type="text" value={newFolderName} onChange={(e) => setNewFolderName(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleAddFolder()} placeholder="Nova Pasta..." className="flex-grow bg-brand-bg text-brand-text rounded-l-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-secondary"/>
-                <button onClick={handleAddFolder} className="bg-brand-secondary/70 hover:brightness-110 text-brand-primary font-bold py-2 px-3 rounded-r-md text-sm transition-all flex items-center"><PlusIcon /></button>
+                <button onClick={handleAddFolder} className="bg-brand-secondary/70 hover:bg-brand-secondary text-brand-primary font-bold px-3 py-2 rounded-r-md text-sm transition-colors flex items-center justify-center w-12">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" /></svg>
+                </button>
             </div>
             <div className="flex" title="Digite o nome do caderno">
                 <input type="text" value={newNotebookName} onChange={(e) => setNewNotebookName(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleAddNotebook()} placeholder="Novo Caderno..." className="flex-grow bg-brand-bg text-brand-text rounded-l-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-secondary"/>
-                <button onClick={handleAddNotebook} className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-3 rounded-r-md text-sm transition-all flex items-center"><PlusIcon /></button>
+                <button onClick={handleAddNotebook} className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold px-3 py-2 rounded-r-md text-sm transition-colors flex items-center justify-center w-12">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" /></svg>
+                </button>
             </div>
           </div>
         </div>
         <div className="flex justify-between gap-2 mb-4">
-            <button onClick={handleCollapseAll} disabled={folders.length === 0} className="w-full text-xs bg-brand-bg hover:brightness-125 text-brand-text-muted font-semibold py-2 px-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Recolher Tudo</button>
-            <button onClick={handleExpandAll} disabled={folders.length === 0} className="w-full text-xs bg-brand-bg hover:brightness-125 text-brand-text-muted font-semibold py-2 px-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Expandir Tudo</button>
+            <button 
+                onClick={areAllFoldersCollapsed ? handleExpandAll : handleCollapseAll} 
+                disabled={folders.length === 0} 
+                className="w-full text-xs bg-brand-bg hover:brightness-125 text-brand-text-muted font-semibold py-2 px-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+                {areAllFoldersCollapsed ? 'Expandir' : 'Recolher'}
+            </button>
         </div>
         <nav className="flex-grow overflow-y-auto pr-2 -mr-2 space-y-2">
             {rootFolders.map((folder, i, arr) => renderFolderTree(folder, 0, i, arr))}
@@ -611,12 +585,13 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
                   <span className="text-xs text-brand-text-muted">Usuário:</span>
                   <p className="text-sm font-semibold text-brand-text truncate" title={user.displayName || user.email || 'Usuário'}>{user.displayName || user.email || 'Usuário Anônimo'}</p>
                 </div>
-                <button onClick={() => setIsProfileModalOpen(true)} className="p-2 rounded-full hover:bg-brand-bg text-brand-text-muted hover:text-brand-text flex-shrink-0" title="Configurações da conta">
-                    <GearIcon />
+                <button onClick={() => setIsProfileModalOpen(true)} className="px-3 py-1 text-sm rounded hover:bg-brand-bg text-brand-text-muted hover:text-brand-text flex-shrink-0" title="Configurações da conta">
+                    Conta
                 </button>
             </div>
-            <button onClick={logout} className="w-full flex items-center justify-center border border-brand-secondary/50 hover:bg-brand-secondary/20 text-brand-secondary font-semibold py-2 px-3 rounded-md text-sm transition-colors">
-              <LogoutIcon/> Sair
+            <button onClick={logout} className="w-full flex items-center justify-center gap-2 border border-brand-secondary/50 hover:bg-brand-secondary/20 text-brand-secondary font-semibold py-2 px-3 rounded-md text-sm transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-[22px] w-[22px]" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clipRule="evenodd" /></svg>
+              Sair
             </button>
             <p className="text-xs text-brand-text-muted text-center pt-4">powered by xcd1</p>
         </div>

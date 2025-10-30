@@ -20,18 +20,6 @@ interface ScenarioEditorProps {
     sectionControl: {action: 'expand' | 'collapse', target: 'all' | 'params' | 'media' | 'notes', key: number} | null;
 }
 
-const TrashIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-);
-
-const XIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-);
-
-const MoreVerticalIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
-);
-
 interface ButtonGroupProps {
     label: string;
     jargonKey?: keyof typeof JARGON_DEFINITIONS;
@@ -47,8 +35,9 @@ const ButtonGroup: React.FC<ButtonGroupProps> = ({ label, jargonKey, children, o
             <label className="block text-sm font-medium text-brand-text-muted">{label}</label>
             {jargonKey && <InfoTooltip text={JARGON_DEFINITIONS[jargonKey]} direction="bottom" />}
             {hasSelection && !isDisabled && (
-                <button onClick={onClear} className="text-brand-text-muted hover:text-brand-text p-1 rounded-full hover:bg-brand-bg -ml-1" title="Limpar seleção">
-                    <XIcon />
+                <button onClick={onClear} className="px-2 py-0.5 text-xs rounded-full bg-brand-bg/50 hover:bg-brand-bg text-brand-text-muted hover:text-brand-text flex items-center justify-center gap-1" title="Limpar seleção">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-2 w-2" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                    Limpar
                 </button>
             )}
         </div>
@@ -134,13 +123,11 @@ const ImageViewerModal: React.FC<ImageViewerModalProps> = ({ imageSrc, onClose, 
           onClick={onClose}
         >
             <button 
-                className="absolute top-4 right-4 text-white bg-black/50 hover:bg-red-700 p-2 rounded-full shadow-lg z-[51] transition-all hover:scale-110"
+                className="absolute top-4 right-4 text-white bg-black/50 hover:bg-red-700 w-7 h-7 rounded-full shadow-lg z-[51] transition-all hover:scale-110 flex items-center justify-center"
                 onClick={onClose}
                 title="Fechar (Esc)"
             >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24" stroke="currentColor" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-2 w-2" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
             </button>
             <div className="relative max-w-full max-h-full" onClick={e => e.stopPropagation()}>
                 <img 
@@ -150,14 +137,15 @@ const ImageViewerModal: React.FC<ImageViewerModalProps> = ({ imageSrc, onClose, 
                 />
                 {onDelete && (
                     <button
-                        className="absolute top-4 left-4 text-white bg-black/50 hover:bg-red-700 p-2 rounded-full shadow-lg z-10 transition-all hover:scale-110"
+                        className="absolute top-4 left-4 text-white bg-black/50 hover:bg-red-700 px-3 py-1 text-sm rounded-full shadow-lg z-10 transition-all hover:scale-105 flex items-center justify-center gap-1.5"
                         onClick={(e) => {
                             e.stopPropagation();
                             onDelete();
                         }}
                         title="Excluir imagem"
                     >
-                        <TrashIcon />
+                         <svg xmlns="http://www.w3.org/2000/svg" className="h-2 w-2" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" /></svg>
+                        Excluir
                     </button>
                 )}
             </div>
@@ -225,14 +213,16 @@ const RangeZoomModal: React.FC<RangeZoomModalProps> = ({ imageSrc, onClose, onDe
     return (
         <div className="fixed inset-0 flex flex-col justify-center items-center z-[60]" onClick={onClose}>
             <div className="absolute top-4 right-4 z-[62] flex items-center gap-2 bg-brand-bg p-2 rounded-lg">
-                <button onClick={(e) => { e.stopPropagation(); handleZoomOut(); }} className="w-8 h-8 rounded-md bg-brand-primary text-lg font-bold">-</button>
-                <button onClick={(e) => { e.stopPropagation(); handleZoomIn(); }} className="w-8 h-8 rounded-md bg-brand-primary text-lg font-bold">+</button>
+                <button onClick={(e) => { e.stopPropagation(); handleZoomOut(); }} className="w-8 h-8 rounded-md bg-brand-primary text-lg font-bold flex items-center justify-center">-</button>
+                <button onClick={(e) => { e.stopPropagation(); handleZoomIn(); }} className="w-8 h-8 rounded-md bg-brand-primary text-lg font-bold flex items-center justify-center">+</button>
                 <button onClick={(e) => { e.stopPropagation(); handleZoomReset(); }} className="h-8 px-3 rounded-md bg-brand-primary text-sm">Reset</button>
-                <button onClick={onClose} className="w-8 h-8 rounded-md bg-brand-primary text-lg font-bold">&times;</button>
+                <button onClick={onClose} className="w-8 h-8 rounded-md bg-brand-primary text-lg font-bold flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-2 w-2" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                </button>
             </div>
             {onDelete && imgBounds && (
                 <button
-                    className="absolute text-white bg-black/50 hover:bg-red-700 p-2 rounded-full shadow-lg z-[61] transition-all hover:scale-110"
+                    className="absolute text-white bg-black/50 hover:bg-red-700 px-3 py-1 text-sm rounded-full shadow-lg z-[61] transition-all hover:scale-105 flex items-center justify-center gap-1.5"
                     style={{
                         top: `${Math.max(imgBounds.top, 0) + 8}px`,
                         left: `${Math.max(imgBounds.left, 0) + 8}px`,
@@ -243,7 +233,8 @@ const RangeZoomModal: React.FC<RangeZoomModalProps> = ({ imageSrc, onClose, onDe
                     }}
                     title="Excluir imagem"
                 >
-                    <TrashIcon />
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-2 w-2" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" /></svg>
+                    Excluir
                 </button>
             )}
             <div className="w-[90vw] h-[90vh] flex items-center justify-center overflow-hidden" onWheel={handleWheel}>
@@ -283,8 +274,9 @@ const CollapsibleSection: React.FC<{
                 aria-expanded={isOpen}
             >
                 <span className="font-semibold">{title}</span>
-                <span className={`transform transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                <span className="text-xs font-semibold flex items-center justify-center gap-2">
+                    {isOpen ? 'Recolher' : 'Expandir'}
+                    <svg xmlns="http://www.w3.org/2000/svg" className={`h-2 w-2 transform transition-transform ${isOpen ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" /></svg>
                 </span>
             </button>
             <div className={`grid transition-all duration-500 ease-in-out ${isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
@@ -683,467 +675,237 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
             <div className="flex justify-center gap-2 flex-wrap">
                 <button 
                     onClick={() => scenario.printSpotImage ? setViewingImage({ key: 'printSpotImage', src: scenario.printSpotImage }) : setUploaderTarget('printSpotImage')}
-                    className={`px-3 py-1 text-xs rounded-md font-semibold transition-colors ${scenario.printSpotImage ? 'bg-brand-secondary/80 hover:bg-brand-secondary text-brand-primary' : 'bg-brand-bg hover:brightness-125 text-brand-text'}`}
+                    className={`px-3 py-2 text-xs rounded-md font-semibold transition-colors flex items-center justify-center gap-1 ${scenario.printSpotImage ? 'bg-brand-secondary/80 hover:bg-brand-secondary text-brand-primary' : 'bg-brand-bg hover:brightness-125 text-brand-text'}`}
                     title={scenario.printSpotImage ? 'Clique para ver a imagem' : 'Clique para adicionar uma imagem'}
                 >
-                    HRC Table View {scenario.printSpotImage ? <span className="ml-1">✓</span> : ''}
+                    HRC Table View {scenario.printSpotImage && <svg xmlns="http://www.w3.org/2000/svg" className="h-[19px] w-[19px]" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
                 </button>
                 <button 
                     onClick={() => scenario.rpImage ? setViewingImage({ key: 'rpImage', src: scenario.rpImage }) : setUploaderTarget('rpImage')}
-                    className={`px-3 py-1 text-xs rounded-md font-semibold transition-colors ${scenario.rpImage ? 'bg-brand-secondary/80 hover:bg-brand-secondary text-brand-primary' : 'bg-brand-bg hover:brightness-125 text-brand-text'}`}
+                    className={`px-3 py-2 text-xs rounded-md font-semibold transition-colors flex items-center justify-center gap-1 ${scenario.rpImage ? 'bg-brand-secondary/80 hover:bg-brand-secondary text-brand-primary' : 'bg-brand-bg hover:brightness-125 text-brand-text'}`}
                     title={scenario.rpImage ? 'Clique para ver a imagem' : 'Clique para adicionar uma imagem'}
                 >
-                    RP {scenario.rpImage ? <span className="ml-1">✓</span> : ''}
+                    RP {scenario.rpImage && <svg xmlns="http://www.w3.org/2000/svg" className="h-[19px] w-[19px]" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
                 </button>
                 <button 
                     onClick={() => scenario.tableViewImage ? setViewingImage({ key: 'tableViewImage', src: scenario.tableViewImage }) : setUploaderTarget('tableViewImage')}
-                    className={`px-3 py-1 text-xs rounded-md font-semibold transition-colors ${scenario.tableViewImage ? 'bg-brand-secondary/80 hover:bg-brand-secondary text-brand-primary' : 'bg-brand-bg hover:brightness-125 text-brand-text'}`}
+                    className={`px-3 py-2 text-xs rounded-md font-semibold transition-colors flex items-center justify-center gap-1 ${scenario.tableViewImage ? 'bg-brand-secondary/80 hover:bg-brand-secondary text-brand-primary' : 'bg-brand-bg hover:brightness-125 text-brand-text'}`}
                     title={scenario.tableViewImage ? 'Clique para ver a imagem' : 'Clique para adicionar uma imagem'}
                 >
-                    Table View {scenario.tableViewImage ? <span className="ml-1">✓</span> : ''}
+                    Table View {scenario.tableViewImage && <svg xmlns="http://www.w3.org/2000/svg" className="h-[19px] w-[19px]" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
                 </button>
                 <button 
                     onClick={() => scenario.plusInfoImage ? setViewingImage({ key: 'plusInfoImage', src: scenario.plusInfoImage }) : setUploaderTarget('plusInfoImage')}
-                    className={`px-3 py-1 text-xs rounded-md font-semibold transition-colors ${scenario.plusInfoImage ? 'bg-brand-secondary/80 hover:bg-brand-secondary text-brand-primary' : 'bg-brand-bg hover:brightness-125 text-brand-text'}`}
+                    className={`px-3 py-2 text-xs rounded-md font-semibold transition-colors flex items-center justify-center gap-1 ${scenario.plusInfoImage ? 'bg-brand-secondary/80 hover:bg-brand-secondary text-brand-primary' : 'bg-brand-bg hover:brightness-125 text-brand-text'}`}
                     title={scenario.plusInfoImage ? 'Clique para ver a imagem' : 'Clique para adicionar uma imagem'}
                 >
-                    +Info {scenario.plusInfoImage ? <span className="ml-1">✓</span> : ''}
+                    +Info {scenario.plusInfoImage && <svg xmlns="http://www.w3.org/2000/svg" className="h-[19px] w-[19px]" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
                 </button>
             </div>
         </div>
     );
-
-    const BountyControls = () => (
-        <>
-            {scenario.gameScenario?.startsWith('Bounty') && (
-                <div className="flex flex-col items-center gap-2 mt-2 p-3 bg-brand-bg/50 rounded-lg">
-                    <div className="flex items-center self-start gap-2">
-                        <input
-                            type="checkbox"
-                            id={`rp-mode-${scenario.id}`}
-                            checked={!!scenario.rpMode}
-                            onChange={(e) => handleUpdate('rpMode', e.target.checked)}
-                            disabled={isManualMode}
-                            className="h-4 w-4 text-brand-secondary bg-brand-bg border-brand-bg rounded focus:ring-brand-secondary disabled:opacity-50"
-                        />
-                        <label htmlFor={`rp-mode-${scenario.id}`} className="text-sm font-medium text-brand-text">
-                            RP Mode
-                        </label>
-                        <InfoTooltip text={JARGON_DEFINITIONS['RP Mode']} direction="bottom" />
-                    </div>
-
-                    {scenario.rpMode && (
-                        <div className="w-full">
-                            <div className="flex flex-wrap items-start justify-center gap-x-4 gap-y-2 mt-2">
-                                {/* Bi Counter */}
-                                <div className="relative group">
-                                    <label className="text-sm font-medium text-brand-text-muted block text-center mb-1 cursor-help">Bi:</label>
-                                    <div className="flex items-center gap-1">
-                                        <button 
-                                            onClick={() => handleBountyUpdate(Math.max(1, (scenario.startingBounties || 1) - 0.5))}
-                                            disabled={isManualMode}
-                                            className="w-6 h-6 flex-shrink-0 flex items-center justify-center text-lg bg-brand-bg rounded-md hover:brightness-125 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            -
-                                        </button>
-                                        <input 
-                                            type="number"
-                                            step="0.5"
-                                            min="1"
-                                            value={scenario.startingBounties ?? ''}
-                                            onChange={(e) => {
-                                                const val = e.target.value;
-                                                handleUpdate('startingBounties', val === '' ? null : parseFloat(val));
-                                            }}
-                                            onBlur={(e) => {
-                                                const value = parseFloat(e.target.value);
-                                                if (isNaN(value) || value < 1) {
-                                                    alert("Bounty inicial deve ser >= 1");
-                                                    handleBountyUpdate(1);
-                                                }
-                                            }}
-                                            disabled={isManualMode}
-                                            className="w-14 text-center bg-brand-bg rounded-md py-0.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-secondary disabled:opacity-50 disabled:cursor-not-allowed"
-                                        />
-                                        <button
-                                            onClick={() => handleBountyUpdate((scenario.startingBounties || 0) + 0.5)}
-                                            disabled={isManualMode}
-                                            className="w-6 h-6 flex-shrink-0 flex items-center justify-center text-lg bg-brand-bg rounded-md hover:brightness-125 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            +
-                                        </button>
-                                    </div>
-                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max p-2 bg-brand-bg text-brand-text text-xs rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                                        Bountys Iniciais
-                                        <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-x-4 border-x-transparent border-t-4 border-t-brand-bg"></div>
-                                    </div>
-                                </div>
-                                {/* Si Counter */}
-                                <div className="relative group">
-                                    <label className="text-sm font-medium text-brand-text-muted block text-center mb-1 cursor-help">Si:</label>
-                                    <div className="flex items-center gap-1">
-                                        <button 
-                                            onClick={() => handleStacksUpdate(Math.max(0.5, (scenario.startingStacks || 0.5) - 0.5))}
-                                            disabled={isManualMode}
-                                            className="w-6 h-6 flex-shrink-0 flex items-center justify-center text-lg bg-brand-bg rounded-md hover:brightness-125 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            -
-                                        </button>
-                                        <input 
-                                            type="number"
-                                            step="0.5"
-                                            min="0.5"
-                                            value={scenario.startingStacks ?? ''}
-                                            onChange={(e) => {
-                                                const val = e.target.value;
-                                                handleUpdate('startingStacks', val === '' ? null : parseFloat(val));
-                                            }}
-                                            onBlur={(e) => {
-                                                const value = parseFloat(e.target.value);
-                                                if (isNaN(value) || value <= 0) {
-                                                    alert("Stack inicial deve ser > 0");
-                                                    handleStacksUpdate(0.5);
-                                                }
-                                            }}
-                                            disabled={isManualMode}
-                                            className="w-14 text-center bg-brand-bg rounded-md py-0.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-secondary disabled:opacity-50 disabled:cursor-not-allowed"
-                                        />
-                                        <button
-                                            onClick={() => handleStacksUpdate((scenario.startingStacks || 0) + 0.5)}
-                                            disabled={isManualMode}
-                                            className="w-6 h-6 flex-shrink-0 flex items-center justify-center text-lg bg-brand-bg rounded-md hover:brightness-125 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            +
-                                        </button>
-                                    </div>
-                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max p-2 bg-brand-bg text-brand-text text-xs rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                                        Stacks Iniciais
-                                        <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-x-4 border-x-transparent border-t-4 border-t-brand-bg"></div>
-                                    </div>
-                                </div>
-                            </div>
-                            {/* DE Display */}
-                            {dropEquity !== null && (
-                                <div className="mt-2 text-center flex items-center justify-center gap-2">
-                                    <span className="text-sm font-medium text-brand-text-muted">Drop Equity: </span>
-                                    <span className="text-lg font-bold text-brand-secondary">{dropEquity.toFixed(1)}%</span>
-                                    <InfoTooltip text="O cálculo da Drop Equity através desta metodologia (Bounty Power) é mais indicado para Early Stages." direction="bottom" />
-                                </div>
-                            )}
-                        </div>
+    
+    return (
+      <div className={`bg-brand-primary rounded-lg border ${isSelectedForCompare ? 'border-brand-secondary' : 'border-brand-bg'}`}>
+            {/* --- HEADER --- */}
+            <div className="flex justify-between items-center p-3 bg-brand-bg/50 rounded-t-lg">
+                <div className="flex items-center gap-3 flex-grow min-w-0">
+                    <input 
+                        type="checkbox" 
+                        checked={isSelectedForCompare}
+                        onChange={() => onToggleCompare(scenario.id)}
+                        className="h-5 w-5 rounded bg-brand-bg text-brand-secondary focus:ring-brand-secondary border-brand-primary"
+                        title="Selecionar para comparação rápida"
+                    />
+                    {isManualMode ? (
+                         <input
+                            type="text"
+                            value={manualTitleInput}
+                            onChange={handleManualTitleChange}
+                            onBlur={handleManualTitleBlur}
+                            onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+                            className="text-lg font-bold text-brand-text bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-brand-secondary rounded px-1 -ml-1 w-full"
+                         />
+                    ) : (
+                        <h3 className="text-lg font-bold text-brand-text truncate" title={scenarioTitle}>
+                            {scenarioTitle}
+                        </h3>
                     )}
                 </div>
-            )}
-        </>
-    );
 
-    const buttonClass = "px-3 py-1.5 text-xs font-semibold rounded-md transition-all";
-
-    return (
-        <>
-            <div className="bg-brand-primary rounded-lg border border-brand-bg overflow-hidden">
-                 {/* --- HEADER --- */}
-                <div className="bg-brand-bg p-3 flex items-center justify-between gap-2">
-                    {/* Left: Checkbox & Intelligent Compare */}
-                    <div className="flex items-center gap-3 flex-shrink-0">
-                         <input
-                            type="checkbox"
-                            checked={isSelectedForCompare}
-                            onChange={() => onToggleCompare(scenario.id)}
-                            onClick={(e) => e.stopPropagation()}
-                            className="h-4 w-4 bg-brand-primary border-brand-bg rounded text-brand-secondary focus:ring-brand-secondary flex-shrink-0"
-                            title="Selecionar para comparação rápida (neste spot)"
-                        />
-                        <button 
-                            onClick={handleToggleIntelligentCompare} 
-                            className={`${buttonClass} border ${isSelectedForIntelligentCompare ? 'bg-brand-secondary/20 text-brand-secondary border-brand-secondary' : 'bg-transparent text-white hover:bg-white/10 border-white/50'}`} 
-                            title="Adicionar ou remover da Comparação Inteligente"
+                <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+                    <div className="relative" ref={actionMenuRef}>
+                        <button
+                            onClick={() => setIsActionMenuOpen(p => !p)}
+                            className="p-2 rounded-full hover:bg-brand-bg text-brand-text-muted hover:text-brand-text transition-colors"
+                            title="Mais Ações"
                         >
-                            Compare +
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-[19px] w-[19px]" viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                            </svg>
                         </button>
-                    </div>
-
-                    {/* Middle: Title */}
-                    <div className="flex-grow min-w-0 text-center" onClick={() => onToggleCollapse(scenario.id)}>
-                        {isManualMode ? (
-                            <input
-                                type="text"
-                                value={manualTitleInput}
-                                onChange={handleManualTitleChange}
-                                onBlur={handleManualTitleBlur}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter') e.currentTarget.blur();
-                                    if (e.key === 'Escape') { setManualTitleInput(scenario.manualTitle || ''); e.currentTarget.blur(); }
-                                }}
-                                onClick={(e) => e.stopPropagation()}
-                                placeholder="Digite o título do cenário"
-                                className="font-bold text-lg text-brand-text bg-brand-primary rounded px-2 py-1 w-full max-w-md mx-auto focus:outline-none focus:ring-2 focus:ring-brand-secondary"
-                            />
-                        ) : (
-                            <h3 className="font-bold text-lg text-brand-text truncate cursor-pointer" title={scenarioTitle}>{scenarioTitle}</h3>
+                        {isActionMenuOpen && (
+                           <div className="absolute top-full right-0 mt-2 w-56 bg-brand-bg rounded-md shadow-lg z-10 border border-brand-primary overflow-hidden">
+                                <ul className="text-sm text-brand-text">
+                                    <li><button onClick={() => { onDuplicate(scenario.id); setIsActionMenuOpen(false); }} className="w-full text-left px-4 py-2 hover:bg-brand-primary flex items-center gap-2">Duplicar Cenário</button></li>
+                                    <li><button onClick={handleToggleManualMode} className="w-full text-left px-4 py-2 hover:bg-brand-primary flex items-center gap-2">{isManualMode ? 'Usar Título Automático' : 'Renomear Manualmente'}</button></li>
+                                    <li><button onClick={(e) => { e.stopPropagation(); setIsClearMenuOpen(p => !p); }} className="w-full text-left px-4 py-2 hover:bg-brand-primary flex items-center gap-2">Limpar...</button></li>
+                                    <li><button onClick={(e) => { onDelete(scenario.id); setIsActionMenuOpen(false); }} className="w-full text-left px-4 py-2 hover:bg-red-800/50 text-red-400 flex items-center gap-2">Excluir Cenário</button></li>
+                                </ul>
+                           </div>
+                        )}
+                        {isClearMenuOpen && (
+                             <div className="absolute top-full right-0 mt-2 w-56 bg-brand-bg rounded-md shadow-lg z-20 border border-brand-primary overflow-hidden" ref={clearMenuRef}>
+                                <p className="px-4 pt-2 pb-1 text-xs font-semibold text-brand-text-muted">Limpar Dados:</p>
+                                <ul className="text-sm text-brand-text">
+                                    <li><button onClick={() => { handleClearAllSelections(); setIsClearMenuOpen(false); setIsActionMenuOpen(false);}} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Limpar Seleções</button></li>
+                                    <li><button onClick={() => { handleClearImages(); setIsClearMenuOpen(false); setIsActionMenuOpen(false);}} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Limpar Imagens</button></li>
+                                    <li><button onClick={() => { handleClearTexts(); setIsClearMenuOpen(false); setIsActionMenuOpen(false);}} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Limpar Frequências</button></li>
+                                    <li><button onClick={() => { handleClearNotes(); setIsClearMenuOpen(false); setIsActionMenuOpen(false);}} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Limpar Anotações</button></li>
+                                </ul>
+                            </div>
                         )}
                     </div>
-
-                    {/* Right: Actions Menu & Collapse Toggle */}
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                        <div className="relative" ref={actionMenuRef}>
-                            <button 
-                                onClick={() => setIsActionMenuOpen(p => !p)} 
-                                className="p-2 rounded-full text-brand-text-muted hover:bg-brand-primary hover:text-brand-text"
-                                title="Mais ações"
-                            >
-                                <MoreVerticalIcon />
-                            </button>
-                            {isActionMenuOpen && (
-                                <div className="absolute top-full right-0 mt-2 w-48 bg-brand-bg rounded-md shadow-lg z-20 border border-brand-primary overflow-hidden">
-                                    <ul>
-                                        <li><button onClick={handleToggleManualMode} className="w-full text-left px-3 py-2 text-sm text-brand-text hover:bg-brand-primary">{isManualMode ? "Usar Título Automático" : "Editar Título Manualmente"}</button></li>
-                                        <li><button onClick={() => { onDuplicate(scenario.id); setIsActionMenuOpen(false); }} className="w-full text-left px-3 py-2 text-sm text-brand-text hover:bg-brand-primary">Duplicar Cenário</button></li>
-                                        <li>
-                                             <div className="relative" ref={clearMenuRef}>
-                                                <button onClick={() => setIsClearMenuOpen(p => !p)} className="w-full text-left px-3 py-2 text-sm text-brand-text hover:bg-brand-primary flex justify-between items-center">
-                                                    Limpeza <span>{isClearMenuOpen ? '▾' : '▸'}</span>
-                                                </button>
-                                                {isClearMenuOpen && (
-                                                    <div className="bg-brand-bg/50 border-t border-brand-primary">
-                                                        <ul>
-                                                             {scenario.spotType === 'HRC Enviroment' && (
-                                                                <li><button onClick={(e) => { e.stopPropagation(); handleClearAllSelections(); setIsClearMenuOpen(false); setIsActionMenuOpen(false); }} className="w-full text-left pl-6 pr-3 py-2 text-sm text-brand-text-muted hover:bg-brand-primary flex items-center gap-2 disabled:opacity-50" disabled={isManualMode}>Limpar Botões</button></li>
-                                                            )}
-                                                            <li><button onClick={(e) => { e.stopPropagation(); handleClearImages(); setIsClearMenuOpen(false); setIsActionMenuOpen(false); }} className="w-full text-left pl-6 pr-3 py-2 text-sm text-brand-text-muted hover:bg-brand-primary flex items-center gap-2">Limpar Imagens</button></li>
-                                                            <li><button onClick={(e) => { e.stopPropagation(); handleClearTexts(); setIsClearMenuOpen(false); setIsActionMenuOpen(false); }} className="w-full text-left pl-6 pr-3 py-2 text-sm text-brand-text-muted hover:bg-brand-primary flex items-center gap-2">Limpar .txt's</button></li>
-                                                            <li><button onClick={(e) => { e.stopPropagation(); handleClearNotes(); setIsClearMenuOpen(false); setIsActionMenuOpen(false);}} className="w-full text-left pl-6 pr-3 py-2 text-sm text-brand-text-muted hover:bg-brand-primary flex items-center gap-2">Limpar Anotações</button></li>
-                                                        </ul>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </li>
-                                        <li><hr className="border-brand-primary" /></li>
-                                        <li><button onClick={() => { onDelete(scenario.id); setIsActionMenuOpen(false); }} className="w-full text-left px-3 py-2 text-sm text-orange-400 hover:bg-orange-500/20">Excluir Cenário</button></li>
-                                    </ul>
-                                </div>
-                            )}
-                        </div>
-                        <button onClick={() => onToggleCollapse(scenario.id)} className="p-2 rounded-full text-brand-text-muted hover:bg-brand-primary hover:text-brand-text" title={isCollapsed ? "Expandir" : "Recolher"}>
-                            <span className={`transform transition-transform duration-300 inline-block ${isCollapsed ? '' : 'rotate-180'}`}>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                            </span>
-                        </button>
-                    </div>
+                    <button
+                        onClick={() => onToggleCollapse(scenario.id)}
+                        className="p-2 rounded-full hover:bg-brand-bg text-brand-text-muted hover:text-brand-text transition-colors"
+                        title={isCollapsed ? 'Expandir cenário' : 'Recolher cenário'}
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className={`h-[19px] w-[19px] transform transition-transform ${!isCollapsed ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" /></svg>
+                    </button>
                 </div>
-                
-                {!isCollapsed && (
-                    <div className="bg-brand-primary">
-                        <CollapsibleSection title="Parâmetros" isOpen={openSections.has('params')} onToggle={() => toggleSection('params')}>
-                             {/* HRC Enviroment */}
-                            {scenario.spotType === 'HRC Enviroment' && (
-                                <div className="flex items-start gap-4">
-                                    <div className="flex-grow space-y-4">
-                                        {!isManualMode && (
-                                            <ButtonGroup label="Action/Response" jargonKey="Action/Response" onClear={() => handleUpdate('rangeAction', null)} hasSelection={!!scenario.rangeAction}>
-                                                {HRC_ACTIONS.map(action => (
-                                                    <button key={action} onClick={() => handleUpdate('rangeAction', action)} className={`px-3 py-1 text-xs rounded-md ${scenario.rangeAction === action ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'}`}>{action}</button>
-                                                ))}
-                                            </ButtonGroup>
-                                        )}
-                                        
-                                        {!isManualMode && scenario.rangeAction && (
-                                            <>
-                                                {isF3betSelected ? (
-                                                    <>
-                                                        <ButtonGroup label="First Raiser Position" jargonKey="First Raiser Position" onClear={() => handleUpdate('raiserPos', null)} hasSelection={!!scenario.raiserPos} isDisabled={!scenario.rangeAction}>
-                                                            {POSITIONS.filter(p => p !== 'BB').map(pos => (
-                                                                <button key={pos} onClick={() => handleUpdate('raiserPos', pos)} className={`px-3 py-1 text-xs rounded-md ${scenario.raiserPos === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'}`}>{pos}</button>
-                                                            ))}
-                                                        </ButtonGroup>
-                                                        {scenario.raiserPos && (
-                                                            <ButtonGroup label="3bettor Position" jargonKey="3bettor Position" onClear={() => handleUpdate('aggressorPos', null)} hasSelection={!!scenario.aggressorPos} isDisabled={!scenario.raiserPos}>
-                                                                {aggressorPositionsForF3bet.map(pos => (
-                                                                    <button key={pos} onClick={() => handleUpdate('aggressorPos', pos)} className={`px-3 py-1 text-xs rounded-md ${scenario.aggressorPos === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'}`}>{pos}</button>
-                                                                ))}
-                                                            </ButtonGroup>
-                                                        )}
-                                                        {scenario.aggressorPos && (
-                                                             <ButtonGroup label="Hero Position" jargonKey="Hero Position" onClear={() => handleUpdate('heroPos', null)} hasSelection={!!scenario.heroPos} isDisabled={!scenario.aggressorPos}>
-                                                                {heroPositionsForF3bet.map(pos => (
-                                                                    <button key={pos} onClick={() => handleUpdate('heroPos', pos)} className={`px-3 py-1 text-xs rounded-md ${scenario.heroPos === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'}`}>{pos}</button>
-                                                                ))}
-                                                            </ButtonGroup>
-                                                        )}
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <ButtonGroup label="First Raiser Position" jargonKey="First Raiser Position" onClear={() => handleUpdate('raiserPos', null)} hasSelection={!!scenario.raiserPos}>
-                                                            {POSITIONS.filter(p => p !== 'BB').map(pos => (
-                                                                <button key={pos} onClick={() => handleUpdate('raiserPos', pos)} className={`px-3 py-1 text-xs rounded-md ${scenario.raiserPos === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'}`}>{pos}</button>
-                                                            ))}
-                                                        </ButtonGroup>
-                                                        
-                                                        {scenario.raiserPos && !isRfiSelected && (
-                                                            <ButtonGroup label="Hero Position" jargonKey="Hero Position" onClear={() => handleUpdate('heroPos', null)} hasSelection={!!scenario.heroPos}>
-                                                                {heroPositions.map(pos => (
-                                                                    <button key={pos} onClick={() => handleUpdate('heroPos', pos)} className={`px-3 py-1 text-xs rounded-md ${scenario.heroPos === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'}`}>{pos}</button>
-                                                                ))}
-                                                            </ButtonGroup>
-                                                        )}
-                                                        
-                                                        {scenario.heroPos && !isRfiSelected && !isF2betSelected && !isF3betSelected && (
-                                                            <>
-                                                                <ButtonGroup label="Cold Caller Position (CC)" jargonKey="Cold Caller Position" onClear={() => handleUpdate('coldCallerPos', null)} hasSelection={!!scenario.coldCallerPos}>
-                                                                    {coldCallerPositions.map(pos => (
-                                                                        <button key={pos} onClick={() => handleUpdate('coldCallerPos', pos)} className={`px-3 py-1 text-xs rounded-md ${scenario.coldCallerPos === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'}`}>{pos}</button>
-                                                                    ))}
-                                                                </ButtonGroup>
-                                                                <ButtonGroup label="3bettor/4bettor/5bettor/Squeezer Position" jargonKey="Aggressor Position" onClear={() => handleUpdate('aggressorPos', null)} hasSelection={!!scenario.aggressorPos}>
-                                                                    {aggressorPositions.map(pos => (
-                                                                        <button key={pos} onClick={() => handleUpdate('aggressorPos', pos)} className={`px-3 py-1 text-xs rounded-md ${scenario.aggressorPos === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'}`}>{pos}</button>
-                                                                    ))}
-                                                                </ButtonGroup>
-                                                            </>
-                                                        )}
-                                                    </>
-                                                )}
-                                            </>
-                                        )}
-                                    </div>
-                                    <div className="flex-shrink-0 w-48">
-                                        {(isManualMode || scenario.rangeAction) && (
-                                            <div className={`${isManualMode ? 'opacity-50' : ''}`}>
-                                                <div className="mb-2">
-                                                    <ButtonGroup label="Modalidade" jargonKey="Modalidade" onClear={() => handleGameScenarioUpdate(null)} hasSelection={!!scenario.gameScenario} isDisabled={isManualMode}>
-                                                        {HRC_GAME_SCENARIOS_ORDER.map(gs => (
-                                                            <button key={gs} onClick={() => handleGameScenarioUpdate(gs)} disabled={isManualMode} className={`w-full truncate text-center px-2 py-1 text-xs rounded-md ${scenario.gameScenario === gs ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isManualMode ? 'cursor-not-allowed' : ''}`}>{gs}</button>
-                                                        ))}
-                                                    </ButtonGroup>
-                                                </div>
-                                                <BountyControls />
-                                            </div>
-                                        )}
-                                        {renderInserirButtons()}
-                                    </div>
-                                </div>
-                            )}
-                             {/* Blind War */}
-                            {scenario.spotType === 'Blind War' && (
-                                <div className="flex flex-wrap items-start justify-center gap-x-8 gap-y-4">
-                                     {!isManualMode && (
-                                        <>
-                                            <ButtonGroup label="Position" onClear={() => handleUpdate('blindWarPosition', null)} hasSelection={!!scenario.blindWarPosition}>
-                                                {BLIND_WAR_POSITIONS.map(pos => (
-                                                    <button key={pos} onClick={() => handleUpdate('blindWarPosition', pos)} className={`px-4 py-2 rounded-md ${scenario.blindWarPosition === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'}`}>{pos}</button>
-                                                ))}
-                                            </ButtonGroup>
-                                            {scenario.blindWarPosition && (
-                                                <ButtonGroup label="Action" onClear={() => handleUpdate('blindWarAction', null)} hasSelection={!!scenario.blindWarAction} isDisabled={!scenario.blindWarPosition}>
-                                                    {BLIND_WAR_ACTIONS.map(action => {
-                                                        if (action === 'em Gap' && scenario.blindWarPosition !== 'SB') return null;
-                                                        const isVsLimpDisabled = scenario.blindWarPosition === 'SB' && action === 'vs. Limp';
-                                                        const isVsRaiseDisabled = scenario.blindWarPosition === 'SB' && action === 'vs. raise';
-                                                        const isVsIsoDisabled = scenario.blindWarPosition === 'BB' && action === 'vs. ISO';
-                                                        const isVs3betDisabled = scenario.blindWarPosition === 'BB' && action === 'vs. 3bet';
-                                                        const baseDisabled = isVsLimpDisabled || isVsRaiseDisabled || isVsIsoDisabled || isVs3betDisabled || !scenario.blindWarPosition;
-                                                        return (
-                                                            <button key={action} onClick={() => handleUpdate('blindWarAction', action)} disabled={baseDisabled} className={`px-4 py-2 rounded-md transition-opacity ${scenario.blindWarAction === action ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${baseDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}>{action}</button>
-                                                        );
-                                                    })}
-                                                </ButtonGroup>
-                                            )}
-                                        </>
-                                    )}
-                                    <div>
-                                        {(isManualMode || scenario.blindWarPosition) && (
-                                            <ButtonGroup label="Modalidade" jargonKey="Modalidade" onClear={() => handleGameScenarioUpdate(null)} hasSelection={!!scenario.gameScenario} isDisabled={isManualMode}>
-                                                {GAME_SCENARIOS.map(gs => (
-                                                    <button key={gs} onClick={() => handleGameScenarioUpdate(gs)} disabled={isManualMode} className={`px-4 py-2 rounded-md ${scenario.gameScenario === gs ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isManualMode ? 'cursor-not-allowed' : ''}`}>{gs}</button>
-                                                ))}
-                                            </ButtonGroup>
-                                        )}
-                                        {(isManualMode || scenario.blindWarPosition) && <BountyControls />}
-                                        {renderInserirButtons()}
-                                    </div>
-                                </div>
-                            )}
-                            {/* Facing 2bet & Rfi */}
-                            {(scenario.spotType === 'Facing 2bet' || scenario.spotType === 'Rfi') && (
-                                <div className={`flex flex-wrap items-start gap-x-6 gap-y-4`}>
-                                    {!isManualMode && (
-                                        <>
-                                            {scenario.spotType === 'Facing 2bet' && (
-                                                <ButtonGroup label="Action" onClear={() => handleUpdate('rangeAction', null)} hasSelection={!!scenario.rangeAction}>
-                                                    {FACING_2BET_ACTIONS.map(action => (
-                                                        <button key={action} onClick={() => handleUpdate('rangeAction', action)} className={`px-3.5 py-1.5 text-sm rounded-md ${scenario.rangeAction === action ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'}`}>{action}</button>
-                                                    ))}
-                                                </ButtonGroup>
-                                            )}
-                                            {scenario.rangeAction && (
-                                                <ButtonGroup label={scenario.rangeAction === 'RFI' ? 'Posição' : 'First Raiser Position'} onClear={() => handleUpdate('raiserPos', null)} hasSelection={!!scenario.raiserPos}>
-                                                    {POSITIONS.filter(p => p !== 'BB').map(pos => (
-                                                        <button key={pos} onClick={() => handleUpdate('raiserPos', pos)} className={`px-3.5 py-1.5 text-sm rounded-md ${scenario.raiserPos === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'}`}>{pos}</button>
-                                                    ))}
-                                                </ButtonGroup>
-                                            )}
-                                            {scenario.rangeAction !== 'RFI' && scenario.raiserPos &&(
-                                                <ButtonGroup label="Hero Position" onClear={() => handleUpdate('heroPos', null)} hasSelection={!!scenario.heroPos}>
-                                                    {heroPositions.map(pos => (
-                                                        <button key={pos} onClick={() => handleUpdate('heroPos', pos)} className={`px-3.5 py-1.5 text-sm rounded-md ${scenario.heroPos === pos ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'}`}>{pos}</button>
-                                                    ))}
-                                                </ButtonGroup>
-                                            )}
-                                        </>
-                                    )}
-                                    <div>
-                                        {(isManualMode || scenario.rangeAction) && (
-                                             <ButtonGroup label="Modalidade" jargonKey="Modalidade" onClear={() => handleGameScenarioUpdate(null)} hasSelection={!!scenario.gameScenario} isDisabled={isManualMode}>
-                                                {GAME_SCENARIOS.map(gs => (
-                                                    <button key={gs} onClick={() => handleGameScenarioUpdate(gs)} disabled={isManualMode} className={`px-3.5 py-1.5 text-sm rounded-md ${scenario.gameScenario === gs ? 'bg-brand-secondary text-brand-primary font-bold' : 'bg-brand-bg hover:brightness-125'} ${isManualMode ? 'cursor-not-allowed' : ''}`}>{gs}</button>
-                                                ))}
-                                            </ButtonGroup>
-                                        )}
-                                        {(isManualMode || scenario.rangeAction) && <BountyControls />}
-                                        {renderInserirButtons()}
-                                    </div>
-                                </div>
-                            )}
-                        </CollapsibleSection>
-                        
-                        <CollapsibleSection title="Mídia & Arquivos" isOpen={openSections.has('media')} onToggle={() => toggleSection('media')}>
-                            {scenario.spotType === 'HRC Enviroment' ? (
-                                <div className="space-y-4">
-                                    <ImageUploader title="Range" imageData={scenario.rangeImage} onUpload={(data) => handleUpdate('rangeImage', data)} className="aspect-[5/3]" onZoom={(src) => setZoomedImage({ src, type: 'rangeImage' })} />
-                                    <div className="grid grid-cols-3 gap-2">
-                                        <textarea name="raiseSmallText" value={textInputs.raiseSmallText} onChange={handleTextInputChange} onBlur={handleTextInputBlur} placeholder="raise small" className="h-10 bg-brand-bg text-xs rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-secondary w-full resize-none"></textarea>
-                                        <textarea name="raiseBigText" value={textInputs.raiseBigText} onChange={handleTextInputChange} onBlur={handleTextInputBlur} placeholder="raise big" className="h-10 bg-brand-bg text-xs rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-secondary w-full resize-none"></textarea>
-                                        <textarea name="callText" value={textInputs.callText} onChange={handleTextInputChange} onBlur={handleTextInputBlur} placeholder="call" className="h-10 bg-brand-bg text-xs rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-secondary w-full resize-none"></textarea>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="space-y-4">
-                                    <ImageUploader title="Range" imageData={scenario.rangeImage} onUpload={(data) => handleUpdate('rangeImage', data)} className="aspect-video" onZoom={(src) => setZoomedImage({ src, type: 'rangeImage' })} />
-                                    <ImageUploader title="Frequências" imageData={scenario.frequenciesImage} onUpload={(data) => handleUpdate('frequenciesImage', data)} className="aspect-[6/1]" size="small" onZoom={(src) => setZoomedImage({ src, type: 'frequenciesImage' })} />
-                                    <div className="grid grid-cols-3 gap-2">
-                                        <textarea name="raiseSmallText" value={textInputs.raiseSmallText} onChange={handleTextInputChange} onBlur={handleTextInputBlur} placeholder="raise small" className="h-12 bg-brand-bg text-xs rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-secondary w-full resize-none"></textarea>
-                                        <textarea name="raiseBigText" value={textInputs.raiseBigText} onChange={handleTextInputChange} onBlur={handleTextInputBlur} placeholder="raise big" className="h-12 bg-brand-bg text-xs rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-secondary w-full resize-none"></textarea>
-                                        <textarea name="callText" value={textInputs.callText} onChange={handleTextInputChange} onBlur={handleTextInputBlur} placeholder="call" className="h-12 bg-brand-bg text-xs rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-secondary w-full resize-none"></textarea>
-                                    </div>
-                                </div>
-                            )}
-                        </CollapsibleSection>
-                        
-                        <CollapsibleSection title="Anotações" isOpen={openSections.has('notes')} onToggle={() => toggleSection('notes')}>
-                            <textarea name="notes" value={textInputs.notes} onChange={handleTextInputChange} onBlur={handleTextInputBlur} placeholder="Anotações..." className="h-48 bg-brand-bg rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-brand-secondary w-full resize-none"></textarea>
-                        </CollapsibleSection>
-                    </div>
-                )}
             </div>
-             <ImageEditModal 
-                isOpen={!!uploaderTarget}
+            
+            {!isCollapsed && (
+                <div className="divide-y divide-brand-bg/50">
+                    <CollapsibleSection title="Spot Informations" isOpen={openSections.has('params')} onToggle={() => toggleSection('params')}>
+                        <div className="space-y-4">
+                            {scenario.spotType === 'Blind War' ? (
+                                <>
+                                    <ButtonGroup label="Posição" onClear={() => handleUpdate('blindWarPosition', null)} hasSelection={!!scenario.blindWarPosition}>
+                                        {BLIND_WAR_POSITIONS.map(pos => (
+                                            <button key={pos} onClick={() => handleUpdate('blindWarPosition', pos)} className={`px-3 py-1.5 text-xs rounded-md font-semibold ${scenario.blindWarPosition === pos ? 'bg-brand-secondary text-brand-primary' : 'bg-brand-bg hover:brightness-125'}`}>{pos}</button>
+                                        ))}
+                                    </ButtonGroup>
+                                    <ButtonGroup label="Ação" onClear={() => handleUpdate('blindWarAction', null)} hasSelection={!!scenario.blindWarAction}>
+                                        {BLIND_WAR_ACTIONS.map(action => {
+                                            const isDisabled = (scenario.blindWarPosition === 'SB' && (action === 'vs. Limp' || action === 'vs. raise')) ||
+                                                               (scenario.blindWarPosition === 'BB' && (action === 'vs. ISO' || action === 'em Gap' || action === 'vs. 3bet'));
+                                            return <button key={action} disabled={isDisabled} onClick={() => handleUpdate('blindWarAction', action)} className={`px-3 py-1.5 text-xs rounded-md font-semibold disabled:opacity-30 disabled:cursor-not-allowed ${scenario.blindWarAction === action ? 'bg-brand-secondary text-brand-primary' : 'bg-brand-bg hover:brightness-125'}`}>{action}</button>
+                                        })}
+                                    </ButtonGroup>
+                                </>
+                            ) : (
+                                <>
+                                   {/* Common to F2B and HRC */}
+                                   <ButtonGroup label="Action/Response" jargonKey="Action/Response" onClear={() => handleUpdate('rangeAction', null)} hasSelection={!!scenario.rangeAction} isDisabled={scenario.spotType === 'Rfi'}>
+                                        {(scenario.spotType === 'Facing 2bet' ? FACING_2BET_ACTIONS : HRC_ACTIONS).map(action => (
+                                            <button key={action} onClick={() => handleUpdate('rangeAction', action)} className={`px-3 py-1.5 text-xs rounded-md font-semibold ${scenario.rangeAction === action ? 'bg-brand-secondary text-brand-primary' : 'bg-brand-bg hover:brightness-125'}`}>{action}</button>
+                                        ))}
+                                    </ButtonGroup>
+                                </>
+                            )}
+
+                             {scenario.spotType !== 'Blind War' && (
+                                <>
+                                    <ButtonGroup label="First Raiser Position" jargonKey="First Raiser Position" onClear={() => handleUpdate('raiserPos', null)} hasSelection={!!scenario.raiserPos} isDisabled={!scenario.rangeAction}>
+                                        {POSITIONS.filter(p => p !== 'BB').map(pos => (
+                                            <button key={pos} onClick={() => handleUpdate('raiserPos', pos)} className={`px-3 py-1.5 text-xs rounded-md font-semibold ${scenario.raiserPos === pos ? 'bg-brand-secondary text-brand-primary' : 'bg-brand-bg hover:brightness-125'}`}>{pos}</button>
+                                        ))}
+                                    </ButtonGroup>
+
+                                    {scenario.spotType === 'HRC Enviroment' && isF3betSelected && (
+                                        <ButtonGroup label="3bettor Position" jargonKey="3bettor Position" onClear={() => handleUpdate('aggressorPos', null)} hasSelection={!!scenario.aggressorPos} isDisabled={!scenario.raiserPos}>
+                                            {aggressorPositionsForF3bet.map(pos => (
+                                                <button key={pos} onClick={() => handleUpdate('aggressorPos', pos)} className={`px-3 py-1.5 text-xs rounded-md font-semibold ${scenario.aggressorPos === pos ? 'bg-brand-secondary text-brand-primary' : 'bg-brand-bg hover:brightness-125'}`}>{pos}</button>
+                                            ))}
+                                        </ButtonGroup>
+                                    )}
+
+                                    {!isRfiSelected && (
+                                        <ButtonGroup label="Hero Position" jargonKey="Hero Position" onClear={() => handleUpdate('heroPos', null)} hasSelection={!!scenario.heroPos} isDisabled={!scenario.raiserPos || (isF3betSelected && !scenario.aggressorPos)}>
+                                            {(isF3betSelected ? heroPositionsForF3bet : heroPositions).map(pos => (
+                                                <button key={pos} onClick={() => handleUpdate('heroPos', pos)} className={`px-3 py-1.5 text-xs rounded-md font-semibold ${scenario.heroPos === pos ? 'bg-brand-secondary text-brand-primary' : 'bg-brand-bg hover:brightness-125'}`}>{pos}</button>
+                                            ))}
+                                        </ButtonGroup>
+                                    )}
+
+                                    {scenario.spotType === 'HRC Enviroment' && !isRfiSelected && !isF2betSelected && (
+                                        <>
+                                            {!isF3betSelected && (
+                                                <ButtonGroup label="Aggressor Position" jargonKey="Aggressor Position" onClear={() => handleUpdate('aggressorPos', null)} hasSelection={!!scenario.aggressorPos} isDisabled={!scenario.heroPos}>
+                                                    {aggressorPositions.map(pos => (
+                                                        <button key={pos} onClick={() => handleUpdate('aggressorPos', pos)} className={`px-3 py-1.5 text-xs rounded-md font-semibold ${scenario.aggressorPos === pos ? 'bg-brand-secondary text-brand-primary' : 'bg-brand-bg hover:brightness-125'}`}>{pos}</button>
+                                                    ))}
+                                                </ButtonGroup>
+                                            )}
+                                             <ButtonGroup label="Cold Caller Position" jargonKey="Cold Caller Position" onClear={() => handleUpdate('coldCallerPos', null)} hasSelection={!!scenario.coldCallerPos} isDisabled={!scenario.heroPos}>
+                                                {coldCallerPositions.filter(p => p !== scenario.heroPos).map(pos => (
+                                                    <button key={pos} onClick={() => handleUpdate('coldCallerPos', pos)} className={`px-3 py-1.5 text-xs rounded-md font-semibold ${scenario.coldCallerPos === pos ? 'bg-brand-secondary text-brand-primary' : 'bg-brand-bg hover:brightness-125'}`}>{pos}</button>
+                                                ))}
+                                            </ButtonGroup>
+                                        </>
+                                    )}
+                                </>
+                             )}
+                            
+                            <ButtonGroup label="Modalidade" jargonKey="Modalidade" onClear={() => handleGameScenarioUpdate(null)} hasSelection={!!scenario.gameScenario}>
+                                {(scenario.spotType === 'HRC Enviroment' ? HRC_GAME_SCENARIOS_ORDER : GAME_SCENARIOS).map(gs => (
+                                    <button key={gs} onClick={() => handleGameScenarioUpdate(gs)} className={`px-3 py-1.5 text-xs rounded-md font-semibold ${scenario.gameScenario === gs ? 'bg-brand-secondary text-brand-primary' : 'bg-brand-bg hover:brightness-125'}`}>{gs}</button>
+                                ))}
+                            </ButtonGroup>
+
+                            {scenario.gameScenario?.startsWith('Bounty') && (
+                                <div className="flex items-center gap-4 pt-2">
+                                    <div className="flex items-center gap-2">
+                                        <input type="checkbox" id={`rpMode-${scenario.id}`} checked={!!scenario.rpMode} onChange={e => handleUpdate('rpMode', e.target.checked)} className="h-4 w-4 rounded bg-brand-bg text-brand-secondary focus:ring-brand-secondary border-brand-primary" />
+                                        <label htmlFor={`rpMode-${scenario.id}`} className="text-sm font-medium text-brand-text-muted">RP Mode</label>
+                                        <InfoTooltip text={JARGON_DEFINITIONS['RP Mode']} />
+                                    </div>
+                                    {scenario.rpMode && (
+                                      <div className="flex items-center gap-4">
+                                          <div>
+                                              <label className="text-xs text-brand-text-muted">Bounties:</label>
+                                              <input type="number" value={scenario.startingBounties || ''} onChange={e => handleBountyUpdate(parseInt(e.target.value, 10))} className="w-20 bg-brand-bg text-sm rounded-md p-1 focus:ring-brand-secondary focus:outline-none" />
+                                          </div>
+                                          <div>
+                                              <label className="text-xs text-brand-text-muted">Stacks:</label>
+                                              <input type="number" value={scenario.startingStacks || ''} onChange={e => handleStacksUpdate(parseInt(e.target.value, 10))} className="w-20 bg-brand-bg text-sm rounded-md p-1 focus:ring-brand-secondary focus:outline-none" />
+                                          </div>
+                                           {dropEquity !== null && <div className="text-sm font-bold text-brand-secondary">DE: {dropEquity.toFixed(1)}%</div>}
+                                      </div>
+                                    )}
+                                </div>
+                            )}
+                            
+                            {scenario.spotType === 'HRC Enviroment' && renderInserirButtons()}
+
+                        </div>
+                    </CollapsibleSection>
+                    
+                     <CollapsibleSection title="Imagem/Dados" isOpen={openSections.has('media')} onToggle={() => toggleSection('media')}>
+                        <div className="grid grid-cols-2 gap-4">
+                            <ImageUploader title="Range" imageData={scenario.rangeImage} onUpload={(data) => handleUpdate('rangeImage', data)} onZoom={(src) => setZoomedImage({src, type: 'rangeImage'})} />
+                            <ImageUploader title="Frequências" imageData={scenario.frequenciesImage} onUpload={(data) => handleUpdate('frequenciesImage', data)} onZoom={(src) => setZoomedImage({src, type: 'frequenciesImage'})}/>
+                        </div>
+                        <div className="grid grid-cols-3 gap-4 mt-4">
+                             <textarea name="raiseSmallText" value={textInputs.raiseSmallText} onChange={handleTextInputChange} onBlur={handleTextInputBlur} placeholder="Raise Small" className="bg-brand-bg text-sm rounded-md p-2 h-20 resize-none focus:ring-brand-secondary focus:outline-none"/>
+                             <textarea name="raiseBigText" value={textInputs.raiseBigText} onChange={handleTextInputChange} onBlur={handleTextInputBlur} placeholder="Raise Big" className="bg-brand-bg text-sm rounded-md p-2 h-20 resize-none focus:ring-brand-secondary focus:outline-none"/>
+                             <textarea name="callText" value={textInputs.callText} onChange={handleTextInputChange} onBlur={handleTextInputBlur} placeholder="Call" className="bg-brand-bg text-sm rounded-md p-2 h-20 resize-none focus:ring-brand-secondary focus:outline-none"/>
+                        </div>
+                    </CollapsibleSection>
+                    
+                    <CollapsibleSection title="Notes" isOpen={openSections.has('notes')} onToggle={() => toggleSection('notes')}>
+                         <textarea name="notes" value={textInputs.notes} onChange={handleTextInputChange} onBlur={handleTextInputBlur} placeholder="Adicione suas anotações aqui..." className="w-full bg-brand-bg text-sm rounded-md p-3 h-28 resize-y focus:ring-brand-secondary focus:outline-none"/>
+                    </CollapsibleSection>
+                </div>
+            )}
+            
+            {/* --- MODALS --- */}
+            <ImageEditModal 
+                isOpen={!!uploaderTarget} 
                 onClose={() => setUploaderTarget(null)}
-                title={`Inserir Imagem para ${
-                    uploaderTarget === 'printSpotImage' ? 'HRC Table View' :
-                    uploaderTarget === 'rpImage' ? 'RP' :
-                    uploaderTarget === 'tableViewImage' ? 'Table View' :
-                    uploaderTarget === 'plusInfoImage' ? '+Info' : ''
-                }`}
+                title={`Editar Imagem - ${uploaderTarget}`}
                 initialImageData={initialImageDataForModal}
                 onSave={(data) => {
                     if (uploaderTarget) {
@@ -1152,31 +914,33 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
                 }}
             />
             <ImageViewerModal 
-                imageSrc={viewingImage?.src ?? null} 
+                imageSrc={viewingImage?.src || null}
                 onClose={() => setViewingImage(null)}
                 onDelete={() => setIsConfirmingDeleteImage(true)}
             />
+            {zoomedImage && (
+                <RangeZoomModal
+                    imageSrc={zoomedImage.src}
+                    onClose={() => setZoomedImage(null)}
+                    onDelete={() => setIsConfirmingDeleteZoomedImage(true)}
+                />
+            )}
              <ConfirmationModal
                 isOpen={isConfirmingDeleteImage}
                 onClose={() => setIsConfirmingDeleteImage(false)}
                 onConfirm={performDeleteViewingImage}
-                title="Confirmar Exclusão de Imagem"
-                message="Deseja realmente excluir esta imagem? Esta ação não pode ser desfeita."
+                title="Confirmar Exclusão"
+                message="Deseja realmente excluir esta imagem?"
             />
-            <RangeZoomModal 
-                imageSrc={zoomedImage?.src ?? null} 
-                onClose={() => setZoomedImage(null)}
-                onDelete={() => setIsConfirmingDeleteZoomedImage(true)} 
-            />
-            <ConfirmationModal
+             <ConfirmationModal
                 isOpen={isConfirmingDeleteZoomedImage}
                 onClose={() => setIsConfirmingDeleteZoomedImage(false)}
                 onConfirm={performDeleteZoomedImage}
-                title="Confirmar Exclusão de Imagem"
-                message="Deseja realmente excluir esta imagem? Esta ação não pode ser desfeita."
+                title="Confirmar Exclusão"
+                message="Deseja realmente excluir esta imagem?"
             />
-        </>
+      </div>
     );
-}
+};
 
 export default ScenarioEditor;

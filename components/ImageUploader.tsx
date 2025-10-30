@@ -9,23 +9,6 @@ interface ImageUploaderProps {
     onZoom?: (imageData: string) => void;
 }
 
-const PlusIcon = ({ isSmall }: { isSmall: boolean }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" 
-        className={`${isSmall ? 'w-5 h-5 mb-1' : 'w-8 h-8 mb-2'} text-brand-text-muted mx-auto`}>
-        <line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line>
-    </svg>
-);
-
-const ZoomIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="11" cy="11" r="8"></circle>
-        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-        <line x1="11" y1="8" x2="11" y2="14"></line>
-        <line x1="8" y1="11" x2="14" y2="11"></line>
-    </svg>
-);
-
-
 const ImageUploader: React.FC<ImageUploaderProps> = ({ title, imageData, onUpload, onZoom, className = '', size = 'normal' }) => {
     const inputRef = useRef<HTMLInputElement>(null);
     const isSmall = size === 'small';
@@ -172,10 +155,10 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ title, imageData, onUploa
                     <img src={imageData} alt={title} className="max-w-full max-h-full object-contain rounded-md" />
                     <button 
                         onClick={handleRemoveImage}
-                        className="absolute top-2 right-2 bg-red-700/80 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-sm font-bold"
+                        className="absolute top-2 right-2 bg-red-700/80 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                         title="Remover imagem"
                     >
-                        X
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
                     </button>
                     {onZoom && (
                         <button
@@ -184,10 +167,10 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ title, imageData, onUploa
                                 e.preventDefault();
                                 onZoom(imageData);
                             }}
-                            className="absolute top-2 left-2 bg-brand-bg/80 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="absolute top-2 left-2 bg-brand-bg/80 text-white rounded-md p-1.5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                             title="Ampliar imagem"
                         >
-                            <ZoomIcon />
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8zm6-3a1 1 0 011 1v1h1a1 1 0 110 2H9v1a1 1 0 11-2 0V9H6a1 1 0 110-2h1V6a1 1 0 011-1z" clipRule="evenodd" /></svg>
                         </button>
                     )}
                 </>
@@ -195,13 +178,12 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ title, imageData, onUploa
                 <div className="w-full h-full flex flex-col items-center justify-center text-brand-text-muted pointer-events-none overflow-hidden">
                     <div 
                         onClick={triggerFileUpload}
-                        className={`pointer-events-auto cursor-pointer rounded-lg hover:bg-brand-primary/50 transition-colors ${isSmall ? 'p-1' : 'p-4'}`}
+                        className={`pointer-events-auto cursor-pointer rounded-lg hover:bg-brand-primary/50 transition-colors flex flex-col items-center justify-center gap-1 ${isSmall ? 'p-1' : 'p-4'}`}
                     >
-                        <PlusIcon isSmall={isSmall} />
-                        <span className={`font-semibold block ${isSmall ? 'text-xs' : 'text-sm'}`}>{title}</span>
-                        {!isSmall && <p className="text-xs mt-1">Clique para carregar</p>}
+                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" /></svg>
+                        <span className={`font-semibold block ${isSmall ? 'text-sm' : 'text-base'}`}>{title}</span>
                     </div>
-                     <p className={`leading-tight ${isSmall ? 'text-[10px] mt-0.5' : 'text-xs mt-2'}`}>ou cole a imagem (Ctrl+V)</p>
+                     <p className={`leading-tight ${isSmall ? 'text-xs mt-0.5' : 'text-sm mt-2'}`}>ou cole a imagem (Ctrl+V)</p>
                 </div>
             )}
         </div>

@@ -5,10 +5,6 @@ interface ComparisonTrayProps {
     onCompare: () => void;
 }
 
-const ScaleIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 mr-2"><path d="m16 16 3-8 3 8c-2 1-4 1-6 0"/><path d="M2 16l3-8 3 8c-2 1-4 1-6 0"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></svg>
-);
-
 const ComparisonTray: React.FC<ComparisonTrayProps> = ({ onCompare }) => {
     const { scenariosToCompare, clearComparison } = useComparison();
 
@@ -18,8 +14,8 @@ const ComparisonTray: React.FC<ComparisonTrayProps> = ({ onCompare }) => {
 
     return (
         <div className="fixed bottom-6 right-6 z-50 bg-brand-primary p-4 rounded-lg shadow-2xl border border-brand-bg flex items-center gap-4 animate-fade-in-up">
-            <div className="flex items-center">
-                <ScaleIcon />
+            <div className="flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-2 w-2 text-brand-secondary" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 2a1 1 0 011 1v1.333a3.001 3.001 0 013.333 2.5A4 4 0 0115 10v.5a2.5 2.5 0 01-5 0V10a4 4 0 01.667-2.167A3.001 3.001 0 019 4.333V3a1 1 0 011-1zm-3.5 9.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM10 12a4 4 0 00-4 4h8a4 4 0 00-4-4z" clipRule="evenodd" /></svg>
                 <span className="font-bold text-brand-text">
                     {scenariosToCompare.length} cenário(s) selecionado(s)
                 </span>
