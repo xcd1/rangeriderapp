@@ -1,3 +1,4 @@
+
 import React, { useContext, useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { AppContext } from '../App';
 import ConfirmationModal from './ConfirmationModal';
@@ -13,6 +14,69 @@ const isAncestor = (draggedId: string, targetId: string | null, allFolders: Fold
     return isAncestor(draggedId, targetFolder.parentId, allFolders);
 };
 
+// Action Menu Component
+const ActionMenu: React.FC<{ children: React.ReactNode, isActive: boolean }> = ({ children, isActive }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const menuRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, []);
+
+    const handleButtonClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setIsOpen(prev => !prev);
+    };
+
+    return (
+        <div className="relative" ref={menuRef}>
+            <button
+                onClick={handleButtonClick}
+                className={`w-6 h-6 flex items-center justify-center rounded-full transition-opacity ${
+                    isActive
+                        ? 'opacity-100 text-brand-primary/70 hover:bg-black/10'
+                        : 'opacity-0 group-hover:opacity-100 text-gray-400 hover:bg-brand-primary'
+                }`}
+                title="Mais opções"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                </svg>
+            </button>
+            {isOpen && (
+                <div 
+                    className="absolute top-full right-0 mt-2 w-48 bg-brand-bg rounded-md shadow-lg z-20 border border-brand-primary overflow-hidden"
+                    onClick={() => setIsOpen(false)}
+                >
+                    <ul className="text-sm text-brand-text divide-y divide-brand-primary/50">
+                        {children}
+                    </ul>
+                </div>
+            )}
+        </div>
+    );
+};
+
+const ActionMenuItem: React.FC<{ onClick: (e: React.MouseEvent) => void; children: React.ReactNode; className?: string }> = ({ onClick, children, className = '' }) => (
+    <li>
+        <button
+            onClick={onClick}
+            className={`w-full text-left px-3 py-2 hover:bg-brand-primary flex items-center gap-3 transition-colors ${className}`}
+        >
+            {children}
+        </button>
+    </li>
+);
+
+
 interface NotebookItemProps {
     notebook: Notebook;
     isActive: boolean;
@@ -27,6 +91,7 @@ interface NotebookItemProps {
     onNameChange: (name: string) => void;
     onNameKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
     onPromptDelete: () => void;
+    onDuplicate: () => void;
     onDragStart: (e: React.DragEvent) => void;
     onDragEnd: (e: React.DragEvent) => void;
     onMove: (direction: 'up' | 'down') => void;
@@ -36,7 +101,7 @@ interface NotebookItemProps {
 
 const NotebookItem: React.FC<NotebookItemProps> = ({
     notebook, isActive, isDeleting, isEditing, isAnyItemBeingEdited, editedName,
-    onSelect, onStartEditing, onCancelEditing, onSaveName, onNameChange, onNameKeyDown, onPromptDelete,
+    onSelect, onStartEditing, onCancelEditing, onSaveName, onNameChange, onNameKeyDown, onPromptDelete, onDuplicate,
     onDragStart, onDragEnd, onMove, isFirst, isLast
 }) => {
     return (
@@ -67,7 +132,7 @@ const NotebookItem: React.FC<NotebookItemProps> = ({
                         onClick={onSelect}
                         className={`flex items-center flex-grow truncate ${isDeleting ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                     >
-                         <svg xmlns="http://www.w3.org/2000/svg" className="h-[19px] w-[19px] mr-2 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                         <svg xmlns="http://www.w3.org/2000/svg" className="h-[18px] w-[18px] mr-2 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
                             <path d="M9 2a2 2 0 00-2 2v8a2 2 0 002 2h6a2 2 0 002-2V6.414A2 2 0 0016.414 5L14 2.586A2 2 0 0012.586 2H9z" />
                             <path d="M3 8a2 2 0 012-2v8a2 2 0 01-2 2H3a2 2 0 01-2-2v-4a2 2 0 012-2h1z" />
                         </svg>
@@ -99,30 +164,23 @@ const NotebookItem: React.FC<NotebookItemProps> = ({
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-[19px] w-[19px]" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
                         </button>
-                        <button 
-                            onClick={onStartEditing}
-                            disabled={isDeleting}
-                            className={`w-6 h-6 flex items-center justify-center rounded transition-opacity disabled:opacity-50 disabled:cursor-not-allowed ${
-                                isActive
-                                ? 'opacity-100 text-brand-primary/70 hover:text-blue-500'
-                                : 'opacity-0 group-hover:opacity-100 text-gray-400 hover:text-blue-500'
-                            }`}
-                            title={`Editar nome do caderno ${notebook.name}`}
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-[19px] w-[19px]" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
-                        </button>
-                        <button 
-                            onClick={onPromptDelete}
-                            disabled={isDeleting}
-                            className={`w-6 h-6 flex items-center justify-center rounded transition-opacity disabled:opacity-50 disabled:cursor-not-allowed ${
-                                isActive
-                                ? 'opacity-100 text-brand-primary/70 hover:text-red-500'
-                                : 'opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500'
-                            }`}
-                            title={`Excluir caderno ${notebook.name}`}
-                        >
-                            {isDeleting ? <div className="animate-spin rounded-full h-[19px] w-[19px] border-t-2 border-b-2 border-red-500"></div> : <svg xmlns="http://www.w3.org/2000/svg" className="h-[19px] w-[19px]" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" /></svg>}
-                        </button>
+                        <ActionMenu isActive={isActive}>
+                            <ActionMenuItem onClick={onStartEditing}>
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
+                                Renomear
+                            </ActionMenuItem>
+                            <ActionMenuItem onClick={onDuplicate}>
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M7 9a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2V9z" /><path d="M4 3a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H6a2 2 0 01-2-2V3z" /></svg>
+                                Duplicar
+                            </ActionMenuItem>
+                            <ActionMenuItem onClick={onPromptDelete} className="text-red-400 hover:bg-red-800/50">
+                                {isDeleting 
+                                    ? <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-red-400"></div> 
+                                    : <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" /></svg>
+                                }
+                                Excluir
+                            </ActionMenuItem>
+                        </ActionMenu>
                     </div>
                 </>
             )}
@@ -165,7 +223,7 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
   if (!context) return null;
   const { 
       notebooks, folders, activeNotebookId, setActiveNotebookId, user, logout,
-      addNotebook, deleteNotebook, updateNotebook,
+      addNotebook, deleteNotebook, updateNotebook, duplicateNotebook,
       addFolder, deleteFolder, updateFolder,
       swapItemsOrder
   } = context;
@@ -444,6 +502,7 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
         onNameChange={setEditedNotebookName}
         onNameKeyDown={handleNotebookNameKeyDown}
         onPromptDelete={() => setNotebookToDelete(notebook)}
+        onDuplicate={() => duplicateNotebook(notebook.id)}
         onDragStart={(e) => handleDragStart(e, notebook.id, 'notebook')}
         onDragEnd={handleDragEnd}
         onMove={(direction) => handleMoveItem(notebook.id, 'notebook', direction)}
@@ -462,34 +521,37 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
     const isLast = index === list.length - 1;
 
     return (
-        <div key={folder.id} 
-            draggable={!isAnyItemBeingEdited}
-            onDragStart={(e) => handleDragStart(e, folder.id, 'folder')}
-            onDragEnd={handleDragEnd}
+        <li key={folder.id} 
             onDragOver={(e) => handleDragOver(e, folder.id)}
             onDragLeave={handleDragLeave}
             onDrop={(e) => handleDrop(e, folder.id)}
             className={`rounded-md transition-colors ${isDropTarget ? 'bg-brand-secondary/20' : ''}`}
-            style={{ marginLeft: `${level * 12}px` }}
             >
-            <div className="group flex items-center justify-between p-2 text-sm rounded-md text-brand-text hover:bg-brand-bg/50 cursor-pointer" onClick={() => toggleFolderCollapse(folder.id)}>
+             <div 
+                draggable={!isAnyItemBeingEdited}
+                onDragStart={(e) => handleDragStart(e, folder.id, 'folder')}
+                onDragEnd={handleDragEnd}
+                className="group flex items-center justify-between p-2 text-sm rounded-md text-brand-text hover:bg-brand-bg/50"
+            >
                 {isEditing ? (
                     <>
-                        <input type="text" value={editedFolderName} onChange={(e) => setEditedFolderName(e.target.value)} onKeyDown={handleFolderNameKeyDown} onBlur={handleSaveFolderName} autoFocus className="flex-grow bg-brand-bg text-brand-text rounded-md px-2 py-0.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-secondary mx-2 w-full" onClick={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()}/>
+                        <input type="text" value={editedFolderName} onChange={(e) => setEditedFolderName(e.target.value)} onKeyDown={handleFolderNameKeyDown} onBlur={handleSaveFolderName} autoFocus className="flex-grow bg-brand-bg text-brand-text rounded-md px-2 py-0.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-secondary w-full" onClick={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()}/>
                     </>
                 ) : (
                     <>
-                        <div className="flex items-center truncate flex-grow">
-                             {isCollapsed ? (
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-[19px] w-[19px] mr-2 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                                    <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
-                                </svg>
-                            ) : (
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-[19px] w-[19px] mr-2 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                                    <path d="M5 12a2 2 0 100 4h10a2 2 0 100-4H5z" />
-                                    <path fillRule="evenodd" d="M3 4a2 2 0 012-2h6l2 2h4a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V4zm2 1v1h12V5H5z" clipRule="evenodd" />
-                                </svg>
-                            )}
+                        <div className="flex items-center truncate flex-grow cursor-pointer" onClick={() => toggleFolderCollapse(folder.id)}>
+                             <div className="w-5 h-5 flex items-center justify-center mr-2">
+                                {isCollapsed ? (
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-[18px] w-[18px] flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                                        <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
+                                    </svg>
+                                ) : (
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-[18px] w-[18px] flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                                        <path d="M5 12a2 2 0 100 4h10a2 2 0 100-4H5z" />
+                                        <path fillRule="evenodd" d="M3 4a2 2 0 012-2h6l2 2h4a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V4zm2 1v1h12V5H5z" clipRule="evenodd" />
+                                    </svg>
+                                )}
+                            </div>
                             <span className="truncate pr-2 font-semibold" title={folder.name}>{folder.name}</span>
                         </div>
                         <div className="flex items-center gap-1">
@@ -509,24 +571,46 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-[19px] w-[19px]" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
                             </button>
-                            <button onClick={(e) => {e.stopPropagation(); handleStartEditingFolder(folder);}} className="w-6 h-6 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:text-blue-400" title="Renomear pasta">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-[19px] w-[19px]" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
-                            </button>
-                            <button disabled={notebooksInFolder.length > 0 || childFolders.length > 0} onClick={(e) => {e.stopPropagation(); setFolderToDelete(folder);}} className="w-6 h-6 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:text-red-400 disabled:opacity-20 disabled:cursor-not-allowed" title={(notebooksInFolder.length > 0 || childFolders.length > 0) ? "Esvazie a pasta para excluir" : "Excluir pasta"}>
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-[19px] w-[19px]" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" /></svg>
-                            </button>
+                           <ActionMenu isActive={false}>
+                                <ActionMenuItem onClick={(e) => {e.stopPropagation(); handleStartEditingFolder(folder);}}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
+                                    Renomear
+                                </ActionMenuItem>
+                                {folder.parentId && (
+                                    <ActionMenuItem 
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            updateFolder(folder.id, { parentId: null });
+                                        }}
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L9 5.414V17a1 1 0 102 0V5.414l5.293 5.293a1 1 0 001.414-1.414l-7-7z" /></svg>
+                                        Mover para raiz
+                                    </ActionMenuItem>
+                                )}
+                                <ActionMenuItem 
+                                    onClick={(e) => {
+                                        if (notebooksInFolder.length === 0 && childFolders.length === 0) {
+                                            e.stopPropagation(); setFolderToDelete(folder);
+                                        }
+                                    }} 
+                                    className={`text-red-400 hover:bg-red-800/50 ${(notebooksInFolder.length > 0 || childFolders.length > 0) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" /></svg>
+                                    Excluir
+                                </ActionMenuItem>
+                            </ActionMenu>
                         </div>
                     </>
                 )}
             </div>
             {!isCollapsed && (
-                <ul className="pl-4 border-l-2 border-brand-secondary/20 ml-2">
-                    {childFolders.map((subFolder, i, arr) => renderFolderTree(subFolder, 0, i, arr))}
+                <ul className="pl-4 ml-2 border-l border-brand-bg/30">
+                    {childFolders.map((subFolder, i, arr) => renderFolderTree(subFolder, level + 1, i, arr))}
                     {notebooksInFolder.map((nb, i, arr) => renderNotebook(nb, i, arr))}
-                    {notebooksInFolder.length === 0 && childFolders.length === 0 && <li className="text-xs text-brand-text-muted p-2">Pasta vazia</li>}
+                    {notebooksInFolder.length === 0 && childFolders.length === 0 && <li className="text-xs text-brand-text-muted p-2 italic" style={{ paddingLeft: `8px` }}>Pasta vazia</li>}
                 </ul>
             )}
-        </div>
+        </li>
     );
   };
 
@@ -567,17 +651,16 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
                 {areAllFoldersCollapsed ? 'Expandir' : 'Recolher'}
             </button>
         </div>
-        <nav className="flex-grow overflow-y-auto pr-2 -mr-2 space-y-2">
-            {rootFolders.map((folder, i, arr) => renderFolderTree(folder, 0, i, arr))}
-            
-            <div onDragOver={(e) => handleDragOver(e, null)}
-                  onDragLeave={handleDragLeave}
-                  onDrop={(e) => handleDrop(e, null)}
-                  className={`rounded-md min-h-[2rem] transition-colors ${draggedItem && dragOverTargetId === null ? 'bg-brand-secondary/20' : ''}`}>
-                <ul className="space-y-1 pt-2">
-                    {rootNotebooks.map((nb, i, arr) => renderNotebook(nb, i, arr))}
-                </ul>
-            </div>
+        <nav 
+            className={`flex-grow overflow-y-auto pr-2 -mr-2 rounded-md transition-colors ${draggedItem && dragOverTargetId === null ? 'bg-brand-secondary/20' : ''}`}
+            onDragOver={(e) => handleDragOver(e, null)}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => handleDrop(e, null)}
+        >
+            <ul className="space-y-1">
+                {rootFolders.map((folder, i, arr) => renderFolderTree(folder, 0, i, arr))}
+                {rootNotebooks.map((nb, i, arr) => renderNotebook(nb, i, arr))}
+            </ul>
         </nav>
         <div className="mt-auto pt-4 border-t border-brand-bg">
             <div className="flex items-center justify-between mb-2">

@@ -1,3 +1,4 @@
+
 import React, { useRef, useEffect, useState, useLayoutEffect } from 'react';
 import type { Scenario, Position, GameScenario, RangeAction } from '../types';
 import { POSITIONS, GAME_SCENARIOS, FACING_2BET_ACTIONS, HRC_ACTIONS, POSITION_ORDER, BLIND_WAR_ACTIONS, BLIND_WAR_POSITIONS, JARGON_DEFINITIONS } from '../constants';
@@ -127,7 +128,7 @@ const ImageViewerModal: React.FC<ImageViewerModalProps> = ({ imageSrc, onClose, 
                 onClick={onClose}
                 title="Fechar (Esc)"
             >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-2 w-2" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
             </button>
             <div className="relative max-w-full max-h-full" onClick={e => e.stopPropagation()}>
                 <img 
@@ -144,7 +145,7 @@ const ImageViewerModal: React.FC<ImageViewerModalProps> = ({ imageSrc, onClose, 
                         }}
                         title="Excluir imagem"
                     >
-                         <svg xmlns="http://www.w3.org/2000/svg" className="h-2 w-2" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" /></svg>
+                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" /></svg>
                         Excluir
                     </button>
                 )}
@@ -217,7 +218,7 @@ const RangeZoomModal: React.FC<RangeZoomModalProps> = ({ imageSrc, onClose, onDe
                 <button onClick={(e) => { e.stopPropagation(); handleZoomIn(); }} className="w-8 h-8 rounded-md bg-brand-primary text-lg font-bold flex items-center justify-center">+</button>
                 <button onClick={(e) => { e.stopPropagation(); handleZoomReset(); }} className="h-8 px-3 rounded-md bg-brand-primary text-sm">Reset</button>
                 <button onClick={onClose} className="w-8 h-8 rounded-md bg-brand-primary text-lg font-bold flex items-center justify-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-2 w-2" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
                 </button>
             </div>
             {onDelete && imgBounds && (
@@ -233,7 +234,7 @@ const RangeZoomModal: React.FC<RangeZoomModalProps> = ({ imageSrc, onClose, onDe
                     }}
                     title="Excluir imagem"
                 >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-2 w-2" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" /></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" /></svg>
                     Excluir
                 </button>
             )}
@@ -276,7 +277,7 @@ const CollapsibleSection: React.FC<{
                 <span className="font-semibold">{title}</span>
                 <span className="text-xs font-semibold flex items-center justify-center gap-2">
                     {isOpen ? 'Recolher' : 'Expandir'}
-                    <svg xmlns="http://www.w3.org/2000/svg" className={`h-2 w-2 transform transition-transform ${isOpen ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" /></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transform transition-transform ${isOpen ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" /></svg>
                 </span>
             </button>
             <div className={`grid transition-all duration-500 ease-in-out ${isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
@@ -309,7 +310,7 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
     const [isConfirmingDeleteZoomedImage, setIsConfirmingDeleteZoomedImage] = useState(false);
     const [uploaderTarget, setUploaderTarget] = useState<'printSpotImage' | 'rpImage' | 'tableViewImage' | 'plusInfoImage' | null>(null);
     const [viewingImage, setViewingImage] = useState<{ key: 'printSpotImage' | 'rpImage' | 'tableViewImage' | 'plusInfoImage', src: string } | null>(null);
-    const [zoomedImage, setZoomedImage] = useState<{ src: string; type: 'rangeImage' | 'frequenciesImage' } | null>(null);
+    const [zoomedImage, setZoomedImage] = useState<{ src: string; type: 'rangeImage' | 'frequenciesImage' | 'evImage' } | null>(null);
     const [textInputs, setTextInputs] = useState({
         raiseSmallText: scenario.raiseSmallText,
         raiseBigText: scenario.raiseBigText,
@@ -317,7 +318,7 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
         notes: scenario.notes,
     });
     const [manualTitleInput, setManualTitleInput] = useState(scenario.manualTitle || '');
-    const [openSections, setOpenSections] = useState<Set<string>>(new Set(['params']));
+    const [openSections, setOpenSections] = useState<Set<string>>(new Set(['params', 'media', 'textData']));
     const [isClearMenuOpen, setIsClearMenuOpen] = useState(false);
     const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
     const clearMenuRef = useRef<HTMLDivElement>(null);
@@ -345,7 +346,7 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
 
         if (action === 'expand') {
             if (target === 'all') {
-                setOpenSections(new Set(['params', 'media', 'notes']));
+                setOpenSections(new Set(['params', 'media', 'textData', 'notes']));
             } else {
                 setOpenSections(prev => new Set([...prev, target]));
             }
@@ -488,6 +489,7 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
         } else {
             addScenarioToCompare(scenario.id);
         }
+        setIsActionMenuOpen(false);
     };
 
     const handleUpdate = <K extends keyof Scenario,>(key: K, value: Scenario[K]) => {
@@ -607,8 +609,8 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
     };
 
     const handleClearImages = () => {
-        if (!scenario.rangeImage && !scenario.frequenciesImage) return;
-        handleUpdateWithHistory({ ...scenario, rangeImage: null, frequenciesImage: null });
+        if (!scenario.rangeImage && !scenario.frequenciesImage && !scenario.evImage) return;
+        handleUpdateWithHistory({ ...scenario, rangeImage: null, frequenciesImage: null, evImage: null });
     };
 
     const handleClearTexts = () => {
@@ -658,6 +660,8 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
     const aggressorPositionsForF3bet = getPositionsAfter(scenario.raiserPos);
     const heroPositionsForF3bet = getPositionsAfter(scenario.aggressorPos);
 
+    const isCCDisabled = !scenario.heroPos || (scenario.rangeAction === 'F3bet' && scenario.raiserPos === 'BTN' && scenario.aggressorPos === 'SB');
+
 
     const initialImageDataForModal = uploaderTarget ? scenario[uploaderTarget] : null;
     
@@ -678,28 +682,28 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
                     className={`px-3 py-2 text-xs rounded-md font-semibold transition-colors flex items-center justify-center gap-1 ${scenario.printSpotImage ? 'bg-brand-secondary/80 hover:bg-brand-secondary text-brand-primary' : 'bg-brand-bg hover:brightness-125 text-brand-text'}`}
                     title={scenario.printSpotImage ? 'Clique para ver a imagem' : 'Clique para adicionar uma imagem'}
                 >
-                    HRC Table View {scenario.printSpotImage && <svg xmlns="http://www.w3.org/2000/svg" className="h-[19px] w-[19px]" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
+                    HRC Table View {scenario.printSpotImage && <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
                 </button>
                 <button 
                     onClick={() => scenario.rpImage ? setViewingImage({ key: 'rpImage', src: scenario.rpImage }) : setUploaderTarget('rpImage')}
                     className={`px-3 py-2 text-xs rounded-md font-semibold transition-colors flex items-center justify-center gap-1 ${scenario.rpImage ? 'bg-brand-secondary/80 hover:bg-brand-secondary text-brand-primary' : 'bg-brand-bg hover:brightness-125 text-brand-text'}`}
                     title={scenario.rpImage ? 'Clique para ver a imagem' : 'Clique para adicionar uma imagem'}
                 >
-                    RP {scenario.rpImage && <svg xmlns="http://www.w3.org/2000/svg" className="h-[19px] w-[19px]" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
+                    RP {scenario.rpImage && <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
                 </button>
                 <button 
                     onClick={() => scenario.tableViewImage ? setViewingImage({ key: 'tableViewImage', src: scenario.tableViewImage }) : setUploaderTarget('tableViewImage')}
                     className={`px-3 py-2 text-xs rounded-md font-semibold transition-colors flex items-center justify-center gap-1 ${scenario.tableViewImage ? 'bg-brand-secondary/80 hover:bg-brand-secondary text-brand-primary' : 'bg-brand-bg hover:brightness-125 text-brand-text'}`}
                     title={scenario.tableViewImage ? 'Clique para ver a imagem' : 'Clique para adicionar uma imagem'}
                 >
-                    Table View {scenario.tableViewImage && <svg xmlns="http://www.w3.org/2000/svg" className="h-[19px] w-[19px]" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
+                    Table View {scenario.tableViewImage && <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
                 </button>
                 <button 
                     onClick={() => scenario.plusInfoImage ? setViewingImage({ key: 'plusInfoImage', src: scenario.plusInfoImage }) : setUploaderTarget('plusInfoImage')}
                     className={`px-3 py-2 text-xs rounded-md font-semibold transition-colors flex items-center justify-center gap-1 ${scenario.plusInfoImage ? 'bg-brand-secondary/80 hover:bg-brand-secondary text-brand-primary' : 'bg-brand-bg hover:brightness-125 text-brand-text'}`}
                     title={scenario.plusInfoImage ? 'Clique para ver a imagem' : 'Clique para adicionar uma imagem'}
                 >
-                    +Info {scenario.plusInfoImage && <svg xmlns="http://www.w3.org/2000/svg" className="h-[19px] w-[19px]" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
+                    +Info {scenario.plusInfoImage && <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
                 </button>
             </div>
         </div>
@@ -734,13 +738,20 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
                 </div>
 
                 <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+                     <button
+                        onClick={handleToggleIntelligentCompare}
+                        className={`px-3 py-1 rounded-md text-sm font-bold transition-colors ${isSelectedForIntelligentCompare ? 'bg-brand-secondary text-brand-primary' : 'bg-brand-bg text-brand-text-muted hover:text-brand-text'}`}
+                        title={isSelectedForIntelligentCompare ? 'Remover da Comparação Inteligente' : 'Adicionar à Comparação Inteligente'}
+                    >
+                        iCompare
+                    </button>
                     <div className="relative" ref={actionMenuRef}>
                         <button
                             onClick={() => setIsActionMenuOpen(p => !p)}
                             className="p-2 rounded-full hover:bg-brand-bg text-brand-text-muted hover:text-brand-text transition-colors"
                             title="Mais Ações"
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-[19px] w-[19px]" viewBox="0 0 20 20" fill="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                                 <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
                             </svg>
                         </button>
@@ -771,7 +782,7 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
                         className="p-2 rounded-full hover:bg-brand-bg text-brand-text-muted hover:text-brand-text transition-colors"
                         title={isCollapsed ? 'Expandir cenário' : 'Recolher cenário'}
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" className={`h-[19px] w-[19px] transform transition-transform ${!isCollapsed ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" /></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 transform transition-transform ${!isCollapsed ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" /></svg>
                     </button>
                 </div>
             </div>
@@ -839,7 +850,7 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
                                                     ))}
                                                 </ButtonGroup>
                                             )}
-                                             <ButtonGroup label="Cold Caller Position" jargonKey="Cold Caller Position" onClear={() => handleUpdate('coldCallerPos', null)} hasSelection={!!scenario.coldCallerPos} isDisabled={!scenario.heroPos}>
+                                             <ButtonGroup label="Cold Caller Position" jargonKey="Cold Caller Position" onClear={() => handleUpdate('coldCallerPos', null)} hasSelection={!!scenario.coldCallerPos} isDisabled={isCCDisabled}>
                                                 {coldCallerPositions.filter(p => p !== scenario.heroPos).map(pos => (
                                                     <button key={pos} onClick={() => handleUpdate('coldCallerPos', pos)} className={`px-3 py-1.5 text-xs rounded-md font-semibold ${scenario.coldCallerPos === pos ? 'bg-brand-secondary text-brand-primary' : 'bg-brand-bg hover:brightness-125'}`}>{pos}</button>
                                                 ))}
@@ -884,11 +895,15 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
                     </CollapsibleSection>
                     
                      <CollapsibleSection title="Imagem/Dados" isOpen={openSections.has('media')} onToggle={() => toggleSection('media')}>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="flex flex-col gap-4">
                             <ImageUploader title="Range" imageData={scenario.rangeImage} onUpload={(data) => handleUpdate('rangeImage', data)} onZoom={(src) => setZoomedImage({src, type: 'rangeImage'})} />
                             <ImageUploader title="Frequências" imageData={scenario.frequenciesImage} onUpload={(data) => handleUpdate('frequenciesImage', data)} onZoom={(src) => setZoomedImage({src, type: 'frequenciesImage'})}/>
+                            <ImageUploader title="EV" imageData={scenario.evImage} onUpload={(data) => handleUpdate('evImage', data)} onZoom={(src) => setZoomedImage({src, type: 'evImage'})} />
                         </div>
-                        <div className="grid grid-cols-3 gap-4 mt-4">
+                    </CollapsibleSection>
+
+                    <CollapsibleSection title="Frequências (Texto)" isOpen={openSections.has('textData')} onToggle={() => toggleSection('textData')}>
+                        <div className="grid grid-cols-3 gap-4">
                              <textarea name="raiseSmallText" value={textInputs.raiseSmallText} onChange={handleTextInputChange} onBlur={handleTextInputBlur} placeholder="Raise Small" className="bg-brand-bg text-sm rounded-md p-2 h-20 resize-none focus:ring-brand-secondary focus:outline-none"/>
                              <textarea name="raiseBigText" value={textInputs.raiseBigText} onChange={handleTextInputChange} onBlur={handleTextInputBlur} placeholder="Raise Big" className="bg-brand-bg text-sm rounded-md p-2 h-20 resize-none focus:ring-brand-secondary focus:outline-none"/>
                              <textarea name="callText" value={textInputs.callText} onChange={handleTextInputChange} onBlur={handleTextInputBlur} placeholder="Call" className="bg-brand-bg text-sm rounded-md p-2 h-20 resize-none focus:ring-brand-secondary focus:outline-none"/>

@@ -1,5 +1,4 @@
 
-
 import React, { useState, createContext, useMemo, useCallback, ReactNode, useContext, useEffect, useRef } from 'react';
 import type { Notebook, Scenario, Folder, UserProfile } from './types';
 import type { User } from 'firebase/auth';
@@ -101,6 +100,7 @@ interface AppContextType {
   addNotebook: (name: string) => Promise<void>;
   deleteNotebook: (notebookId: string) => Promise<void>;
   updateNotebook: (notebookId: string, updates: Partial<Pick<Notebook, 'name' | 'folderId'>>) => Promise<void>;
+  duplicateNotebook: (notebookId: string) => Promise<void>;
   addFolder: (name: string) => Promise<void>;
   deleteFolder: (folderId: string) => Promise<void>;
   updateFolder: (folderId: string, updates: Partial<Pick<Folder, 'name' | 'parentId'>>) => Promise<void>;
@@ -172,6 +172,7 @@ const AppContent: React.FC = () => {
     addNotebook,
     deleteNotebook,
     updateNotebook,
+    duplicateNotebook,
     addFolder,
     deleteFolder,
     updateFolder,
@@ -269,6 +270,7 @@ const AppContent: React.FC = () => {
         addNotebook,
         deleteNotebook,
         updateNotebook,
+        duplicateNotebook,
         addFolder,
         deleteFolder,
         updateFolder,
@@ -279,7 +281,7 @@ const AppContent: React.FC = () => {
         deleteMultipleScenarios,
         swapItemsOrder,
     }
-  }, [notebooks, folders, activeNotebookId, user, handleLogout, addNotebook, deleteNotebook, updateNotebook, addFolder, deleteFolder, updateFolder, addScenario, updateScenario, deleteScenario, addMultipleScenarios, deleteMultipleScenarios, swapItemsOrder]);
+  }, [notebooks, folders, activeNotebookId, user, handleLogout, addNotebook, deleteNotebook, updateNotebook, duplicateNotebook, addFolder, deleteFolder, updateFolder, addScenario, updateScenario, deleteScenario, addMultipleScenarios, deleteMultipleScenarios, swapItemsOrder]);
   
   if (authLoading || (user && dataLoading)) {
       return <LoadingSpinner />;

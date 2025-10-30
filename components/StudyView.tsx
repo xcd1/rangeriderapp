@@ -182,6 +182,8 @@ const StudyView: React.FC = () => {
             rpImage: null,
             tableViewImage: null,
             plusInfoImage: null,
+            // FIX: The 'evImage' property was missing but is required by the Scenario type. Initializing to null.
+            evImage: null,
             rangeImage: null,
             frequenciesImage: null,
             raiseSmallText: '',
@@ -217,6 +219,8 @@ const StudyView: React.FC = () => {
             rpImage: null,
             tableViewImage: null,
             plusInfoImage: null,
+            // FIX: The 'evImage' property was missing but is required by the Scenario type. Initializing to null.
+            evImage: null,
             gameScenario: null,
             rangeImage: null,
             frequenciesImage: null,
@@ -546,6 +550,12 @@ const StudyView: React.FC = () => {
                                 Novo Cenário
                             </button>
                         )}
+                        
+                        {filteredScenarios.length > 1 && scenariosToCompare.size === 0 && (
+                            <button onClick={handleSelectAll} className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors text-sm">
+                                Selecionar Todos
+                            </button>
+                        )}
 
                         {/* --- Progressive Disclosure: Buttons shown only when items are selected --- */}
                         {scenariosToCompare.size > 0 && (
@@ -601,11 +611,7 @@ const StudyView: React.FC = () => {
 
                     {/* RIGHT GROUP */}
                     <div className="flex items-center flex-wrap gap-4">
-                       {filteredScenarios.length > 1 && scenariosToCompare.size === 0 && (
-                            <button onClick={handleSelectAll} className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors text-sm">
-                                Selecionar Todos
-                            </button>
-                        )}
+                       
                         {filteredScenarios.length > 0 && (
                             <>
                                 <button onClick={undoLastAction} disabled={!canUndo} className="bg-brand-primary hover:bg-brand-primary/80 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" title="Desfazer (Ctrl+Z)">

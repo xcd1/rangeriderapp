@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import type { Scenario } from '../types';
 
@@ -48,20 +49,76 @@ const getScenarioTitle = (scenario: Scenario): string => {
 
 // --- DraggableZoomModal Component (replaces old RangeZoomModal) ---
 const DraggableZoomModal: React.FC<{ imageSrc: string; onClose: () => void }> = ({ imageSrc, onClose }) => {
-    const [position, setPosition] = useState({ x: 50, y: 50 });
-    const [size, setSize] = useState({ width: window.innerWidth * 0.7, height: window.innerHeight * 0.7 });
+    const [position, setPosition] = useState({ x: window.innerWidth * 0.2, y: window.innerHeight * 0.1 });
+    const [size, setSize] = useState({ width: window.innerWidth * 0.6, height: window.innerHeight * 0.8 });
     const [scale, setScale] = useState(1);
     const [offset, setOffset] = useState({ x: 0, y: 0 });
 
     const stateRef = useRef({
         isWindowDragging: false,
         isImagePanning: false,
+        isResizing: false,
         startX: 0,
         startY: 0,
         initialX: 0,
         initialY: 0,
+        initialW: 0,
+        initialH: 0,
     });
+    
     const nodeRef = useRef<HTMLDivElement>(null);
+    const imgRef = useRef<HTMLImageElement>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+    
+    const clampOffset = useCallback((newOffset: {x: number, y: number}, currentScale: number) => {
+        if (!imgRef.current || !containerRef.current) return newOffset;
+        
+        const scaledWidth = imgRef.current.naturalWidth * currentScale;
+        const scaledHeight = imgRef.current.naturalHeight * currentScale;
+        const containerWidth = containerRef.current.clientWidth;
+        const containerHeight = containerRef.current.clientHeight;
+
+        const maxOffsetX = Math.max(0, (scaledWidth - containerWidth) / 2);
+        const maxOffsetY = Math.max(0, (scaledHeight - containerHeight) / 2);
+
+        return {
+            x: Math.max(-maxOffsetX, Math.min(maxOffsetX, newOffset.x)),
+            y: Math.max(-maxOffsetY, Math.min(maxOffsetY, newOffset.y)),
+        };
+    }, []);
+
+    const handleMouseMove = useCallback((e: MouseEvent) => {
+        if (stateRef.current.isWindowDragging) {
+            const dx = e.clientX - stateRef.current.startX;
+            const dy = e.clientY - stateRef.current.startY;
+            setPosition({ x: stateRef.current.initialX + dx, y: stateRef.current.initialY + dy });
+        } else if (stateRef.current.isImagePanning) {
+            const dx = e.clientX - stateRef.current.startX;
+            const dy = e.clientY - stateRef.current.startY;
+            const newOffset = { x: stateRef.current.initialX + dx, y: stateRef.current.initialY + dy };
+            setOffset(clampOffset(newOffset, scale));
+        } else if (stateRef.current.isResizing) {
+            const dx = e.clientX - stateRef.current.startX;
+            const dy = e.clientY - stateRef.current.startY;
+            setSize({
+                width: Math.max(300, stateRef.current.initialW + dx),
+                height: Math.max(250, stateRef.current.initialH + dy),
+            });
+        }
+    }, [scale, clampOffset]);
+
+    const handleMouseUp = useCallback(() => {
+        if (nodeRef.current && stateRef.current.isImagePanning) {
+            const img = nodeRef.current.querySelector('img');
+            if(img) img.style.cursor = 'grab';
+        }
+        stateRef.current.isWindowDragging = false;
+        stateRef.current.isImagePanning = false;
+        stateRef.current.isResizing = false;
+        document.body.style.cursor = 'default';
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
+    }, [handleMouseMove]);
 
     const handleWindowDragStart = (e: React.MouseEvent<HTMLDivElement>) => {
         e.preventDefault();
@@ -92,39 +149,34 @@ const DraggableZoomModal: React.FC<{ imageSrc: string; onClose: () => void }> = 
         window.addEventListener('mousemove', handleMouseMove);
         window.addEventListener('mouseup', handleMouseUp);
     };
-
-    const handleMouseMove = (e: MouseEvent) => {
-        if (stateRef.current.isWindowDragging) {
-            const dx = e.clientX - stateRef.current.startX;
-            const dy = e.clientY - stateRef.current.startY;
-            setPosition({ x: stateRef.current.initialX + dx, y: stateRef.current.initialY + dy });
-        } else if (stateRef.current.isImagePanning) {
-            const dx = e.clientX - stateRef.current.startX;
-            const dy = e.clientY - stateRef.current.startY;
-            setOffset({ x: stateRef.current.initialX + dx, y: stateRef.current.initialY + dy });
-        }
-    };
-
-    const handleMouseUp = () => {
-        if (nodeRef.current && stateRef.current.isImagePanning) {
-            const img = nodeRef.current.querySelector('img');
-            if(img) img.style.cursor = 'grab';
-        }
-        stateRef.current.isWindowDragging = false;
-        stateRef.current.isImagePanning = false;
-        window.removeEventListener('mousemove', handleMouseMove);
-        window.removeEventListener('mouseup', handleMouseUp);
+    
+    const handleResizeStart = (e: React.MouseEvent<HTMLDivElement>) => {
+        e.stopPropagation();
+        e.preventDefault();
+        stateRef.current = {
+            ...stateRef.current,
+            isResizing: true,
+            startX: e.clientX,
+            startY: e.clientY,
+            initialW: size.width,
+            initialH: size.height,
+        };
+        document.body.style.cursor = 'se-resize';
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
     };
     
     const handleWheel = (e: React.WheelEvent) => {
         e.preventDefault();
         e.stopPropagation();
         const newScale = e.deltaY < 0 ? scale * 1.1 : scale / 1.1;
-        setScale(Math.max(1, Math.min(newScale, 10)));
+        const clampedScale = Math.max(1, Math.min(newScale, 10));
+        setScale(clampedScale);
+        setOffset(prev => clampOffset(prev, clampedScale));
     };
 
-    const handleZoomIn = (e: React.MouseEvent) => { e.stopPropagation(); setScale(s => Math.min(s * 1.2, 10)); };
-    const handleZoomOut = (e: React.MouseEvent) => { e.stopPropagation(); setScale(s => Math.max(s / 1.2, 1)); };
+    const handleZoomIn = (e: React.MouseEvent) => { e.stopPropagation(); const newScale = Math.min(scale * 1.2, 10); setScale(newScale); setOffset(prev => clampOffset(prev, newScale)); };
+    const handleZoomOut = (e: React.MouseEvent) => { e.stopPropagation(); const newScale = Math.max(scale / 1.2, 1); setScale(newScale); setOffset(prev => clampOffset(prev, newScale));};
     const handleZoomReset = (e: React.MouseEvent) => { e.stopPropagation(); setScale(1); setOffset({ x: 0, y: 0 }); };
 
     return (
@@ -144,11 +196,12 @@ const DraggableZoomModal: React.FC<{ imageSrc: string; onClose: () => void }> = 
                     <button onClick={handleZoomReset} className="h-6 px-2 rounded-md bg-brand-primary text-xs">Reset</button>
                 </div>
                 <button onClick={onClose} className="text-white bg-red-600 hover:bg-red-700 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-2 w-2" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
                 </button>
             </div>
-            <div className="p-2 flex-grow flex items-center justify-center relative overflow-hidden bg-brand-bg/20">
+            <div ref={containerRef} className="p-2 flex-grow flex items-center justify-center relative overflow-hidden bg-brand-bg/20">
                 <img
+                    ref={imgRef}
                     src={imageSrc}
                     alt="Range ampliado"
                     className="max-w-none max-h-none transition-transform duration-100"
@@ -159,6 +212,16 @@ const DraggableZoomModal: React.FC<{ imageSrc: string; onClose: () => void }> = 
                     onMouseDown={handleImagePanStart}
                 />
             </div>
+            <div
+                className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize opacity-50 hover:opacity-100"
+                onMouseDown={handleResizeStart}
+                title="Redimensionar"
+                style={{
+                  borderBottom: '4px solid #f5c339',
+                  borderRight: '4px solid #f5c339',
+                  borderBottomRightRadius: '4px',
+                }}
+             />
         </div>
     );
 };
@@ -281,7 +344,7 @@ const DraggableImageViewer: React.FC<DraggableImageViewerProps> = ({ id, title, 
                     onClick={() => onClose(id)}
                     className="text-white bg-red-600 hover:bg-red-700 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0"
                 >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-2 w-2" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
                 </button>
             </div>
             <div className="p-2 flex-grow flex items-center justify-center relative overflow-hidden bg-brand-bg/20">
@@ -393,6 +456,17 @@ const SimpleScenarioCard: React.FC<{ scenario: Scenario; onZoom: (src: string) =
                     />
                 </div>
             )}
+            <div className="mt-auto pt-2 flex-shrink-0">
+                {(scenario.printSpotImage || scenario.rpImage || scenario.tableViewImage || scenario.plusInfoImage || scenario.evImage) && (
+                    <div className="flex justify-center flex-wrap gap-1.5">
+                    {scenario.printSpotImage && <button onClick={() => onZoom(scenario.printSpotImage!)} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">HRC Table View</button>}
+                    {scenario.rpImage && <button onClick={() => onZoom(scenario.rpImage!)} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">RP</button>}
+                    {scenario.evImage && <button onClick={() => onZoom(scenario.evImage!)} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">EV</button>}
+                    {scenario.tableViewImage && <button onClick={() => onZoom(scenario.tableViewImage!)} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">Table View</button>}
+                    {scenario.plusInfoImage && <button onClick={() => onZoom(scenario.plusInfoImage!)} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">+Info</button>}
+                    </div>
+                )}
+            </div>
         </div>
     );
 };
@@ -700,7 +774,7 @@ const ComparisonView: React.FC<ComparisonViewProps> = ({ scenarios, onBack }) =>
     };
     
     
-    const handleOpenImage = (scenario: Scenario, type: 'printSpotImage' | 'rpImage' | 'tableViewImage' | 'plusInfoImage') => {
+    const handleOpenImage = (scenario: Scenario, type: 'printSpotImage' | 'rpImage' | 'tableViewImage' | 'plusInfoImage' | 'evImage') => {
         const modalId = `${scenario.id}-${type}`;
         const existingModal = openModals.find(m => m.id === modalId);
 
@@ -717,6 +791,7 @@ const ComparisonView: React.FC<ComparisonViewProps> = ({ scenarios, onBack }) =>
             switch(type) {
                 case 'printSpotImage': buttonLabel = 'HRC Table View'; break;
                 case 'rpImage': buttonLabel = 'RP'; break;
+                case 'evImage': buttonLabel = 'EV'; break;
                 case 'tableViewImage': buttonLabel = 'Table View'; break;
                 case 'plusInfoImage': buttonLabel = '+Info'; break;
             }
@@ -804,7 +879,7 @@ const ComparisonView: React.FC<ComparisonViewProps> = ({ scenarios, onBack }) =>
                                     className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-2 px-3 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center justify-center gap-2"
                                     title="Desfazer (Ctrl+Z)"
                                 >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-2 w-2" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" /></svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" /></svg>
                                     Desfazer
                                 </button>
                                 <button 
@@ -924,7 +999,7 @@ const ComparisonView: React.FC<ComparisonViewProps> = ({ scenarios, onBack }) =>
                         </button>
                     )}
                     <button onClick={onBack} className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors flex items-center justify-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-2 w-2" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" /></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" /></svg>
                         Voltar
                     </button>
                 </div>
@@ -1010,10 +1085,11 @@ const ComparisonView: React.FC<ComparisonViewProps> = ({ scenarios, onBack }) =>
                                                 )}
     
                                                 <div className="mt-auto pt-2 flex-shrink-0">
-                                                    {(scenario.printSpotImage || scenario.rpImage || scenario.tableViewImage || scenario.plusInfoImage) && (
+                                                    {(scenario.printSpotImage || scenario.rpImage || scenario.tableViewImage || scenario.plusInfoImage || scenario.evImage) && (
                                                         <div className="flex justify-center flex-wrap gap-1.5">
                                                         {scenario.printSpotImage && <button onClick={() => handleOpenImage(scenario, 'printSpotImage')} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">HRC Table View</button>}
                                                         {scenario.rpImage && <button onClick={() => handleOpenImage(scenario, 'rpImage')} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">RP</button>}
+                                                        {scenario.evImage && <button onClick={() => handleOpenImage(scenario, 'evImage')} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">EV</button>}
                                                         {scenario.tableViewImage && <button onClick={() => handleOpenImage(scenario, 'tableViewImage')} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">Table View</button>}
                                                         {scenario.plusInfoImage && <button onClick={() => handleOpenImage(scenario, 'plusInfoImage')} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">+Info</button>}
                                                         </div>

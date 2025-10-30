@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { db } from '../firebase';
 import {
@@ -22,6 +23,7 @@ interface FirestoreNotebooksResult {
     addNotebook: (name: string) => Promise<void>;
     deleteNotebook: (notebookId: string) => Promise<void>;
     updateNotebook: (notebookId: string, updates: Partial<Pick<Notebook, 'name' | 'folderId' | 'notes' | 'defaultSpot'>>) => Promise<void>;
+    duplicateNotebook: (notebookId: string) => Promise<void>;
     addFolder: (name: string) => Promise<void>;
     deleteFolder: (folderId: string) => Promise<void>;
     updateFolder: (folderId: string, updates: Partial<Pick<Folder, 'name' | 'parentId'>>) => Promise<void>;
@@ -55,6 +57,7 @@ const cleanScenario = (scenario: any): Scenario => {
         rpImage: typeof s.rpImage === 'string' ? s.rpImage : null,
         tableViewImage: typeof s.tableViewImage === 'string' ? s.tableViewImage : null,
         plusInfoImage: typeof s.plusInfoImage === 'string' ? s.plusInfoImage : null,
+        evImage: typeof s.evImage === 'string' ? s.evImage : null,
 
         gameScenario: isValidValue(s.gameScenario, GAME_SCENARIOS) ? s.gameScenario : null,
         rpMode: typeof s.rpMode === 'boolean' ? s.rpMode : false,
@@ -190,6 +193,37 @@ const useFirestoreNotebooks = (uid: string | undefined): Omit<FirestoreNotebooks
         await addDoc(collection(db, 'users', uid, 'notebooks'), { name, folderId: null, createdAt: Date.now(), notes: '' });
     }, [uid]);
 
+    const duplicateNotebook = useCallback(async (notebookId: string) => {
+        if (!uid) throw new Error("User not authenticated");
+        
+        const notebookToDuplicate = notebooks.find(n => n.id === notebookId);
+        if (!notebookToDuplicate) {
+            console.error("Notebook not found for duplication");
+            return;
+        }
+
+        const newNotebookData = {
+            name: `${notebookToDuplicate.name} (Cópia)`,
+            folderId: notebookToDuplicate.folderId || null,
+            createdAt: Date.now(),
+            notes: notebookToDuplicate.notes || '',
+            defaultSpot: notebookToDuplicate.defaultSpot || null,
+        };
+        
+        const newNotebookRef = await addDoc(collection(db, 'users', uid, 'notebooks'), newNotebookData);
+        
+        if (notebookToDuplicate.scenarios.length > 0) {
+            const batch = writeBatch(db);
+            notebookToDuplicate.scenarios.forEach(scenario => {
+                const newId = crypto.randomUUID();
+                const newScenarioData = { ...scenario, id: newId };
+                const scenarioRef = doc(db, 'users', uid, 'notebooks', newNotebookRef.id, 'scenarios', newId);
+                batch.set(scenarioRef, cleanScenario(newScenarioData));
+            });
+            await batch.commit();
+        }
+    }, [uid, notebooks]);
+
     const updateNotebook = useCallback(async (notebookId: string, updates: Partial<Pick<Notebook, 'name' | 'folderId' | 'notes' | 'defaultSpot'>>) => {
         if (!uid) throw new Error("User not authenticated");
         const notebookRef = doc(db, 'users', uid, 'notebooks', notebookId);
@@ -295,7 +329,7 @@ const useFirestoreNotebooks = (uid: string | undefined): Omit<FirestoreNotebooks
 
     return { 
         notebooks, folders, loading, 
-        addNotebook, deleteNotebook, updateNotebook, 
+        addNotebook, deleteNotebook, updateNotebook, duplicateNotebook,
         addFolder, deleteFolder, updateFolder, 
         addScenario, updateScenario, deleteScenario, 
         addMultipleScenarios, deleteMultipleScenarios,

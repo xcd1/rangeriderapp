@@ -1,9 +1,4 @@
 
-
-
-
-
-
 export type Position = 'UTG' | 'EP' | 'LJ' | 'HJ' | 'CO' | 'BTN' | 'SB' | 'BB';
 export type GameScenario = 'CEv' | 'Bounty CVD' | 'Bounty CVN' | 'Vanilla CVD' | 'Vanilla CVN' | 'Turbo' | 'Hyper' | 'Mistery';
 export type SpotType = 'Blind War' | 'Facing 2bet' | 'HRC Enviroment' | 'Rfi';
@@ -38,6 +33,7 @@ export interface Scenario {
   rpImage: string | null; // For HRC "RP" image
   tableViewImage: string | null;
   plusInfoImage: string | null;
+  evImage: string | null;
 
   gameScenario: GameScenario | null;
   rpMode?: boolean;
