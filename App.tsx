@@ -1,4 +1,5 @@
 
+
 import React, { useState, createContext, useMemo, useCallback, ReactNode, useContext, useEffect, useRef } from 'react';
 import type { Notebook, Scenario, Folder, UserProfile } from './types';
 import type { User } from 'firebase/auth';
@@ -41,19 +42,21 @@ const HistoryProvider: React.FC<{children: ReactNode}> = ({ children }) => {
   const [redoStack, setRedoStack] = useState<UndoableAction[]>([]);
 
   const pushToHistory = useCallback((action: UndoableAction) => {
-    setUndoStack(prev => [...prev.slice(-19), action]); // Limit to 20 actions
+    // FIX: Explicitly type `prev` to avoid type inference issues.
+    setUndoStack((prev: UndoableAction[]) => [...prev.slice(-19), action]); // Limit to 20 actions
     setRedoStack([]); // Clear redo stack on new action
   }, []);
 
   const undoLastAction = useCallback(() => {
     if (undoStack.length === 0) return;
     
-    setUndoStack(prevStack => {
+    // FIX: Explicitly type `prevStack` and `prevRedo` to avoid type inference issues.
+    setUndoStack((prevStack: UndoableAction[]) => {
       const newUndoStack = [...prevStack];
       const lastAction = newUndoStack.pop();
       if (lastAction) {
         lastAction.undo();
-        setRedoStack(prevRedo => [lastAction, ...prevRedo]);
+        setRedoStack((prevRedo: UndoableAction[]) => [lastAction, ...prevRedo]);
       }
       return newUndoStack;
     });
@@ -62,12 +65,13 @@ const HistoryProvider: React.FC<{children: ReactNode}> = ({ children }) => {
   const redoLastAction = useCallback(() => {
     if (redoStack.length === 0) return;
 
-    setRedoStack(prevStack => {
+    // FIX: Explicitly type `prevStack` and `prevUndo` to avoid type inference issues.
+    setRedoStack((prevStack: UndoableAction[]) => {
       const newRedoStack = [...prevStack];
       const lastAction = newRedoStack.shift();
       if (lastAction) {
         lastAction.redo();
-        setUndoStack(prevUndo => [...prevUndo, lastAction]);
+        setUndoStack((prevUndo: UndoableAction[]) => [...prevUndo, lastAction]);
       }
       return newRedoStack;
     });

@@ -96,10 +96,14 @@ const StudyView: React.FC = () => {
     const [isComparing, setIsComparing] = useState<boolean>(initialComparisonState.isComparing);
     const [scenariosToCompare, setScenariosToCompare] = useState<Set<string>>(initialComparisonState.scenariosToCompare);
 
-    const [view, setView] = useState<'spots' | 'notes'>(() => activeNotebook?.defaultSpot === 'notes' ? 'notes' : 'spots');
+    const [view, setView] = useState<'spots' | 'notes' | 'performance'>(() => {
+        const spot = activeNotebook?.defaultSpot;
+        return (spot === 'notes' || spot === 'performance') ? spot : 'spots';
+    });
     const [activeSpot, setActiveSpot] = useState<SpotType | null>(() => {
-        if (activeNotebook?.defaultSpot && activeNotebook.defaultSpot !== 'notes') {
-            return activeNotebook.defaultSpot as SpotType;
+        const spot = activeNotebook?.defaultSpot;
+        if (spot && spot !== 'notes' && spot !== 'performance') {
+            return spot as SpotType;
         }
         return null;
     });
@@ -376,19 +380,41 @@ const StudyView: React.FC = () => {
         setScenariosToCompare(new Set<string>());
     };
 
+    const handleSelectAnalysisTool = (spot: SpotType) => {
+        if (activeNotebook) {
+            updateNotebook(activeNotebook.id, { defaultSpot: spot });
+        }
+        setActiveSpot(spot);
+        setView('spots');
+        setScenariosToCompare(new Set<string>());
+    };
+
     const handleSelectNotesView = () => {
         if (activeNotebook) {
             updateNotebook(activeNotebook.id, { defaultSpot: 'notes' });
         }
         setView('notes');
     };
+
+    const handleSelectPerformanceView = () => {
+        if (activeNotebook) {
+            updateNotebook(activeNotebook.id, { defaultSpot: 'performance' });
+        }
+        setView('performance');
+    };
     
     const handleBackToSpots = () => {
-        if (activeNotebook) {
-            updateNotebook(activeNotebook.id, { defaultSpot: null });
+        if (activeSpot === 'Stats Analysis') {
+            setActiveSpot(null);
+            handleSelectPerformanceView();
+        } else {
+             if (activeNotebook) {
+                updateNotebook(activeNotebook.id, { defaultSpot: null });
+            }
+            setActiveSpot(null);
+            setView('spots');
         }
-        setActiveSpot(null);
-        setView('spots');
+       
         // FIX: Explicitly specify the generic type for new Set() to resolve a TypeScript type inference error.
         setScenariosToCompare(new Set<string>());
         if (activeNotebookId && uid) {
@@ -469,6 +495,38 @@ const StudyView: React.FC = () => {
         );
     }
 
+    if (view === 'performance') {
+        return (
+            <div>
+                <div className="sticky top-0 z-10 bg-brand-bg pb-4">
+                    <div className="flex justify-between items-start mb-4">
+                        <div>
+                             <button onClick={handleBackToSpots} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-2.5 px-5 rounded-lg transition-colors flex items-center justify-center gap-2 mb-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" /></svg>
+                               Voltar
+                            </button>
+                            <h2 className="text-2xl font-bold text-brand-text">{activeNotebook.name} / Performance Analysis</h2>
+                        </div>
+                    </div>
+                </div>
+                <div className="flex flex-col items-center gap-6 mt-8">
+                     <button onClick={() => handleSelectAnalysisTool('Stats Analysis')} className="group relative bg-brand-primary hover:bg-brand-bg text-brand-text font-bold py-6 px-4 rounded-lg text-xl transition-all transform hover:-translate-y-1 shadow-lg w-72 text-center">
+                        Stats Analysis
+                    </button>
+                    <button className="group relative bg-brand-primary hover:bg-brand-bg text-brand-text font-bold py-6 px-4 rounded-lg text-xl transition-all transform hover:-translate-y-1 shadow-lg w-72 text-center">
+                        Leak Finder
+                    </button>
+                    <button className="group relative bg-brand-primary hover:bg-brand-bg text-brand-text font-bold py-6 px-4 rounded-lg text-xl transition-all transform hover:-translate-y-1 shadow-lg w-72 text-center">
+                        SharkScope
+                    </button>
+                    <button className="group relative bg-brand-primary hover:bg-brand-bg text-brand-text font-bold py-6 px-4 rounded-lg text-xl transition-all transform hover:-translate-y-1 shadow-lg w-72 text-center">
+                        Report
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     if (!activeSpot) {
         return (
             <div className="text-center flex flex-col items-center justify-start h-full pt-8">
@@ -509,6 +567,15 @@ const StudyView: React.FC = () => {
                         </button>
                     </div>
                 </div>
+
+                <div className="w-full max-w-4xl mx-auto mb-12">
+                    <p className="text-lg text-brand-text-muted mb-6">Performance</p>
+                    <div className="flex justify-center">
+                        <button onClick={handleSelectPerformanceView} className="bg-brand-primary hover:bg-brand-bg text-brand-text font-bold py-8 px-4 rounded-lg text-xl transition-all transform hover:-translate-y-1 shadow-lg w-52">
+                            Performance Analysis
+                        </button>
+                    </div>
+                </div>
                 
                 <div className="w-full max-w-4xl mx-auto">
                     <p className="text-lg text-brand-text-muted mb-6">Notes Section</p>
@@ -522,6 +589,27 @@ const StudyView: React.FC = () => {
             </div>
         );
     }
+
+    const emptySpotMessages = {
+        'Stats Analysis': {
+            title: isNotebookEmpty ? 'Crie sua primeira análise de stats com o range rider' : 'Sem análises.',
+            subtitle: isNotebookEmpty ? '' : 'Adicione sua primeira análise para começar a estudar.',
+            button: isNotebookEmpty ? '+ Adicionar Nova Análise de Stats' : 'Adicionar Análise'
+        },
+        default: {
+            title: isNotebookEmpty ? 'Crie seu primeiro estudo com o range rider' : 'Este spot está vazio.',
+            subtitle: isNotebookEmpty ? '' : 'Adicione seu primeiro cenário para começar a estudar.',
+            button: isNotebookEmpty ? 'Adicionar Novo Estudo' : 'Adicionar Novo Cenário'
+        }
+    };
+    const emptyMessages = (activeSpot && SPOT_TYPES.includes(activeSpot) && activeSpot === 'Stats Analysis')
+        ? emptySpotMessages['Stats Analysis']
+        : emptySpotMessages.default;
+    
+    const gridLayoutClass = activeSpot === 'Stats Analysis'
+        ? "grid-cols-1"
+        : "grid-cols-1 md:grid-cols-2";
+
 
     // --- MAIN VIEW (WITH SCENARIOS) ---
     return (
@@ -547,11 +635,17 @@ const StudyView: React.FC = () => {
                                 className="bg-white hover:bg-gray-200 text-brand-primary font-bold py-2.5 px-4 rounded-md transition-colors flex items-center justify-center gap-2"
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" /></svg>
-                                Novo Cenário
+                                {activeSpot === 'Stats Analysis' ? 'Nova Análise' : 'Novo Cenário'}
                             </button>
                         )}
                         
-                        {filteredScenarios.length > 1 && scenariosToCompare.size === 0 && (
+                        {(activeSpot === 'Stats Analysis' && filteredScenarios.length > 1) && (
+                            <button onClick={handleSelectAll} className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors text-sm">
+                                Selecionar Todas
+                            </button>
+                        )}
+                        
+                        {(activeSpot !== 'Stats Analysis' && filteredScenarios.length > 1 && scenariosToCompare.size === 0) && (
                             <button onClick={handleSelectAll} className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors text-sm">
                                 Selecionar Todos
                             </button>
@@ -565,7 +659,7 @@ const StudyView: React.FC = () => {
                                     disabled={scenariosToCompare.size < 2}
                                     className="bg-white hover:bg-gray-200 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed disabled:text-brand-primary/70 flex items-center justify-center gap-2"
                                 >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M2 5a2 2 0 012-2h12a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V5zm14 0H4v10h12V5zM6 7a1 1 0 00-1 1v5a1 1 0 102 0V8a1 1 0 00-1-1zm4 0a1 1 0 00-1 1v5a1 1 0 102 0V8a1 1 0 00-1-1z" /></svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M2 5a2 2 0 012-2h12a2 2 0 012 2v10a2 2 0 01-2-2H4a2 2 0 01-2-2V5zm14 0H4v10h12V5zM6 7a1 1 0 00-1 1v5a1 1 0 102 0V8a1 1 0 00-1-1zm4 0a1 1 0 00-1 1v5a1 1 0 102 0V8a1 1 0 00-1-1z" /></svg>
                                     Comparar ({scenariosToCompare.size})
                                 </button>
                                 <div className="relative" ref={expandDropdownRef}>
@@ -632,7 +726,7 @@ const StudyView: React.FC = () => {
                 </div>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className={`grid ${gridLayoutClass} gap-8`}>
                 {filteredScenarios.map(scenario => (
                     <ScenarioEditor
                         key={scenario.id}
@@ -650,30 +744,17 @@ const StudyView: React.FC = () => {
             </div>
 
             {filteredScenarios.length === 0 && (
-                isNotebookEmpty ? (
-                    <div className="text-center py-16 text-brand-text-muted">
-                        <h3 className="text-xl font-semibold text-brand-text mb-6">Crie seu primeiro estudo com o range rider</h3>
-                        <button
-                            onClick={handleAddNewScenario}
-                            className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 mx-auto text-lg transform hover:scale-105"
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" /></svg>
-                            Adicionar Novo Estudo
-                        </button>
-                    </div>
-                ) : (
-                    <div className="text-center py-16 text-brand-text-muted">
-                        <h3 className="text-xl font-semibold text-brand-text mb-4">Este spot está vazio.</h3>
-                        <p className="mb-6">Adicione seu primeiro cenário para começar a estudar.</p>
-                        <button
-                            onClick={handleAddNewScenario}
-                            className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 mx-auto text-lg transform hover:scale-105"
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" /></svg>
-                            Adicionar Novo Cenário
-                        </button>
-                    </div>
-                )
+                <div className="text-center py-16 text-brand-text-muted">
+                    <h3 className="text-xl font-semibold text-brand-text mb-4">{emptyMessages.title}</h3>
+                    {emptyMessages.subtitle && <p className="mb-6">{emptyMessages.subtitle}</p>}
+                    <button
+                        onClick={handleAddNewScenario}
+                        className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 mx-auto text-lg transform hover:scale-105"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" /></svg>
+                        {emptyMessages.button}
+                    </button>
+                </div>
             )}
             
             <ConfirmationModal

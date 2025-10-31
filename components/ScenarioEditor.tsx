@@ -1,7 +1,6 @@
-
 import React, { useRef, useEffect, useState, useLayoutEffect } from 'react';
 import type { Scenario, Position, GameScenario, RangeAction } from '../types';
-import { POSITIONS, GAME_SCENARIOS, FACING_2BET_ACTIONS, HRC_ACTIONS, POSITION_ORDER, BLIND_WAR_ACTIONS, BLIND_WAR_POSITIONS, JARGON_DEFINITIONS } from '../constants';
+import { POSITIONS, GAME_SCENARIOS, FACING_2BET_ACTIONS, HRC_ACTIONS, POSITION_ORDER, BLIND_WAR_ACTIONS, BLIND_WAR_POSITIONS, JARGON_DEFINITIONS, STATS_ANALYSIS_SCENARIOS } from '../constants';
 import ImageUploader from './ImageUploader';
 import ConfirmationModal from './ConfirmationModal';
 import { useHistory } from '../App';
@@ -386,7 +385,8 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
     }, []);
     
     const toggleSection = (sectionName: string) => {
-        setOpenSections(prev => {
+        // FIX: Explicitly type `prev` to avoid type inference issues.
+        setOpenSections((prev: Set<string>) => {
             const newSet = new Set(prev);
             if (newSet.has(sectionName)) {
                 newSet.delete(sectionName);
@@ -413,6 +413,9 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
             gsSuffix += ` [DE: ${dropEquity.toFixed(1)}%]`;
         }
 
+        if (spotType === 'Stats Analysis') {
+            return `Nova Análise de Stats${gsSuffix}`;
+        }
 
         if (spotType === 'Blind War') {
             const { blindWarPosition, blindWarAction } = s;
@@ -600,7 +603,8 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
 
     const handleTextInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        setTextInputs(prev => ({...prev, [name]: value}));
+        // FIX: Explicitly type `prev` to avoid type inference issues.
+        setTextInputs((prev: typeof textInputs) => ({...prev, [name]: value}));
     };
     
     const handleTextInputBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
@@ -672,6 +676,13 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
         typeof scenario.startingStacks === 'number' && scenario.startingStacks > 0
             ? (scenario.startingBounties / scenario.startingStacks) / 0.2
             : null;
+    
+    const getGameScenarioOptions = () => {
+        if (scenario.spotType === 'HRC Enviroment') return HRC_GAME_SCENARIOS_ORDER;
+        if (scenario.spotType === 'Stats Analysis') return STATS_ANALYSIS_SCENARIOS;
+        // For other spots, filter out the stats-specific ones
+        return GAME_SCENARIOS.filter(gs => !STATS_ANALYSIS_SCENARIOS.includes(gs));
+    }
 
     const renderInserirButtons = () => (
         <div className="mt-4">
@@ -789,7 +800,7 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
             
             {!isCollapsed && (
                 <div className="divide-y divide-brand-bg/50">
-                    <CollapsibleSection title="Spot Informations" isOpen={openSections.has('params')} onToggle={() => toggleSection('params')}>
+                    <CollapsibleSection title={scenario.spotType === 'Stats Analysis' ? 'Period Information' : 'Spot Informations'} isOpen={openSections.has('params')} onToggle={() => toggleSection('params')}>
                         <div className="space-y-4">
                             {scenario.spotType === 'Blind War' ? (
                                 <>
@@ -806,7 +817,7 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
                                         })}
                                     </ButtonGroup>
                                 </>
-                            ) : (
+                            ) : scenario.spotType !== 'Stats Analysis' ? (
                                 <>
                                    {/* Common to F2B and HRC */}
                                    <ButtonGroup label="Action/Response" jargonKey="Action/Response" onClear={() => handleUpdate('rangeAction', null)} hasSelection={!!scenario.rangeAction} isDisabled={scenario.spotType === 'Rfi'}>
@@ -815,9 +826,9 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
                                         ))}
                                     </ButtonGroup>
                                 </>
-                            )}
+                            ) : null}
 
-                             {scenario.spotType !== 'Blind War' && (
+                             {scenario.spotType !== 'Blind War' && scenario.spotType !== 'Stats Analysis' && (
                                 <>
                                     <ButtonGroup label="First Raiser Position" jargonKey="First Raiser Position" onClear={() => handleUpdate('raiserPos', null)} hasSelection={!!scenario.raiserPos} isDisabled={!scenario.rangeAction}>
                                         {POSITIONS.filter(p => p !== 'BB').map(pos => (
@@ -861,7 +872,7 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
                              )}
                             
                             <ButtonGroup label="Modalidade" jargonKey="Modalidade" onClear={() => handleGameScenarioUpdate(null)} hasSelection={!!scenario.gameScenario}>
-                                {(scenario.spotType === 'HRC Enviroment' ? HRC_GAME_SCENARIOS_ORDER : GAME_SCENARIOS).map(gs => (
+                                {getGameScenarioOptions().map(gs => (
                                     <button key={gs} onClick={() => handleGameScenarioUpdate(gs)} className={`px-3 py-1.5 text-xs rounded-md font-semibold ${scenario.gameScenario === gs ? 'bg-brand-secondary text-brand-primary' : 'bg-brand-bg hover:brightness-125'}`}>{gs}</button>
                                 ))}
                             </ButtonGroup>
@@ -896,19 +907,25 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
                     
                      <CollapsibleSection title="Imagem/Dados" isOpen={openSections.has('media')} onToggle={() => toggleSection('media')}>
                         <div className="flex flex-col gap-4">
-                            <ImageUploader title="Range" imageData={scenario.rangeImage} onUpload={(data) => handleUpdate('rangeImage', data)} onZoom={(src) => setZoomedImage({src, type: 'rangeImage'})} />
-                            <ImageUploader title="Frequências" imageData={scenario.frequenciesImage} onUpload={(data) => handleUpdate('frequenciesImage', data)} onZoom={(src) => setZoomedImage({src, type: 'frequenciesImage'})}/>
-                            <ImageUploader title="EV" imageData={scenario.evImage} onUpload={(data) => handleUpdate('evImage', data)} onZoom={(src) => setZoomedImage({src, type: 'evImage'})} />
+                            <ImageUploader title={scenario.spotType === 'Stats Analysis' ? 'Imagem' : 'Range'} imageData={scenario.rangeImage} onUpload={(data) => handleUpdate('rangeImage', data)} onZoom={(src) => setZoomedImage({src, type: 'rangeImage'})} />
+                            {scenario.spotType !== 'Stats Analysis' && (
+                                <>
+                                    <ImageUploader title="Frequências" imageData={scenario.frequenciesImage} onUpload={(data) => handleUpdate('frequenciesImage', data)} onZoom={(src) => setZoomedImage({src, type: 'frequenciesImage'})}/>
+                                    <ImageUploader title="EV" imageData={scenario.evImage} onUpload={(data) => handleUpdate('evImage', data)} onZoom={(src) => setZoomedImage({src, type: 'evImage'})} />
+                                </>
+                            )}
                         </div>
                     </CollapsibleSection>
 
-                    <CollapsibleSection title="Frequências (Texto)" isOpen={openSections.has('textData')} onToggle={() => toggleSection('textData')}>
-                        <div className="grid grid-cols-3 gap-4">
-                             <textarea name="raiseSmallText" value={textInputs.raiseSmallText} onChange={handleTextInputChange} onBlur={handleTextInputBlur} placeholder="Raise Small" className="bg-brand-bg text-sm rounded-md p-2 h-20 resize-none focus:ring-brand-secondary focus:outline-none"/>
-                             <textarea name="raiseBigText" value={textInputs.raiseBigText} onChange={handleTextInputChange} onBlur={handleTextInputBlur} placeholder="Raise Big" className="bg-brand-bg text-sm rounded-md p-2 h-20 resize-none focus:ring-brand-secondary focus:outline-none"/>
-                             <textarea name="callText" value={textInputs.callText} onChange={handleTextInputChange} onBlur={handleTextInputBlur} placeholder="Call" className="bg-brand-bg text-sm rounded-md p-2 h-20 resize-none focus:ring-brand-secondary focus:outline-none"/>
-                        </div>
-                    </CollapsibleSection>
+                    {scenario.spotType !== 'Stats Analysis' && (
+                        <CollapsibleSection title="Frequências (Texto)" isOpen={openSections.has('textData')} onToggle={() => toggleSection('textData')}>
+                            <div className="grid grid-cols-3 gap-4">
+                                <textarea name="raiseSmallText" value={textInputs.raiseSmallText} onChange={handleTextInputChange} onBlur={handleTextInputBlur} placeholder="Raise Small" className="bg-brand-bg text-sm rounded-md p-2 h-20 resize-none focus:ring-brand-secondary focus:outline-none"/>
+                                <textarea name="raiseBigText" value={textInputs.raiseBigText} onChange={handleTextInputChange} onBlur={handleTextInputBlur} placeholder="Raise Big" className="bg-brand-bg text-sm rounded-md p-2 h-20 resize-none focus:ring-brand-secondary focus:outline-none"/>
+                                <textarea name="callText" value={textInputs.callText} onChange={handleTextInputChange} onBlur={handleTextInputBlur} placeholder="Call" className="bg-brand-bg text-sm rounded-md p-2 h-20 resize-none focus:ring-brand-secondary focus:outline-none"/>
+                            </div>
+                        </CollapsibleSection>
+                    )}
                     
                     <CollapsibleSection title="Notes" isOpen={openSections.has('notes')} onToggle={() => toggleSection('notes')}>
                          <textarea name="notes" value={textInputs.notes} onChange={handleTextInputChange} onBlur={handleTextInputBlur} placeholder="Adicione suas anotações aqui..." className="w-full bg-brand-bg text-sm rounded-md p-3 h-28 resize-y focus:ring-brand-secondary focus:outline-none"/>

@@ -1,4 +1,5 @@
 
+
 import React, { useContext, useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { AppContext } from '../App';
 import ConfirmationModal from './ConfirmationModal';
@@ -382,7 +383,8 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
   };
 
   const toggleFolderCollapse = (folderId: string) => {
-    setCollapsedFolders(prev => {
+    // FIX: Explicitly type `prev` to avoid type inference issues.
+    setCollapsedFolders((prev: Set<string>) => {
         const newSet = new Set(prev);
         if (newSet.has(folderId)) newSet.delete(folderId);
         else newSet.add(folderId);
