@@ -112,10 +112,11 @@ const useFirestoreNotebooks = (uid: string | undefined): Omit<FirestoreNotebooks
                 return {
                     ...data,
                     id: doc.id,
-                    createdAt: data.createdAt || 0, // Garante a ordenação de itens antigos
+                    createdAt: data.createdAt || 0,
+                    modifiedAt: data.modifiedAt || data.createdAt || 0,
                     notes: data.notes || '',
                 } as Omit<Notebook, 'scenarios'>;
-            }).sort((a, b) => a.createdAt - b.createdAt);
+            });
 
 
             const newNotebooksMap = new Map(notebooksFromDb.map(n => [n.id, n]));
@@ -173,9 +174,10 @@ const useFirestoreNotebooks = (uid: string | undefined): Omit<FirestoreNotebooks
                 return {
                     id: doc.id,
                     ...data,
-                    createdAt: data.createdAt || 0, // Garante a ordenação de itens antigos
+                    createdAt: data.createdAt || 0,
+                    modifiedAt: data.modifiedAt || data.createdAt || 0,
                 } as Folder;
-            }).sort((a, b) => a.createdAt - b.createdAt);
+            });
             setFolders(foldersData);
         }, (error) => {
             console.error("Error fetching folders:", error);
@@ -191,7 +193,8 @@ const useFirestoreNotebooks = (uid: string | undefined): Omit<FirestoreNotebooks
 
     const addNotebook = useCallback(async (name: string) => {
         if (!uid) throw new Error("User not authenticated");
-        await addDoc(collection(db, 'users', uid, 'notebooks'), { name, folderId: null, createdAt: Date.now(), notes: '' });
+        const now = Date.now();
+        await addDoc(collection(db, 'users', uid, 'notebooks'), { name, folderId: null, createdAt: now, modifiedAt: now, notes: '' });
     }, [uid]);
 
     const duplicateNotebook = useCallback(async (notebookId: string) => {
@@ -203,64 +206,155 @@ const useFirestoreNotebooks = (uid: string | undefined): Omit<FirestoreNotebooks
             return;
         }
 
+        const now = Date.now();
         const newNotebookData = {
             name: `${notebookToDuplicate.name} (Cópia)`,
             folderId: notebookToDuplicate.folderId || null,
-            createdAt: Date.now(),
+            createdAt: now,
+            modifiedAt: now,
             notes: notebookToDuplicate.notes || '',
             defaultSpot: notebookToDuplicate.defaultSpot || null,
         };
         
         const newNotebookRef = await addDoc(collection(db, 'users', uid, 'notebooks'), newNotebookData);
         
+        const batch = writeBatch(db);
+
         if (notebookToDuplicate.scenarios.length > 0) {
-            const batch = writeBatch(db);
             notebookToDuplicate.scenarios.forEach(scenario => {
                 const newId = crypto.randomUUID();
                 const newScenarioData = { ...scenario, id: newId };
                 const scenarioRef = doc(db, 'users', uid, 'notebooks', newNotebookRef.id, 'scenarios', newId);
                 batch.set(scenarioRef, cleanScenario(newScenarioData));
             });
-            await batch.commit();
         }
+        
+        // Update parent folder modification date
+        if (newNotebookData.folderId) {
+            const folderRef = doc(db, 'users', uid, 'folders', newNotebookData.folderId);
+            batch.update(folderRef, { modifiedAt: now });
+        }
+
+        await batch.commit();
     }, [uid, notebooks]);
 
     const updateNotebook = useCallback(async (notebookId: string, updates: Partial<Pick<Notebook, 'name' | 'folderId' | 'notes' | 'defaultSpot'>>) => {
         if (!uid) throw new Error("User not authenticated");
+
+        const isJustRename = Object.keys(updates).length === 1 && 'name' in updates;
         const notebookRef = doc(db, 'users', uid, 'notebooks', notebookId);
-        await updateDoc(notebookRef, updates);
-    }, [uid]);
+        
+        if (isJustRename) {
+            // Just rename, don't update modifiedAt
+            await updateDoc(notebookRef, { ...updates });
+            return;
+        }
+
+        // For other updates (content or structural changes), update modifiedAt
+        const batch = writeBatch(db);
+        const now = Date.now();
+        
+        batch.update(notebookRef, { ...updates, modifiedAt: now });
+
+        const notebookBeforeUpdate = notebooks.find(n => n.id === notebookId);
+        const oldFolderId = notebookBeforeUpdate?.folderId;
+        const newFolderId = updates.folderId;
+
+        // Logic for updating folder's modifiedAt timestamp
+        if (newFolderId !== undefined && newFolderId !== oldFolderId) {
+            // Notebook moved between folders, update both
+            if (oldFolderId) {
+                const oldFolderRef = doc(db, 'users', uid, 'folders', oldFolderId);
+                batch.update(oldFolderRef, { modifiedAt: now });
+            }
+            if (newFolderId) {
+                const newFolderRef = doc(db, 'users', uid, 'folders', newFolderId);
+                batch.update(newFolderRef, { modifiedAt: now });
+            }
+        } else if (oldFolderId) {
+            // Content within the notebook changed, so update the parent folder
+            const currentFolderRef = doc(db, 'users', uid, 'folders', oldFolderId);
+            batch.update(currentFolderRef, { modifiedAt: now });
+        }
+
+        await batch.commit();
+    }, [uid, notebooks]);
 
     const deleteNotebook = useCallback(async (notebookId: string) => {
         if (!uid) throw new Error("User not authenticated");
+
+        const notebookToDelete = notebooks.find(n => n.id === notebookId);
+        
         const notebookRef = doc(db, 'users', uid, 'notebooks', notebookId);
         const scenariosRef = collection(notebookRef, 'scenarios');
         const scenariosSnapshot = await getDocs(scenariosRef);
+        
         const batch = writeBatch(db);
         scenariosSnapshot.forEach((scenarioDoc) => batch.delete(scenarioDoc.ref));
         batch.delete(notebookRef);
+
+        if (notebookToDelete?.folderId) {
+            const folderRef = doc(db, 'users', uid, 'folders', notebookToDelete.folderId);
+            batch.update(folderRef, { modifiedAt: Date.now() });
+        }
+        
         await batch.commit();
+        
         if (scenariosUnsubscribersRef.current.has(notebookId)) {
             scenariosUnsubscribersRef.current.get(notebookId)?.();
             scenariosUnsubscribersRef.current.delete(notebookId);
         }
-    }, [uid]);
+    }, [uid, notebooks]);
 
     const addFolder = useCallback(async (name: string, parentId: string | null = null) => {
         if (!uid) throw new Error("User not authenticated");
-        await addDoc(collection(db, 'users', uid, 'folders'), { name, parentId: parentId || null, createdAt: Date.now() });
+        const now = Date.now();
+        await addDoc(collection(db, 'users', uid, 'folders'), { name, parentId: parentId || null, createdAt: now, modifiedAt: now });
     }, [uid]);
     
     const updateFolder = useCallback(async (folderId: string, updates: Partial<Pick<Folder, 'name' | 'parentId'>>) => {
         if (!uid) throw new Error("User not authenticated");
+
+        const isJustRename = Object.keys(updates).length === 1 && 'name' in updates;
         const folderRef = doc(db, 'users', uid, 'folders', folderId);
-        await updateDoc(folderRef, updates);
-    }, [uid]);
+
+        if (isJustRename) {
+            // Just rename, don't update modifiedAt
+            await updateDoc(folderRef, { ...updates });
+            return;
+        }
+
+        // For moving the folder, update timestamps
+        const batch = writeBatch(db);
+        const now = Date.now();
+        
+        batch.update(folderRef, { ...updates, modifiedAt: now });
+
+        const folderBeforeUpdate = folders.find(f => f.id === folderId);
+        const oldParentId = folderBeforeUpdate?.parentId;
+        const newParentId = updates.parentId;
+
+        if (newParentId !== undefined && newParentId !== oldParentId) {
+            // Folder was moved, update old and new parents
+            if (oldParentId) {
+                const oldParentRef = doc(db, 'users', uid, 'folders', oldParentId);
+                batch.update(oldParentRef, { modifiedAt: now });
+            }
+            if (newParentId) {
+                const newParentRef = doc(db, 'users', uid, 'folders', newParentId);
+                batch.update(newParentRef, { modifiedAt: now });
+            }
+        }
+
+        await batch.commit();
+    }, [uid, folders]);
+
 
     const deleteFolder = useCallback(async (folderId: string) => {
         if (!uid) throw new Error("User not authenticated");
-        // Before deleting, find all notebooks in this folder and move them to the root
         const batch = writeBatch(db);
+        const now = Date.now();
+
         const q = query(collection(db, 'users', uid, 'notebooks'));
         const notebooksSnapshot = await getDocs(q);
         notebooksSnapshot.forEach(notebookDoc => {
@@ -269,47 +363,82 @@ const useFirestoreNotebooks = (uid: string | undefined): Omit<FirestoreNotebooks
             }
         });
 
-        // Find all sub-folders and move them to the root
         const foldersSnapshot = await getDocs(collection(db, 'users', uid, 'folders'));
+        const folderToDelete = folders.find(f => f.id === folderId);
+        
         foldersSnapshot.forEach(folderDoc => {
             if (folderDoc.data().parentId === folderId) {
                 batch.update(folderDoc.ref, { parentId: null });
             }
         });
 
-        // Delete the folder itself
+        if (folderToDelete?.parentId) {
+            const parentFolderRef = doc(db, 'users', uid, 'folders', folderToDelete.parentId);
+            batch.update(parentFolderRef, { modifiedAt: now });
+        }
+
         batch.delete(doc(db, 'users', uid, 'folders', folderId));
         await batch.commit();
-    }, [uid]);
+    }, [uid, folders]);
+    
+    const updateTimestamps = (batch: ReturnType<typeof writeBatch>, notebookId: string, now: number) => {
+        if (!uid) return;
+        const notebookRef = doc(db, 'users', uid, 'notebooks', notebookId);
+        batch.update(notebookRef, { modifiedAt: now });
+        const notebook = notebooks.find(n => n.id === notebookId);
+        if (notebook?.folderId) {
+            const folderRef = doc(db, 'users', uid, 'folders', notebook.folderId);
+            batch.update(folderRef, { modifiedAt: now });
+        }
+    };
 
     const addScenario = useCallback(async (notebookId: string, scenario: Scenario) => {
         if (!uid) throw new Error("User not authenticated");
-        await setDoc(doc(db, 'users', uid, 'notebooks', notebookId, 'scenarios', scenario.id), cleanScenario(scenario));
-    }, [uid]);
+        const batch = writeBatch(db);
+        const now = Date.now();
+        const scenarioRef = doc(db, 'users', uid, 'notebooks', notebookId, 'scenarios', scenario.id);
+        batch.set(scenarioRef, cleanScenario(scenario));
+        updateTimestamps(batch, notebookId, now);
+        await batch.commit();
+    }, [uid, notebooks]);
 
     const updateScenario = useCallback(async (notebookId: string, updatedScenario: Scenario) => {
         if (!uid) throw new Error("User not authenticated");
-        await updateDoc(doc(db, 'users', uid, 'notebooks', notebookId, 'scenarios', updatedScenario.id), cleanScenario(updatedScenario));
-    }, [uid]);
+        const batch = writeBatch(db);
+        const now = Date.now();
+        const scenarioRef = doc(db, 'users', uid, 'notebooks', notebookId, 'scenarios', updatedScenario.id);
+        batch.update(scenarioRef, cleanScenario(updatedScenario));
+        updateTimestamps(batch, notebookId, now);
+        await batch.commit();
+    }, [uid, notebooks]);
 
     const deleteScenario = useCallback(async (notebookId: string, scenarioId: string) => {
         if (!uid) throw new Error("User not authenticated");
-        await deleteDoc(doc(db, 'users', uid, 'notebooks', notebookId, 'scenarios', scenarioId));
-    }, [uid]);
+        const batch = writeBatch(db);
+        const now = Date.now();
+        const scenarioRef = doc(db, 'users', uid, 'notebooks', notebookId, 'scenarios', scenarioId);
+        batch.delete(scenarioRef);
+        updateTimestamps(batch, notebookId, now);
+        await batch.commit();
+    }, [uid, notebooks]);
     
     const addMultipleScenarios = useCallback(async (notebookId: string, scenariosToAdd: Scenario[]) => {
         if (!uid) throw new Error("User not authenticated");
         const batch = writeBatch(db);
+        const now = Date.now();
         scenariosToAdd.forEach(s => batch.set(doc(db, 'users', uid, 'notebooks', notebookId, 'scenarios', s.id), cleanScenario(s)));
+        updateTimestamps(batch, notebookId, now);
         await batch.commit();
-    }, [uid]);
+    }, [uid, notebooks]);
     
     const deleteMultipleScenarios = useCallback(async (notebookId: string, scenarioIds: string[]) => {
         if (!uid) throw new Error("User not authenticated");
         const batch = writeBatch(db);
+        const now = Date.now();
         scenarioIds.forEach(id => batch.delete(doc(db, 'users', uid, 'notebooks', notebookId, 'scenarios', id)));
+        updateTimestamps(batch, notebookId, now);
         await batch.commit();
-    }, [uid]);
+    }, [uid, notebooks]);
 
     const swapItemsOrder = useCallback(async (
         item1: { id: string, type: 'notebook' | 'folder', createdAt: number },

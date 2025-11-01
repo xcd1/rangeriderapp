@@ -1,6 +1,8 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import type { Scenario } from '../types';
+import React, { useState, useRef, useEffect, useCallback, useMemo, useContext } from 'react';
+import type { Scenario, Notebook } from '../types';
 import { useComparison, CardState, ComparisonLayoutState } from '../contexts/ComparisonContext';
+import { AppContext } from '../App';
+import { NotebookNotesEditor } from './NotebookNotesEditor';
 
 const getScenarioTitle = (scenario: Scenario): string => {
     if (scenario.manualTitle) {
@@ -677,6 +679,7 @@ const SimpleScenarioCard: React.FC<{
 
 const ComparisonView: React.FC<ComparisonViewProps> = ({ scenarios, onBack, comparisonKey }) => {
     const gridRef = useRef<HTMLDivElement>(null);
+    const appContext = useContext(AppContext);
     const { scenariosToCompare, getLayoutState, setLayoutState } = useComparison();
     
     const layoutState = getLayoutState(comparisonKey);
@@ -697,6 +700,65 @@ const ComparisonView: React.FC<ComparisonViewProps> = ({ scenarios, onBack, comp
     const [zIndexCounter, setZIndexCounter] = useState(100);
     const [statsZIndexCounter, setStatsZIndexCounter] = useState(100);
     const lastModalPosition = useRef({ x: 50, y: 50 });
+
+    // --- iNotes State & Logic ---
+    const [isNotesSplitViewOpen, setIsNotesSplitViewOpen] = useState(() => {
+        if (comparisonKey === 'global') return false;
+        const saved = localStorage.getItem(`notesSplitViewOpen-comparison-${comparisonKey}`);
+        return saved === 'true';
+    });
+    const [notesPanelWidth, setNotesPanelWidth] = useState(() => {
+        const savedWidth = localStorage.getItem('notesPanelWidthComparison');
+        const width = savedWidth ? parseInt(savedWidth, 10) : 450;
+        return Math.max(300, Math.min(width, 800));
+    });
+    const isResizingNotesPanel = useRef(false);
+
+    const activeNotebook = useMemo(() => {
+        if (comparisonKey === 'global' || !appContext) return null;
+        return appContext.notebooks.find(n => n.id === comparisonKey);
+    }, [appContext, comparisonKey]);
+
+    const handleSaveNotes = useCallback(async (notebookId: string, updates: { notes: string }) => {
+        if (!appContext) return;
+        await appContext.updateNotebook(notebookId, updates);
+    }, [appContext]);
+
+    const handleNotesPanelMouseMove = useCallback((e: MouseEvent) => {
+        if (isResizingNotesPanel.current) {
+            const newWidth = window.innerWidth - e.clientX;
+            if (newWidth >= 300 && newWidth <= 800) {
+                setNotesPanelWidth(newWidth);
+            }
+        }
+    }, []);
+
+    const handleNotesPanelMouseUp = useCallback(() => {
+        isResizingNotesPanel.current = false;
+        document.body.style.cursor = 'default';
+        window.removeEventListener('mousemove', handleNotesPanelMouseMove);
+        window.removeEventListener('mouseup', handleNotesPanelMouseUp);
+    }, [handleNotesPanelMouseMove]);
+    
+    const handleNotesPanelMouseDown = useCallback((e: React.MouseEvent) => {
+        e.preventDefault();
+        isResizingNotesPanel.current = true;
+        document.body.style.cursor = 'col-resize';
+        window.addEventListener('mousemove', handleNotesPanelMouseMove);
+        window.addEventListener('mouseup', handleNotesPanelMouseUp);
+    }, [handleNotesPanelMouseMove, handleNotesPanelMouseUp]);
+
+    useEffect(() => {
+        localStorage.setItem('notesPanelWidthComparison', notesPanelWidth.toString());
+    }, [notesPanelWidth]);
+
+    useEffect(() => {
+        if(comparisonKey !== 'global') {
+            localStorage.setItem(`notesSplitViewOpen-comparison-${comparisonKey}`, String(isNotesSplitViewOpen));
+        }
+    }, [isNotesSplitViewOpen, comparisonKey]);
+
+    // --- End iNotes Logic ---
 
     // --- Memoize scenario map for efficient lookups ---
     const scenarioMap = useMemo(() => new Map(scenarios.map(s => [s.id, s])), [scenarios]);
@@ -990,132 +1052,161 @@ const ComparisonView: React.FC<ComparisonViewProps> = ({ scenarios, onBack, comp
     const gridClassName = gridCols ? gridColClassMap[gridCols] ?? 'grid-cols-4' : 'grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5';
 
     return (
-        <div className="flex flex-col h-full bg-brand-bg">
-            <div className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-x-6 gap-y-4 p-6 bg-brand-primary border-b border-brand-bg">
-                <div className="flex items-center gap-4 flex-shrink-0">
-                    <h2 className="text-2xl font-bold text-brand-text">Análises/Comparações:</h2>
-                </div>
-                <div className="flex-grow flex flex-wrap items-center justify-center gap-x-6 gap-y-3">
-                    {!isStatsCanvasMode && !isSimpleMode && (
-                        <>
-                            <div className="flex flex-wrap items-center gap-2">
-                                <span className="text-sm font-semibold text-brand-text-muted mr-2">Controles:</span>
-                                <button onClick={handleAdjustLayout} disabled={!orderedScenarios.some(s => s === null)} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-2 px-3 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm">Ajustar</button>
-                                <button onClick={handleUndo} disabled={history.length === 0} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-2 px-3 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center justify-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" /></svg>Desfazer</button>
-                                <button onClick={handleResetLayout} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-2 px-3 rounded-md transition-colors text-sm">Layout Original</button>
-                            </div>
-                            <div className="flex flex-wrap items-center gap-2">
-                                <span className="text-sm font-semibold text-brand-text-muted mr-2">Layouts:</span>
-                                {layouts.map((layout) => {
-                                    if (layout.type === 'single') {
-                                        const enabled = isLayoutEnabled(layout.rows, layout.cols, numActiveScenarios);
-                                        return <button key={layout.label} onClick={() => handleExpressLayout(layout.rows, layout.cols)} disabled={!enabled} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1.5 px-3 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm">{layout.label}</button>;
-                                    }
-                                    if (layout.type === 'dual') {
-                                        const e1 = isLayoutEnabled(layout.layouts[0].rows, layout.layouts[0].cols, numActiveScenarios), e2 = isLayoutEnabled(layout.layouts[1].rows, layout.layouts[1].cols, numActiveScenarios);
-                                        return <div key={`${layout.labels[0]}x${layout.labels[1]}`} className={`flex items-center justify-center bg-brand-bg text-brand-text font-semibold rounded-md transition-colors text-sm ${(!e1 && !e2) ? 'opacity-50 cursor-not-allowed' : ''}`}><span onClick={(e) => { if (e1) { e.stopPropagation(); handleExpressLayout(layout.layouts[0].rows, layout.layouts[0].cols); } }} className={`py-1.5 px-3 rounded-l-md ${e1 ? 'hover:bg-brand-primary cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}>{layout.labels[0]}</span><span className="text-brand-text-muted text-xs select-none">x</span><span onClick={(e) => { if (e2) { e.stopPropagation(); handleExpressLayout(layout.layouts[1].rows, layout.layouts[1].cols); } }} className={`py-1.5 px-3 rounded-r-md ${e2 ? 'hover:bg-brand-primary cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}>{layout.labels[1]}</span></div>;
-                                    }
-                                    return null;
-                                })}
-                            </div>
-                        </>
-                    )}
-                     <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-sm font-semibold text-brand-text-muted mr-2">Zoom:</span>
-                        <button onClick={() => handleSetZoomLevel(p => Math.max(p / 1.1, 0.5))} className="bg-brand-bg hover:brightness-125 text-brand-text font-bold w-8 h-8 rounded-md transition-colors text-lg flex items-center justify-center">-</button>
-                        <input type="range" min="0.5" max="2" step="0.01" value={zoomLevel} onChange={(e) => handleSetZoomLevel(parseFloat(e.target.value))} className="w-32 h-2 bg-brand-bg rounded-lg appearance-none cursor-pointer accent-brand-secondary"/>
-                        <button onClick={() => handleSetZoomLevel(p => Math.min(p * 1.1, 2))} className="bg-brand-bg hover:brightness-125 text-brand-text font-bold w-8 h-8 rounded-md transition-colors text-lg flex items-center justify-center">+</button>
+        <div className="flex h-full bg-brand-bg">
+            <div className="flex-1 flex flex-col min-w-0">
+                <div className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-x-6 gap-y-4 p-6 bg-brand-primary border-b border-brand-bg">
+                    <div className="flex items-center gap-4 flex-shrink-0">
+                        <h2 className="text-2xl font-bold text-brand-text">Análises/Comparações:</h2>
                     </div>
-                </div>
-                <div className="flex items-center flex-shrink-0 gap-4">
-                    {!areAllStatsAnalysis && (
-                        <button onClick={() => handleSetIsSimpleMode(p => !p)} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm">{isSimpleMode ? 'Modo Avançado' : 'Modo Simples'}</button>
-                    )}
-                    {!isSimpleMode && !isStatsCanvasMode && openModals.length > 1 && ( <button onClick={handleCloseAll} className="bg-red-700 hover:bg-red-800 text-white font-bold py-2 px-4 rounded-md shadow-lg transition-transform hover:scale-105">Fechar Tudo</button> )}
-                    <button onClick={onBack} className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors flex items-center justify-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" /></svg>Voltar</button>
-                </div>
-            </div>
-            
-            <div className="flex-grow p-6 overflow-auto">
-                {scenarios.length < 2 ? (
-                     <div className="text-center py-12 text-brand-text-muted"><p>Selecione 2 ou mais cenários para comparar.</p></div>
-                ) : isStatsCanvasMode ? (
-                    <div 
-                        className="relative" 
-                        style={{ 
-                            width: '400vw',
-                            height: '400vh',
-                            transform: `scale(${zoomLevel})`,
-                            transformOrigin: 'top left',
-                            transition: 'transform 0.2s ease-out'
-                        }}
-                    >
-                        {scenarios.map(scenario => {
-                            const cardState = cardStates.find(cs => cs.id === scenario.id);
-                            if (!cardState) return null;
-                            return <FreeDraggableCard key={scenario.id} cardState={cardState} scenario={scenario} onUpdate={handleUpdateCardState} onBringToFront={handleBringCardToFront} onZoom={(src) => setZoomedImage(src)} />;
-                        })}
-                    </div>
-                ) : isSimpleMode ? (
-                     <div style={{ transform: `scale(${zoomLevel})`, transformOrigin: 'top left', transition: 'transform 0.2s ease-out' }}>
-                        {areAllStatsAnalysis ? (
-                            <div className="flex flex-col items-center gap-8 max-w-5xl mx-auto">
-                                {scenarios.map(scenario => (
-                                    <div key={scenario.id} className="w-full bg-brand-primary rounded-lg p-3 border border-brand-bg flex flex-col">
-                                        <h3 className="font-bold text-center text-brand-text truncate mb-2 flex-shrink-0" title={getScenarioTitle(scenario)}>{getScenarioTitle(scenario)}</h3>
-                                        <div className="bg-brand-bg rounded flex items-center justify-center relative">
-                                            {scenario.rangeImage ? ( <> <img src={scenario.rangeImage} alt="Stats Analysis" className="max-w-full h-auto object-contain rounded"/> <div className="absolute inset-0 cursor-zoom-in" onClick={() => scenario.rangeImage && setZoomedImage(scenario.rangeImage)} /> </> ) : ( <div className="w-full aspect-video flex items-center justify-center"><span className="text-gray-500 text-sm">Sem Imagem</span></div> )}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : ( <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">{scenarios.map(scenario => <SimpleScenarioCard key={scenario.id} scenario={scenario} onZoom={(src) => setZoomedImage(src)} onOpenImage={handleOpenImage} />)}</div> )}
-                    </div>
-                ) : (
-                    <div style={{ transform: `scale(${zoomLevel})`, transformOrigin: 'top left', transition: 'transform 0.2s ease-out' }}>
-                        <div ref={gridRef} className={`grid ${gridClassName} gap-4`} onDragEnd={handleDragEnd}>
-                            {displayItems.map((scenario, index) => {
-                                if (scenario) {
-                                    return (
-                                        <div key={scenario.id} className="relative" onDragOver={(e) => handleDragOver(e, index)} onDrop={(e) => handleDrop(e, index)} onDragLeave={handleDragLeave}>
-                                            <div className={`absolute -top-1 left-0 right-0 h-2 bg-brand-secondary rounded-full transition-transform duration-150 origin-center z-10 ${dropTarget?.index === index && dropTarget.position === 'top' ? 'scale-x-100' : 'scale-x-0'}`} />
-                                            <div className={`absolute -bottom-1 left-0 right-0 h-2 bg-brand-secondary rounded-full transition-transform duration-150 origin-center z-10 ${dropTarget?.index === index && dropTarget.position === 'bottom' ? 'scale-x-100' : 'scale-x-0'}`} />
-                                            <div className={`absolute -left-1 top-0 bottom-0 w-2 bg-brand-secondary rounded-full transition-transform duration-150 origin-center z-10 ${dropTarget?.index === index && dropTarget.position === 'left' ? 'scale-y-100' : 'scale-y-0'}`} />
-                                            <div className={`absolute -right-1 top-0 bottom-0 w-2 bg-brand-secondary rounded-full transition-transform duration-150 origin-center z-10 ${dropTarget?.index === index && dropTarget.position === 'right' ? 'scale-y-100' : 'scale-y-0'}`} />
-                                            <div draggable onDragStart={(e) => handleDragStart(e, scenario.id)} className={`w-full h-full bg-brand-primary rounded-lg p-3 border border-brand-bg cursor-move transition-opacity flex flex-col relative ${draggedId === scenario?.id ? 'opacity-20' : ''}`}>
-                                                <h3 className="font-bold text-center text-brand-text truncate mb-2 flex-shrink-0" title={getScenarioTitle(scenario)}>{getScenarioTitle(scenario)}</h3>
-                                                <div className={`bg-brand-bg ${imageAspectRatioClass} rounded flex items-center justify-center relative flex-shrink-0`}>
-                                                    {scenario.rangeImage ? ( <> <img src={scenario.rangeImage} alt="Range" className="max-w-full max-h-full object-contain"/> <div className="absolute inset-0 cursor-zoom-in" onClick={() => scenario.rangeImage && setZoomedImage(scenario.rangeImage)} /> </> ) : ( <span className="text-gray-500 text-sm">Sem Imagem</span> )}
-                                                </div>
-                                                {scenario.frequenciesImage && scenario.showFrequenciesInCompare && <div className="bg-brand-bg aspect-[6/1] rounded flex items-center justify-center relative mt-2 flex-shrink-0"><img src={scenario.frequenciesImage} alt="Frequências" className="max-w-full max-h-full object-contain"/><div className="absolute inset-0 cursor-zoom-in" onClick={() => setZoomedImage(scenario.frequenciesImage!)}/></div>}
-                                                {scenario.evImage && scenario.showEvInCompare && <div className={`bg-brand-bg ${imageAspectRatioClass} rounded flex items-center justify-center relative mt-2 flex-shrink-0`}><img src={scenario.evImage} alt="EV" className="max-w-full max-h-full object-contain"/><div className="absolute inset-0 cursor-zoom-in" onClick={() => setZoomedImage(scenario.evImage!)}/></div>}
-                                                <div className="mt-auto pt-2 flex-shrink-0">
-                                                    {(scenario.printSpotImage || scenario.rpImage || scenario.tableViewImage || scenario.plusInfoImage || scenario.evImage) && (
-                                                        <div className="flex justify-center flex-wrap gap-1.5">
-                                                            {scenario.printSpotImage && <button onClick={() => handleOpenImage(scenario, 'printSpotImage')} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">HRC Table View</button>}
-                                                            {scenario.rpImage && <button onClick={() => handleOpenImage(scenario, 'rpImage')} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">RP</button>}
-                                                            {scenario.evImage && <button onClick={() => handleOpenImage(scenario, 'evImage')} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">EV</button>}
-                                                            {scenario.tableViewImage && <button onClick={() => handleOpenImage(scenario, 'tableViewImage')} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">Table View</button>}
-                                                            {scenario.plusInfoImage && <button onClick={() => handleOpenImage(scenario, 'plusInfoImage')} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">+Info</button>}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )
-                                }
-                                return <div key={`empty-${index}`} className={`w-full min-h-[250px] rounded-lg transition-colors duration-150 ${isOverEmpty === index ? 'bg-brand-secondary/10 border-2 border-dashed border-brand-secondary' : ''}`} onDragOver={(e) => handleDragOver(e, index)} onDrop={(e) => handleDrop(e, index)} onDragLeave={handleDragLeave}/>
-                            })}
+                    <div className="flex-grow flex flex-wrap items-center justify-center gap-x-6 gap-y-3">
+                        {!isStatsCanvasMode && !isSimpleMode && (
+                            <>
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <span className="text-sm font-semibold text-brand-text-muted mr-2">Controles:</span>
+                                    <button onClick={handleAdjustLayout} disabled={!orderedScenarios.some(s => s === null)} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-2 px-3 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm">Ajustar</button>
+                                    <button onClick={handleUndo} disabled={history.length === 0} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-2 px-3 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center justify-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" /></svg>Desfazer</button>
+                                    <button onClick={handleResetLayout} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-2 px-3 rounded-md transition-colors text-sm">Layout Original</button>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <span className="text-sm font-semibold text-brand-text-muted mr-2">Layouts:</span>
+                                    {layouts.map((layout) => {
+                                        if (layout.type === 'single') {
+                                            const enabled = isLayoutEnabled(layout.rows, layout.cols, numActiveScenarios);
+                                            return <button key={layout.label} onClick={() => handleExpressLayout(layout.rows, layout.cols)} disabled={!enabled} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1.5 px-3 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm">{layout.label}</button>;
+                                        }
+                                        if (layout.type === 'dual') {
+                                            const e1 = isLayoutEnabled(layout.layouts[0].rows, layout.layouts[0].cols, numActiveScenarios), e2 = isLayoutEnabled(layout.layouts[1].rows, layout.layouts[1].cols, numActiveScenarios);
+                                            return <div key={`${layout.labels[0]}x${layout.labels[1]}`} className={`flex items-center justify-center bg-brand-bg text-brand-text font-semibold rounded-md transition-colors text-sm ${(!e1 && !e2) ? 'opacity-50 cursor-not-allowed' : ''}`}><span onClick={(e) => { if (e1) { e.stopPropagation(); handleExpressLayout(layout.layouts[0].rows, layout.layouts[0].cols); } }} className={`py-1.5 px-3 rounded-l-md ${e1 ? 'hover:bg-brand-primary cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}>{layout.labels[0]}</span><span className="text-brand-text-muted text-xs select-none">x</span><span onClick={(e) => { if (e2) { e.stopPropagation(); handleExpressLayout(layout.layouts[1].rows, layout.layouts[1].cols); } }} className={`py-1.5 px-3 rounded-r-md ${e2 ? 'hover:bg-brand-primary cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}>{layout.labels[1]}</span></div>;
+                                        }
+                                        return null;
+                                    })}
+                                </div>
+                            </>
+                        )}
+                        <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-sm font-semibold text-brand-text-muted mr-2">Zoom:</span>
+                            <button onClick={() => handleSetZoomLevel(p => Math.max(p / 1.1, 0.5))} className="bg-brand-bg hover:brightness-125 text-brand-text font-bold w-8 h-8 rounded-md transition-colors text-lg flex items-center justify-center">-</button>
+                            <input type="range" min="0.5" max="2" step="0.01" value={zoomLevel} onChange={(e) => handleSetZoomLevel(parseFloat(e.target.value))} className="w-32 h-2 bg-brand-bg rounded-lg appearance-none cursor-pointer accent-brand-secondary"/>
+                            <button onClick={() => handleSetZoomLevel(p => Math.min(p * 1.1, 2))} className="bg-brand-bg hover:brightness-125 text-brand-text font-bold w-8 h-8 rounded-md transition-colors text-lg flex items-center justify-center">+</button>
                         </div>
                     </div>
+                    <div className="flex items-center flex-shrink-0 gap-4">
+                         <button
+                            onClick={() => setIsNotesSplitViewOpen(prev => !prev)}
+                            disabled={comparisonKey === 'global'}
+                            className={`${isNotesSplitViewOpen ? 'bg-brand-secondary text-brand-primary' : 'bg-brand-primary hover:bg-brand-primary/80 text-brand-text'} font-semibold py-2 px-4 rounded-md transition-colors text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed`}
+                            title={comparisonKey === 'global' ? "iNotes indisponível para comparações globais" : "Abrir/Fechar painel de anotações"}
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M7 9a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2V9z" /><path d="M4 3a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H6a2 2 0 01-2-2V3z" /></svg>
+                            iNotes
+                        </button>
+                        {!areAllStatsAnalysis && (
+                            <button onClick={() => handleSetIsSimpleMode(p => !p)} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm">{isSimpleMode ? 'Modo Avançado' : 'Modo Simples'}</button>
+                        )}
+                        {!isSimpleMode && !isStatsCanvasMode && openModals.length > 1 && ( <button onClick={handleCloseAll} className="bg-red-700 hover:bg-red-800 text-white font-bold py-2 px-4 rounded-md shadow-lg transition-transform hover:scale-105">Fechar Tudo</button> )}
+                        <button onClick={onBack} className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors flex items-center justify-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" /></svg>Voltar</button>
+                    </div>
+                </div>
+                
+                <div className="flex-grow p-6 overflow-auto">
+                    {scenarios.length < 2 ? (
+                        <div className="text-center py-12 text-brand-text-muted"><p>Selecione 2 ou mais cenários para comparar.</p></div>
+                    ) : isStatsCanvasMode ? (
+                        <div 
+                            className="relative" 
+                            style={{ 
+                                width: '400vw',
+                                height: '400vh',
+                                transform: `scale(${zoomLevel})`,
+                                transformOrigin: 'top left',
+                                transition: 'transform 0.2s ease-out'
+                            }}
+                        >
+                            {scenarios.map(scenario => {
+                                const cardState = cardStates.find(cs => cs.id === scenario.id);
+                                if (!cardState) return null;
+                                return <FreeDraggableCard key={scenario.id} cardState={cardState} scenario={scenario} onUpdate={handleUpdateCardState} onBringToFront={handleBringCardToFront} onZoom={(src) => setZoomedImage(src)} />;
+                            })}
+                        </div>
+                    ) : isSimpleMode ? (
+                        <div style={{ transform: `scale(${zoomLevel})`, transformOrigin: 'top left', transition: 'transform 0.2s ease-out' }}>
+                            {areAllStatsAnalysis ? (
+                                <div className="flex flex-col items-center gap-8 max-w-5xl mx-auto">
+                                    {scenarios.map(scenario => (
+                                        <div key={scenario.id} className="w-full bg-brand-primary rounded-lg p-3 border border-brand-bg flex flex-col">
+                                            <h3 className="font-bold text-center text-brand-text truncate mb-2 flex-shrink-0" title={getScenarioTitle(scenario)}>{getScenarioTitle(scenario)}</h3>
+                                            <div className="bg-brand-bg rounded flex items-center justify-center relative">
+                                                {scenario.rangeImage ? ( <> <img src={scenario.rangeImage} alt="Stats Analysis" className="max-w-full h-auto object-contain rounded"/> <div className="absolute inset-0 cursor-zoom-in" onClick={() => scenario.rangeImage && setZoomedImage(scenario.rangeImage)} /> </> ) : ( <div className="w-full aspect-video flex items-center justify-center"><span className="text-gray-500 text-sm">Sem Imagem</span></div> )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : ( <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">{scenarios.map(scenario => <SimpleScenarioCard key={scenario.id} scenario={scenario} onZoom={(src) => setZoomedImage(src)} onOpenImage={handleOpenImage} />)}</div> )}
+                        </div>
+                    ) : (
+                        <div style={{ transform: `scale(${zoomLevel})`, transformOrigin: 'top left', transition: 'transform 0.2s ease-out' }}>
+                            <div ref={gridRef} className={`grid ${gridClassName} gap-4`} onDragEnd={handleDragEnd}>
+                                {displayItems.map((scenario, index) => {
+                                    if (scenario) {
+                                        return (
+                                            <div key={scenario.id} className="relative" onDragOver={(e) => handleDragOver(e, index)} onDrop={(e) => handleDrop(e, index)} onDragLeave={handleDragLeave}>
+                                                <div className={`absolute -top-1 left-0 right-0 h-2 bg-brand-secondary rounded-full transition-transform duration-150 origin-center z-10 ${dropTarget?.index === index && dropTarget.position === 'top' ? 'scale-x-100' : 'scale-x-0'}`} />
+                                                <div className={`absolute -bottom-1 left-0 right-0 h-2 bg-brand-secondary rounded-full transition-transform duration-150 origin-center z-10 ${dropTarget?.index === index && dropTarget.position === 'bottom' ? 'scale-x-100' : 'scale-x-0'}`} />
+                                                <div className={`absolute -left-1 top-0 bottom-0 w-2 bg-brand-secondary rounded-full transition-transform duration-150 origin-center z-10 ${dropTarget?.index === index && dropTarget.position === 'left' ? 'scale-y-100' : 'scale-y-0'}`} />
+                                                <div className={`absolute -right-1 top-0 bottom-0 w-2 bg-brand-secondary rounded-full transition-transform duration-150 origin-center z-10 ${dropTarget?.index === index && dropTarget.position === 'right' ? 'scale-y-100' : 'scale-y-0'}`} />
+                                                <div draggable onDragStart={(e) => handleDragStart(e, scenario.id)} className={`w-full h-full bg-brand-primary rounded-lg p-3 border border-brand-bg cursor-move transition-opacity flex flex-col relative ${draggedId === scenario?.id ? 'opacity-20' : ''}`}>
+                                                    <h3 className="font-bold text-center text-brand-text truncate mb-2 flex-shrink-0" title={getScenarioTitle(scenario)}>{getScenarioTitle(scenario)}</h3>
+                                                    <div className={`bg-brand-bg ${imageAspectRatioClass} rounded flex items-center justify-center relative flex-shrink-0`}>
+                                                        {scenario.rangeImage ? ( <> <img src={scenario.rangeImage} alt="Range" className="max-w-full max-h-full object-contain"/> <div className="absolute inset-0 cursor-zoom-in" onClick={() => scenario.rangeImage && setZoomedImage(scenario.rangeImage)} /> </> ) : ( <span className="text-gray-500 text-sm">Sem Imagem</span> )}
+                                                    </div>
+                                                    {scenario.frequenciesImage && scenario.showFrequenciesInCompare && <div className="bg-brand-bg aspect-[6/1] rounded flex items-center justify-center relative mt-2 flex-shrink-0"><img src={scenario.frequenciesImage} alt="Frequências" className="max-w-full max-h-full object-contain"/><div className="absolute inset-0 cursor-zoom-in" onClick={() => setZoomedImage(scenario.frequenciesImage!)}/></div>}
+                                                    {scenario.evImage && scenario.showEvInCompare && <div className={`bg-brand-bg ${imageAspectRatioClass} rounded flex items-center justify-center relative mt-2 flex-shrink-0`}><img src={scenario.evImage} alt="EV" className="max-w-full max-h-full object-contain"/><div className="absolute inset-0 cursor-zoom-in" onClick={() => setZoomedImage(scenario.evImage!)}/></div>}
+                                                    <div className="mt-auto pt-2 flex-shrink-0">
+                                                        {(scenario.printSpotImage || scenario.rpImage || scenario.tableViewImage || scenario.plusInfoImage || scenario.evImage) && (
+                                                            <div className="flex justify-center flex-wrap gap-1.5">
+                                                                {scenario.printSpotImage && <button onClick={() => handleOpenImage(scenario, 'printSpotImage')} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">HRC Table View</button>}
+                                                                {scenario.rpImage && <button onClick={() => handleOpenImage(scenario, 'rpImage')} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">RP</button>}
+                                                                {scenario.evImage && <button onClick={() => handleOpenImage(scenario, 'evImage')} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">EV</button>}
+                                                                {scenario.tableViewImage && <button onClick={() => handleOpenImage(scenario, 'tableViewImage')} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">Table View</button>}
+                                                                {scenario.plusInfoImage && <button onClick={() => handleOpenImage(scenario, 'plusInfoImage')} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">+Info</button>}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )
+                                    }
+                                    return <div key={`empty-${index}`} className={`w-full min-h-[250px] rounded-lg transition-colors duration-150 ${isOverEmpty === index ? 'bg-brand-secondary/10 border-2 border-dashed border-brand-secondary' : ''}`} onDragOver={(e) => handleDragOver(e, index)} onDrop={(e) => handleDrop(e, index)} onDragLeave={handleDragLeave}/>
+                                })}
+                            </div>
+                        </div>
+                    )}
+                </div>
+                
+                {!isSimpleMode && openModals.map(modal => (
+                    <DraggableImageViewer key={modal.id} id={modal.id} title={modal.title} imageSrc={modal.imageSrc} zIndex={modal.zIndex} initialPosition={modal.position} onClose={handleCloseImage} onBringToFront={handleBringToFrontModal} />
+                ))}
+                {zoomedImage && (
+                    <DraggableZoomModal imageSrc={zoomedImage} onClose={() => setZoomedImage(null)} />
                 )}
             </div>
-            
-            {!isSimpleMode && openModals.map(modal => (
-                <DraggableImageViewer key={modal.id} id={modal.id} title={modal.title} imageSrc={modal.imageSrc} zIndex={modal.zIndex} initialPosition={modal.position} onClose={handleCloseImage} onBringToFront={handleBringToFrontModal} />
-            ))}
-            {zoomedImage && (
-                <DraggableZoomModal imageSrc={zoomedImage} onClose={() => setZoomedImage(null)} />
+
+            {isNotesSplitViewOpen && activeNotebook && (
+                <>
+                    <div 
+                        onMouseDown={handleNotesPanelMouseDown}
+                        className="w-1.5 cursor-col-resize bg-brand-primary hover:bg-brand-secondary transition-colors duration-200 flex-shrink-0"
+                        title="Arraste para redimensionar"
+                    />
+                    <div style={{ width: `${notesPanelWidth}px` }} className="flex-shrink-0 h-full">
+                        <NotebookNotesEditor
+                            notebookId={activeNotebook.id}
+                            initialContent={activeNotebook.notes || ''}
+                            onSave={handleSaveNotes}
+                            isSplitViewMode={true}
+                        />
+                    </div>
+                </>
             )}
         </div>
     );

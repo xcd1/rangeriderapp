@@ -515,7 +515,8 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
             }
         } else { // collapse
             if (target === 'all') {
-                setOpenSections(new Set());
+// FIX: Explicitly provide generic type for new Set() to avoid type inference issues.
+                setOpenSections(new Set<string>());
             } else {
                 setOpenSections(prev => {
                     const newSet = new Set(prev);
@@ -579,7 +580,8 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
         if (areAllCollapsed) {
             setOpenSections(new Set(getAvailableSections()));
         } else {
-            setOpenSections(new Set());
+// FIX: Explicitly provide generic type for new Set() to avoid type inference issues.
+            setOpenSections(new Set<string>());
         }
         setIsActionMenuOpen(false);
     };

@@ -1,5 +1,6 @@
 
 
+
 export type Position = 'UTG' | 'EP' | 'LJ' | 'HJ' | 'CO' | 'BTN' | 'SB' | 'BB';
 export type GameScenario = 'CEv' | 'Bounty CVD' | 'Bounty CVN' | 'Vanilla CVD' | 'Vanilla CVN' | 'Turbo' | 'Hyper' | 'Mistery' | 'KO' | 'NON KO' | 'ALL' | 'Ideal Frequencies';
 export type SpotType = 'Blind War' | 'Facing 2bet' | 'HRC Enviroment' | 'Rfi' | 'Stats Analysis';
@@ -56,6 +57,7 @@ export interface Folder {
   name: string;
   parentId?: string | null;
   createdAt: number;
+  modifiedAt: number;
 }
 
 export interface Notebook {
@@ -64,6 +66,7 @@ export interface Notebook {
   scenarios: Scenario[];
   folderId?: string | null;
   createdAt: number;
+  modifiedAt: number;
   notes?: string;
   defaultSpot?: SpotType | 'notes' | 'performance' | null;
 }

@@ -1,9 +1,3 @@
-
-
-
-
-
-
 import React, { useState, createContext, useMemo, useCallback, ReactNode, useContext, useEffect, useRef } from 'react';
 import type { Notebook, Scenario, Folder, UserProfile } from './types';
 import type { User } from 'firebase/auth';
@@ -107,7 +101,7 @@ interface AppContextType {
   logout: () => void;
   addNotebook: (name: string) => Promise<void>;
   deleteNotebook: (notebookId: string) => Promise<void>;
-  updateNotebook: (notebookId: string, updates: Partial<Pick<Notebook, 'name' | 'folderId'>>) => Promise<void>;
+  updateNotebook: (notebookId: string, updates: Partial<Pick<Notebook, 'name' | 'folderId' | 'notes' | 'defaultSpot'>>) => Promise<void>;
   duplicateNotebook: (notebookId: string) => Promise<void>;
   addFolder: (name: string, parentId?: string | null) => Promise<void>;
   deleteFolder: (folderId: string) => Promise<void>;
@@ -299,34 +293,32 @@ const AppContent: React.FC = () => {
     return <LoginView />;
   }
   
-  if (isGlobalComparing) {
-      return (
-          <div className="overflow-y-auto min-w-0 h-screen">
-            <ComparisonView 
-                scenarios={scenariosForGlobalComparison}
-                onBack={() => setIsGlobalComparing(false)}
-                comparisonKey="global"
-            />
-          </div>
-      )
-  }
-
   return (
     <AppContext.Provider value={contextValue}>
-      <div className="flex h-screen font-sans bg-brand-bg text-brand-text">
-        <Sidebar width={sidebarWidth} />
-        <div 
-            onMouseDown={handleMouseDown}
-            className="w-1.5 cursor-col-resize bg-brand-primary hover:bg-brand-secondary transition-colors duration-200 flex-shrink-0"
-            title="Arraste para redimensionar"
-        />
-        <main className="flex-1 p-6 min-w-0 flex flex-col">
-          {user && !user.emailVerified && <VerificationBanner />}
-          <div className="flex-grow overflow-y-auto">
-            <StudyView key={activeNotebookId} />
+        {isGlobalComparing ? (
+             <div className="overflow-y-auto min-w-0 h-screen">
+               <ComparisonView 
+                   scenarios={scenariosForGlobalComparison}
+                   onBack={() => setIsGlobalComparing(false)}
+                   comparisonKey="global"
+               />
+             </div>
+        ) : (
+          <div className="flex h-screen font-sans bg-brand-bg text-brand-text">
+            <Sidebar width={sidebarWidth} />
+            <div 
+                onMouseDown={handleMouseDown}
+                className="w-1.5 cursor-col-resize bg-brand-primary hover:bg-brand-secondary transition-colors duration-200 flex-shrink-0"
+                title="Arraste para redimensionar"
+            />
+            <main className="flex-1 p-6 min-w-0 flex flex-col">
+              {user && !user.emailVerified && <VerificationBanner />}
+              <div className="flex-grow overflow-y-auto">
+                <StudyView key={activeNotebookId} />
+              </div>
+            </main>
           </div>
-        </main>
-      </div>
+        )}
       <ComparisonTray onCompare={() => setIsGlobalComparing(true)} />
     </AppContext.Provider>
   );

@@ -99,16 +99,17 @@ interface NotebookItemProps {
     onMouseLeave: (e: React.MouseEvent) => void;
     isFirst: boolean;
     isLast: boolean;
+    sortKey: 'modifiedAt' | 'name';
 }
 
 const NotebookItem: React.FC<NotebookItemProps> = ({
     notebook, isActive, isDeleting, isEditing, isAnyItemBeingEdited, editedName,
     onSelect, onStartEditing, onCancelEditing, onSaveName, onNameChange, onNameKeyDown, onPromptDelete, onDuplicate,
-    onDragStart, onDragEnd, onMove, onMouseDown, onMouseUp, onMouseLeave, isFirst, isLast
+    onDragStart, onDragEnd, onMove, onMouseDown, onMouseUp, onMouseLeave, isFirst, isLast, sortKey
 }) => {
     return (
         <li 
-            draggable={!isAnyItemBeingEdited}
+            draggable={!isAnyItemBeingEdited && sortKey === 'modifiedAt'}
             onDragStart={onDragStart}
             onDragEnd={onDragEnd}
             className={`group flex items-center justify-between p-2 text-sm rounded-md transition-colors ${
@@ -146,25 +147,25 @@ const NotebookItem: React.FC<NotebookItemProps> = ({
                     <div className="flex-shrink-0 flex items-center gap-1">
                         <button
                             onClick={() => onMove('up')}
-                            disabled={isFirst || isDeleting}
+                            disabled={isFirst || isDeleting || sortKey === 'name'}
                             className={`w-6 h-6 flex items-center justify-center rounded transition-opacity disabled:opacity-20 disabled:cursor-not-allowed ${
                                 isActive
                                 ? 'opacity-100 text-brand-primary/70 hover:text-green-500'
                                 : 'opacity-0 group-hover:opacity-100 text-gray-400 hover:text-green-500'
                             }`}
-                            title="Mover para cima"
+                            title={sortKey === 'name' ? 'A ordenação manual está desativada ao classificar por nome' : "Mover para cima"}
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-[19px] w-[19px]" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" /></svg>
                         </button>
                         <button
                             onClick={() => onMove('down')}
-                            disabled={isLast || isDeleting}
+                            disabled={isLast || isDeleting || sortKey === 'name'}
                             className={`w-6 h-6 flex items-center justify-center rounded transition-opacity disabled:opacity-20 disabled:cursor-not-allowed ${
                                 isActive
                                 ? 'opacity-100 text-brand-primary/70 hover:text-green-500'
                                 : 'opacity-0 group-hover:opacity-100 text-gray-400 hover:text-green-500'
                             }`}
-                            title="Mover para baixo"
+                            title={sortKey === 'name' ? 'A ordenação manual está desativada ao classificar por nome' : "Mover para baixo"}
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-[19px] w-[19px]" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
                         </button>
@@ -197,6 +198,11 @@ interface SidebarProps {
   width: number;
 }
 
+interface SortConfig {
+    key: 'modifiedAt' | 'name';
+    direction: 'asc' | 'desc';
+}
+
 const Sidebar: React.FC<SidebarProps> = ({ width }) => {
   const context = useContext(AppContext);
   // Notebook states
@@ -221,6 +227,11 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
 
   // Modal State
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+
+  // Sort State
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'modifiedAt', direction: 'desc' });
+  const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
+  const sortMenuRef = useRef<HTMLDivElement>(null);
   
   const longPressTimerRef = useRef<number | null>(null);
   const isAnyItemBeingEdited = !!editingNotebookId || !!editingFolderId || !!creatingSubfolderIn;
@@ -235,47 +246,101 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
       swapItemsOrder
   } = context;
   
-  // Load collapsed folders state from localStorage on mount/login
+  // Load collapsed folders and sort state from localStorage on mount/login
   useEffect(() => {
     if (user?.uid) {
-        const saved = localStorage.getItem(`collapsedFolders-${user.uid}`);
-        if (saved) {
+        // Load collapsed state
+        const savedCollapsed = localStorage.getItem(`collapsedFolders-${user.uid}`);
+        if (savedCollapsed) {
             try {
-                const parsed = JSON.parse(saved);
-                if (Array.isArray(parsed)) {
-                    setCollapsedFolders(new Set(parsed));
-                }
+                const parsed = JSON.parse(savedCollapsed);
+                if (Array.isArray(parsed)) setCollapsedFolders(new Set(parsed));
             } catch (e) {
                 console.error("Failed to parse collapsed folders from localStorage", e);
                 setCollapsedFolders(new Set());
             }
         }
-        // Mark state as loaded to allow saving.
-        // Use a timeout to ensure this runs after the initial state is set and avoids race conditions.
-        setTimeout(() => {
-          isStateLoaded.current = true;
-        }, 0);
+        
+        // Load sort state
+        const savedSort = localStorage.getItem(`sortConfig-${user.uid}`);
+        if (savedSort) {
+            try {
+                let parsed = JSON.parse(savedSort);
+                // Migration from 'createdAt' to 'modifiedAt'
+                if (parsed.key === 'createdAt') {
+                    parsed.key = 'modifiedAt';
+                }
+                if ((parsed.key === 'name' || parsed.key === 'modifiedAt') && (parsed.direction === 'asc' || parsed.direction === 'desc')) {
+                    setSortConfig(parsed);
+                }
+            } catch (e) {
+                console.error("Failed to parse sort config from localStorage", e);
+                setSortConfig({ key: 'modifiedAt', direction: 'desc' });
+            }
+        }
+
+        setTimeout(() => { isStateLoaded.current = true; }, 0);
     } else {
-        // Reset when user logs out
         isStateLoaded.current = false;
         setCollapsedFolders(new Set());
+        setSortConfig({ key: 'modifiedAt', direction: 'desc' });
     }
   }, [user?.uid]);
   
-  // Save collapsed folders state to localStorage on change
+  // Save collapsed folders and sort state to localStorage on change
   useEffect(() => {
-    // Only save if the state has been loaded from localStorage for the current user
     if (user?.uid && isStateLoaded.current) {
         localStorage.setItem(`collapsedFolders-${user.uid}`, JSON.stringify(Array.from(collapsedFolders)));
     }
   }, [collapsedFolders, user?.uid]);
 
+  useEffect(() => {
+    if (user?.uid && isStateLoaded.current) {
+        localStorage.setItem(`sortConfig-${user.uid}`, JSON.stringify(sortConfig));
+    }
+  }, [sortConfig, user?.uid]);
+
+  // Handle clicks outside sort menu to close it
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+        if (sortMenuRef.current && !sortMenuRef.current.contains(event.target as Node)) {
+            setIsSortMenuOpen(false);
+        }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  const sortedFolders = useMemo(() => {
+    return [...folders].sort((a, b) => {
+        if (sortConfig.key === 'name') {
+            const compare = a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' });
+            return sortConfig.direction === 'asc' ? compare : -compare;
+        }
+        // modifiedAt
+        return sortConfig.direction === 'desc' ? b.modifiedAt - a.modifiedAt : a.modifiedAt - b.modifiedAt;
+    });
+  }, [folders, sortConfig]);
+
+  const sortedNotebooks = useMemo(() => {
+      return [...notebooks].sort((a, b) => {
+          if (sortConfig.key === 'name') {
+              const compare = a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' });
+              return sortConfig.direction === 'asc' ? compare : -compare;
+          }
+          // modifiedAt
+          return sortConfig.direction === 'desc' ? b.modifiedAt - a.modifiedAt : a.modifiedAt - b.modifiedAt;
+      });
+  }, [notebooks, sortConfig]);
+
   const { rootFolders, foldersByParent, rootNotebooks, notebooksByFolder } = useMemo(() => {
     const foldersByParent: Record<string, Folder[]> = {};
     const rootFolders: Folder[] = [];
-    folders.forEach(f => {
+    sortedFolders.forEach(f => {
       const parentId = f.parentId;
-      if (parentId && folders.some(pf => pf.id === parentId)) {
+      if (parentId && sortedFolders.some(pf => pf.id === parentId)) {
         if (!foldersByParent[parentId]) foldersByParent[parentId] = [];
         foldersByParent[parentId].push(f);
       } else {
@@ -285,9 +350,9 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
 
     const rootNotebooks: Notebook[] = [];
     const notebooksByFolder: Record<string, Notebook[]> = {};
-    notebooks.forEach(nb => {
+    sortedNotebooks.forEach(nb => {
       const folderId = nb.folderId;
-      if (folderId && folders.some(f => f.id === folderId)) {
+      if (folderId && sortedFolders.some(f => f.id === folderId)) {
         if (!notebooksByFolder[folderId]) notebooksByFolder[folderId] = [];
         notebooksByFolder[folderId].push(nb);
       } else {
@@ -295,7 +360,22 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
       }
     });
     return { rootFolders, foldersByParent, rootNotebooks, notebooksByFolder };
-  }, [notebooks, folders]);
+  }, [sortedNotebooks, sortedFolders]);
+
+  const handleSortChange = (key: 'modifiedAt' | 'name') => {
+      setSortConfig(currentConfig => {
+          if (currentConfig.key === key) {
+              // Toggle direction
+              return { ...currentConfig, direction: currentConfig.direction === 'asc' ? 'desc' : 'asc' };
+          }
+          // Switch to new key with default direction
+          return {
+              key,
+              direction: key === 'modifiedAt' ? 'desc' : 'asc' // Default: newest first, A-Z
+          };
+      });
+      setIsSortMenuOpen(false);
+  };
 
   // --- Notebook Handlers ---
   const handleAddNotebook = async () => {
@@ -403,7 +483,8 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
   };
 
   const handleExpandAll = () => {
-    setCollapsedFolders(new Set());
+    // FIX: Explicitly specify the generic type for new Set() to avoid a type inference error where an empty set is typed as Set<unknown>.
+    setCollapsedFolders(new Set<string>());
   };
 
   const handleStartCreatingSubfolder = (parentId: string) => {
@@ -449,7 +530,7 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
       direction: 'up' | 'down'
   ) => {
       const isNotebook = type === 'notebook';
-      const items = isNotebook ? notebooks : folders;
+      const items = isNotebook ? sortedNotebooks : sortedFolders;
       
       const itemToMove = items.find(i => i.id === itemId);
       if (!itemToMove) return;
@@ -479,7 +560,7 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
           { id: itemToMove.id, type, createdAt: itemToMove.createdAt },
           { id: itemToSwapWith.id, type, createdAt: itemToSwapWith.createdAt }
       );
-  }, [notebooks, folders, rootNotebooks, notebooksByFolder, rootFolders, foldersByParent, swapItemsOrder]);
+  }, [sortedNotebooks, sortedFolders, rootNotebooks, notebooksByFolder, rootFolders, foldersByParent, swapItemsOrder]);
   
     const cancelLongPress = () => {
         if (longPressTimerRef.current) {
@@ -570,6 +651,7 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
         onMouseLeave={cancelLongPress}
         isFirst={index === 0}
         isLast={index === list.length - 1}
+        sortKey={sortConfig.key}
       />
   );
   
@@ -590,7 +672,7 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
             className={`rounded-md transition-colors ${isDropTarget ? 'bg-brand-secondary/20' : ''}`}
             >
              <div 
-                draggable={!isAnyItemBeingEdited}
+                draggable={!isAnyItemBeingEdited && sortConfig.key === 'modifiedAt'}
                 onDragStart={(e) => handleDragStart(e, folder.id, 'folder')}
                 onDragEnd={handleDragEnd}
                 className="group flex items-center justify-between p-2 text-sm rounded-md text-brand-text hover:bg-brand-bg/50"
@@ -631,17 +713,17 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
                         <div className="flex items-center gap-1">
                             <button
                                 onClick={(e) => { e.stopPropagation(); handleMoveItem(folder.id, 'folder', 'up'); }}
-                                disabled={isFirst || isAnyItemBeingEdited}
+                                disabled={isFirst || isAnyItemBeingEdited || sortConfig.key === 'name'}
                                 className="w-6 h-6 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:text-green-400 disabled:opacity-20 disabled:cursor-not-allowed"
-                                title="Mover para cima"
+                                title={sortConfig.key === 'name' ? 'A ordenação manual está desativada ao classificar por nome' : "Mover para cima"}
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-[19px] w-[19px]" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" /></svg>
                             </button>
                             <button
                                 onClick={(e) => { e.stopPropagation(); handleMoveItem(folder.id, 'folder', 'down'); }}
-                                disabled={isLast || isAnyItemBeingEdited}
+                                disabled={isLast || isAnyItemBeingEdited || sortConfig.key === 'name'}
                                 className="w-6 h-6 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:text-green-400 disabled:opacity-20 disabled:cursor-not-allowed"
-                                title="Mover para baixo"
+                                title={sortConfig.key === 'name' ? 'A ordenação manual está desativada ao classificar por nome' : "Mover para baixo"}
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-[19px] w-[19px]" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
                             </button>
@@ -676,6 +758,10 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" /></svg>
                                     Excluir
                                 </ActionMenuItem>
+                                <div className="border-t border-brand-primary/50 my-1"></div>
+                                <li className="px-3 py-2 text-xs text-brand-text-muted italic w-full text-left">
+                                    Última alteração: {new Date(folder.modifiedAt).toLocaleDateString('pt-BR')}
+                                </li>
                             </ActionMenu>
                         </div>
                     </>
@@ -744,14 +830,57 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
             </div>
           </div>
         </div>
-        <div className="flex justify-between gap-2 mb-4">
+        <div className="flex justify-between items-center gap-2 mb-4">
             <button 
                 onClick={areAllFoldersCollapsed ? handleExpandAll : handleCollapseAll} 
                 disabled={folders.length === 0} 
-                className="w-full text-xs bg-brand-bg hover:brightness-125 text-brand-text-muted font-semibold py-2 px-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 text-xs bg-brand-bg hover:brightness-125 text-brand-text-muted font-semibold py-2 px-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
                 {areAllFoldersCollapsed ? 'Expandir' : 'Recolher'}
             </button>
+            <div className="relative" ref={sortMenuRef}>
+                <button
+                    onClick={() => setIsSortMenuOpen(prev => !prev)}
+                    className="flex-1 text-xs bg-brand-bg hover:brightness-125 text-brand-text-muted font-semibold py-2 px-2 rounded-md transition-colors flex items-center gap-1 whitespace-nowrap"
+                >
+                    Classificar por:
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                </button>
+                {isSortMenuOpen && (
+                    <div className="absolute top-full right-0 mt-2 w-52 bg-brand-bg rounded-md shadow-lg z-20 border border-brand-primary overflow-hidden">
+                        <ul className="text-sm text-brand-text divide-y divide-brand-primary/50">
+                            <li>
+                                <button
+                                    onClick={() => handleSortChange('modifiedAt')}
+                                    className={`w-full text-left px-3 py-2 hover:bg-brand-primary transition-colors flex justify-between items-center ${sortConfig.key === 'modifiedAt' ? 'font-bold text-brand-secondary' : ''}`}
+                                >
+                                    <span>Data de modificação</span>
+                                    {sortConfig.key === 'modifiedAt' && (
+                                        <span className="text-lg">
+                                            {sortConfig.direction === 'desc' ? '↓' : '↑'}
+                                        </span>
+                                    )}
+                                </button>
+                            </li>
+                            <li>
+                                <button
+                                    onClick={() => handleSortChange('name')}
+                                    className={`w-full text-left px-3 py-2 hover:bg-brand-primary transition-colors flex justify-between items-center ${sortConfig.key === 'name' ? 'font-bold text-brand-secondary' : ''}`}
+                                >
+                                    <span>Nome (A-Z)</span>
+                                    {sortConfig.key === 'name' && (
+                                        <span className="text-lg">
+                                            {sortConfig.direction === 'asc' ? '↓' : '↑'}
+                                        </span>
+                                    )}
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+                )}
+            </div>
         </div>
         <nav 
             className={`flex-grow overflow-y-auto pr-2 -mr-2 rounded-md transition-colors ${draggedItem && dragOverTargetId === null ? 'bg-brand-secondary/20' : ''}`}

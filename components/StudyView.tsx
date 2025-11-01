@@ -40,6 +40,12 @@ const setComparisonState = (uid: string, notebookId: string, scenarioIds: string
     }
 };
 
+const getInitialSplitViewState = (uid?: string, notebookId?: string) => {
+    if (!uid || !notebookId) return false;
+    const saved = localStorage.getItem(`notesSplitViewOpen-${uid}-${notebookId}`);
+    return saved === 'true';
+}
+
 
 const StudyView: React.FC = () => {
     const context = useContext(AppContext);
@@ -49,17 +55,6 @@ const StudyView: React.FC = () => {
         removeMultipleScenariosFromCompare: removeMultipleIntelligentCompare 
     } = useComparison();
 
-    const [isDeleteAllModalOpen, setIsDeleteAllModalOpen] = useState(false);
-    const [isDeleteSelectionModalOpen, setIsDeleteSelectionModalOpen] = useState(false);
-    const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
-
-    // Dropdown states
-    const [expandDropdownOpen, setExpandDropdownOpen] = useState(false);
-    const [collapseDropdownOpen, setCollapseDropdownOpen] = useState(false);
-    const [sectionControl, setSectionControl] = useState<{action: 'expand' | 'collapse', target: 'all' | 'params' | 'media' | 'notes', key: number} | null>(null);
-    const expandDropdownRef = useRef<HTMLDivElement>(null);
-    const collapseDropdownRef = useRef<HTMLDivElement>(null);
-    
     if (!context) return null;
     const { 
         notebooks, 
@@ -78,6 +73,65 @@ const StudyView: React.FC = () => {
     const activeNotebook = useMemo(() => {
         return notebooks.find(n => n.id === activeNotebookId);
     }, [notebooks, activeNotebookId]);
+
+    const [isNotesSplitViewOpen, setIsNotesSplitViewOpen] = useState(() => getInitialSplitViewState(uid, activeNotebook?.id));
+    const [notesPanelWidth, setNotesPanelWidth] = useState(() => {
+        const savedWidth = localStorage.getItem('notesPanelWidth');
+        const width = savedWidth ? parseInt(savedWidth, 10) : 450;
+        return Math.max(300, Math.min(width, 800));
+    });
+    const isResizingNotesPanel = useRef(false);
+
+    const [isDeleteAllModalOpen, setIsDeleteAllModalOpen] = useState(false);
+    const [isDeleteSelectionModalOpen, setIsDeleteSelectionModalOpen] = useState(false);
+    const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+
+    // Dropdown states
+    const [expandDropdownOpen, setExpandDropdownOpen] = useState(false);
+    const [collapseDropdownOpen, setCollapseDropdownOpen] = useState(false);
+    const [sectionControl, setSectionControl] = useState<{action: 'expand' | 'collapse', target: 'all' | 'params' | 'media' | 'notes', key: number} | null>(null);
+    const expandDropdownRef = useRef<HTMLDivElement>(null);
+    const collapseDropdownRef = useRef<HTMLDivElement>(null);
+
+    const handleNotesPanelMouseMove = useCallback((e: MouseEvent) => {
+        if (isResizingNotesPanel.current) {
+            const newWidth = window.innerWidth - e.clientX;
+            if (newWidth >= 300 && newWidth <= 800) {
+                setNotesPanelWidth(newWidth);
+            }
+        }
+    }, []);
+
+    const handleNotesPanelMouseUp = useCallback(() => {
+        isResizingNotesPanel.current = false;
+        document.body.style.cursor = 'default';
+        window.removeEventListener('mousemove', handleNotesPanelMouseMove);
+        window.removeEventListener('mouseup', handleNotesPanelMouseUp);
+    }, [handleNotesPanelMouseMove]);
+    
+    const handleNotesPanelMouseDown = useCallback((e: React.MouseEvent) => {
+        e.preventDefault();
+        isResizingNotesPanel.current = true;
+        document.body.style.cursor = 'col-resize';
+        window.addEventListener('mousemove', handleNotesPanelMouseMove);
+        window.addEventListener('mouseup', handleNotesPanelMouseUp);
+    }, [handleNotesPanelMouseMove, handleNotesPanelMouseUp]);
+
+    useEffect(() => {
+        localStorage.setItem('notesPanelWidth', notesPanelWidth.toString());
+    }, [notesPanelWidth]);
+
+    useEffect(() => {
+        if(uid && activeNotebook?.id) {
+            localStorage.setItem(`notesSplitViewOpen-${uid}-${activeNotebook.id}`, String(isNotesSplitViewOpen));
+        }
+    }, [isNotesSplitViewOpen, uid, activeNotebook?.id]);
+
+    useEffect(() => {
+        // When notebook changes, update the split view state from localStorage
+        setIsNotesSplitViewOpen(getInitialSplitViewState(uid, activeNotebook?.id));
+    }, [activeNotebook?.id, uid]);
+    
 
     const initialComparisonState = useMemo(() => {
         if (activeNotebook && uid) {
@@ -659,148 +713,178 @@ const StudyView: React.FC = () => {
 
     // --- MAIN VIEW (WITH SCENARIOS) ---
     return (
-        <div>
-            <div className="sticky top-0 z-10 bg-brand-bg pb-4">
-                <div className="flex justify-between items-start mb-4">
-                    <div>
-                        <button onClick={handleBackToSpots} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-2.5 px-5 rounded-lg transition-colors flex items-center justify-center gap-2 mb-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" /></svg>
-                           Voltar
-                        </button>
-                        <h2 className="text-2xl font-bold text-brand-text">{activeNotebook.name} / {displaySpot}</h2>
+        <div className="flex h-full min-h-0">
+            <div className="flex-1 flex flex-col min-w-0 pr-6">
+                <div className="sticky top-0 z-10 bg-brand-bg pb-4">
+                    <div className="flex justify-between items-start mb-4">
+                        <div>
+                            <button onClick={handleBackToSpots} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-2.5 px-5 rounded-lg transition-colors flex items-center justify-center gap-2 mb-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" /></svg>
+                               Voltar
+                            </button>
+                            <h2 className="text-2xl font-bold text-brand-text">{activeNotebook.name} / {displaySpot}</h2>
+                        </div>
+                    </div>
+                    
+                    {/* --- CONTROL BAR --- */}
+                    <div className="flex justify-between items-center flex-wrap gap-4 border-y border-brand-primary py-3">
+                        {/* LEFT GROUP */}
+                        <div className="flex items-center flex-wrap gap-4">
+                            {!isNotebookEmpty && (
+                                <button
+                                    onClick={handleAddNewScenario}
+                                    className="bg-white hover:bg-gray-200 text-brand-primary font-bold py-2.5 px-4 rounded-md transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" /></svg>
+                                    {activeSpot === 'Stats Analysis' ? 'Nova Análise' : 'Novo Cenário'}
+                                </button>
+                            )}
+                            
+                            {(activeSpot === 'Stats Analysis' && filteredScenarios.length > 1) && (
+                                <button onClick={handleSelectAll} className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors text-sm">
+                                    Selecionar Todas
+                                </button>
+                            )}
+                            
+                            {(activeSpot !== 'Stats Analysis' && filteredScenarios.length > 1 && scenariosToCompare.size === 0) && (
+                                <button onClick={handleSelectAll} className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors text-sm">
+                                    Selecionar Todos
+                                </button>
+                            )}
+
+                            {/* --- Progressive Disclosure: Buttons shown only when items are selected --- */}
+                            {scenariosToCompare.size > 0 && (
+                                <>
+                                    <button
+                                        onClick={handleStartComparison}
+                                        disabled={scenariosToCompare.size < 2}
+                                        className="bg-white hover:bg-gray-200 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed disabled:text-brand-primary/70 flex items-center justify-center gap-2"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M2 5a2 2 0 012-2h12a2 2 0 012 2v10a2 2 0 01-2-2H4a2 2 0 01-2-2V5zm14 0H4v10h12V5zM6 7a1 1 0 00-1 1v5a1 1 0 102 0V8a1 1 0 00-1-1zm4 0a1 1 0 00-1 1v5a1 1 0 102 0V8a1 1 0 00-1-1z" /></svg>
+                                        Comparar ({scenariosToCompare.size})
+                                    </button>
+                                    <div className="relative" ref={expandDropdownRef}>
+                                        <button onClick={() => setExpandDropdownOpen(p => !p)} className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors text-sm">
+                                            Expandir Cenários
+                                        </button>
+                                        {expandDropdownOpen && (
+                                            <div className="absolute top-full left-0 mt-2 w-48 bg-brand-bg rounded-md shadow-lg z-10 border border-brand-primary overflow-hidden">
+                                                <ul className="text-sm text-brand-text">
+                                                    <li><button onClick={() => handleSectionControl('expand', 'all')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Expandir Tudo</button></li>
+                                                    <li><button onClick={() => handleSectionControl('expand', 'params')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Spot Informations</button></li>
+                                                    <li><button onClick={() => handleSectionControl('expand', 'media')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Imagem/Dados</button></li>
+                                                    <li><button onClick={() => handleSectionControl('expand', 'notes')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Notes</button></li>
+                                                </ul>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="relative" ref={collapseDropdownRef}>
+                                        <button onClick={() => setCollapseDropdownOpen(p => !p)} className="bg-brand-primary hover:bg-brand-primary/80 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm">
+                                            Recolher Cenários
+                                        </button>
+                                         {collapseDropdownOpen && (
+                                            <div className="absolute top-full left-0 mt-2 w-48 bg-brand-bg rounded-md shadow-lg z-10 border border-brand-primary overflow-hidden">
+                                                <ul className="text-sm text-brand-text">
+                                                    <li><button onClick={() => handleSectionControl('collapse', 'all')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Recolher Tudo</button></li>
+                                                    <li><button onClick={() => handleSectionControl('collapse', 'params')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Spot Informations</button></li>
+                                                    <li><button onClick={() => handleSectionControl('collapse', 'media')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Imagem/Dados</button></li>
+                                                    <li><button onClick={() => handleSectionControl('collapse', 'notes')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Notes</button></li>
+                                                </ul>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <button onClick={handleClearCompare} className="bg-brand-primary hover:bg-brand-primary/80 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm">
+                                        Desmarcar Todos
+                                    </button>
+                                    <button onClick={() => setIsDeleteSelectionModalOpen(true)} className="bg-orange-700 hover:bg-orange-800 text-white font-semibold py-2 px-4 rounded-md transition-colors text-sm flex items-center justify-center gap-2">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" /></svg>
+                                        Excluir Seleção
+                                    </button>
+                                </>
+                            )}
+                        </div>
+
+                        {/* RIGHT GROUP */}
+                        <div className="flex items-center flex-wrap gap-4">
+                            <button
+                                onClick={() => setIsNotesSplitViewOpen(prev => !prev)}
+                                className={`${isNotesSplitViewOpen ? 'bg-brand-secondary text-brand-primary' : 'bg-brand-primary hover:bg-brand-primary/80 text-brand-text'} font-semibold py-2 px-4 rounded-md transition-colors text-sm flex items-center justify-center gap-2`}
+                                title="Abrir/Fechar painel de anotações"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M7 9a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2V9z" /><path d="M4 3a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H6a2 2 0 01-2-2V3z" /></svg>
+                                iNotes
+                            </button>
+
+                            {filteredScenarios.length > 0 && (
+                                <>
+                                    <button onClick={undoLastAction} disabled={!canUndo} className="bg-brand-primary hover:bg-brand-primary/80 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" title="Desfazer (Ctrl+Z)">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" /></svg>
+                                        Desfazer
+                                    </button>
+                                    <button onClick={redoLastAction} disabled={!canRedo} className="bg-brand-primary hover:bg-brand-primary/80 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" title="Refazer (Ctrl+Y)">
+                                        Refazer
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                                    </button>
+                                    <button onClick={() => setIsDeleteAllModalOpen(true)} className="bg-orange-700 hover:bg-orange-800 text-white font-semibold py-2 px-4 rounded-md transition-colors text-sm flex items-center justify-center gap-2" title="Excluir todos os cenários neste spot">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" /></svg>
+                                        Excluir Tudo
+                                    </button>
+                                </>
+                            )}
+                        </div>
                     </div>
                 </div>
                 
-                {/* --- CONTROL BAR --- */}
-                <div className="flex justify-between items-center flex-wrap gap-4 border-y border-brand-primary py-3">
-                    {/* LEFT GROUP */}
-                    <div className="flex items-center flex-wrap gap-4">
-                        {!isNotebookEmpty && (
+                <div className="flex-grow overflow-y-auto pr-2 -mr-2">
+                    <div className={`grid ${gridLayoutClass} gap-8`}>
+                        {filteredScenarios.map(scenario => (
+                            <ScenarioEditor
+                                key={scenario.id}
+                                scenario={scenario}
+                                onUpdate={handleUpdateScenario}
+                                onDelete={handleDeleteScenario}
+                                onDuplicate={handleDuplicateScenario}
+                                isSelectedForCompare={scenariosToCompare.has(scenario.id)}
+                                onToggleCompare={toggleCompare}
+                                isCollapsed={collapsedScenarios.has(scenario.id)}
+                                onToggleCollapse={toggleScenarioCollapse}
+                                sectionControl={sectionControl}
+                            />
+                        ))}
+                    </div>
+
+                    {filteredScenarios.length === 0 && (
+                        <div className="text-center py-16 text-brand-text-muted">
+                            <h3 className="text-xl font-semibold text-brand-text mb-4">{emptyMessages.title}</h3>
+                            {emptyMessages.subtitle && <p className="mb-6">{emptyMessages.subtitle}</p>}
                             <button
                                 onClick={handleAddNewScenario}
-                                className="bg-white hover:bg-gray-200 text-brand-primary font-bold py-2.5 px-4 rounded-md transition-colors flex items-center justify-center gap-2"
+                                className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 mx-auto text-lg transform hover:scale-105"
                             >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" /></svg>
-                                {activeSpot === 'Stats Analysis' ? 'Nova Análise' : 'Novo Cenário'}
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" /></svg>
+                                {emptyMessages.button}
                             </button>
-                        )}
-                        
-                        {(activeSpot === 'Stats Analysis' && filteredScenarios.length > 1) && (
-                            <button onClick={handleSelectAll} className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors text-sm">
-                                Selecionar Todas
-                            </button>
-                        )}
-                        
-                        {(activeSpot !== 'Stats Analysis' && filteredScenarios.length > 1 && scenariosToCompare.size === 0) && (
-                            <button onClick={handleSelectAll} className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors text-sm">
-                                Selecionar Todos
-                            </button>
-                        )}
-
-                        {/* --- Progressive Disclosure: Buttons shown only when items are selected --- */}
-                        {scenariosToCompare.size > 0 && (
-                            <>
-                                <button
-                                    onClick={handleStartComparison}
-                                    disabled={scenariosToCompare.size < 2}
-                                    className="bg-white hover:bg-gray-200 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed disabled:text-brand-primary/70 flex items-center justify-center gap-2"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M2 5a2 2 0 012-2h12a2 2 0 012 2v10a2 2 0 01-2-2H4a2 2 0 01-2-2V5zm14 0H4v10h12V5zM6 7a1 1 0 00-1 1v5a1 1 0 102 0V8a1 1 0 00-1-1zm4 0a1 1 0 00-1 1v5a1 1 0 102 0V8a1 1 0 00-1-1z" /></svg>
-                                    Comparar ({scenariosToCompare.size})
-                                </button>
-                                <div className="relative" ref={expandDropdownRef}>
-                                    <button onClick={() => setExpandDropdownOpen(p => !p)} className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors text-sm">
-                                        Expandir Cenários
-                                    </button>
-                                    {expandDropdownOpen && (
-                                        <div className="absolute top-full left-0 mt-2 w-48 bg-brand-bg rounded-md shadow-lg z-10 border border-brand-primary overflow-hidden">
-                                            <ul className="text-sm text-brand-text">
-                                                <li><button onClick={() => handleSectionControl('expand', 'all')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Expandir Tudo</button></li>
-                                                <li><button onClick={() => handleSectionControl('expand', 'params')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Spot Informations</button></li>
-                                                <li><button onClick={() => handleSectionControl('expand', 'media')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Imagem/Dados</button></li>
-                                                <li><button onClick={() => handleSectionControl('expand', 'notes')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Notes</button></li>
-                                            </ul>
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="relative" ref={collapseDropdownRef}>
-                                    <button onClick={() => setCollapseDropdownOpen(p => !p)} className="bg-brand-primary hover:bg-brand-primary/80 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm">
-                                        Recolher Cenários
-                                    </button>
-                                     {collapseDropdownOpen && (
-                                        <div className="absolute top-full left-0 mt-2 w-48 bg-brand-bg rounded-md shadow-lg z-10 border border-brand-primary overflow-hidden">
-                                            <ul className="text-sm text-brand-text">
-                                                <li><button onClick={() => handleSectionControl('collapse', 'all')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Recolher Tudo</button></li>
-                                                <li><button onClick={() => handleSectionControl('collapse', 'params')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Spot Informations</button></li>
-                                                <li><button onClick={() => handleSectionControl('collapse', 'media')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Imagem/Dados</button></li>
-                                                <li><button onClick={() => handleSectionControl('collapse', 'notes')} className="w-full text-left px-4 py-2 hover:bg-brand-primary">Notes</button></li>
-                                            </ul>
-                                        </div>
-                                    )}
-                                </div>
-                                <button onClick={handleClearCompare} className="bg-brand-primary hover:bg-brand-primary/80 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm">
-                                    Desmarcar Todos
-                                </button>
-                                <button onClick={() => setIsDeleteSelectionModalOpen(true)} className="bg-orange-700 hover:bg-orange-800 text-white font-semibold py-2 px-4 rounded-md transition-colors text-sm flex items-center justify-center gap-2">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" /></svg>
-                                    Excluir Seleção
-                                </button>
-                            </>
-                        )}
-                    </div>
-
-                    {/* RIGHT GROUP */}
-                    <div className="flex items-center flex-wrap gap-4">
-                       
-                        {filteredScenarios.length > 0 && (
-                            <>
-                                <button onClick={undoLastAction} disabled={!canUndo} className="bg-brand-primary hover:bg-brand-primary/80 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" title="Desfazer (Ctrl+Z)">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" /></svg>
-                                    Desfazer
-                                </button>
-                                <button onClick={redoLastAction} disabled={!canRedo} className="bg-brand-primary hover:bg-brand-primary/80 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" title="Refazer (Ctrl+Y)">
-                                    Refazer
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
-                                </button>
-                                <button onClick={() => setIsDeleteAllModalOpen(true)} className="bg-orange-700 hover:bg-orange-800 text-white font-semibold py-2 px-4 rounded-md transition-colors text-sm flex items-center justify-center gap-2" title="Excluir todos os cenários neste spot">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" /></svg>
-                                    Excluir Tudo
-                                </button>
-                            </>
-                        )}
-                    </div>
+                        </div>
+                    )}
                 </div>
             </div>
-            
-            <div className={`grid ${gridLayoutClass} gap-8`}>
-                {filteredScenarios.map(scenario => (
-                    <ScenarioEditor
-                        key={scenario.id}
-                        scenario={scenario}
-                        onUpdate={handleUpdateScenario}
-                        onDelete={handleDeleteScenario}
-                        onDuplicate={handleDuplicateScenario}
-                        isSelectedForCompare={scenariosToCompare.has(scenario.id)}
-                        onToggleCompare={toggleCompare}
-                        isCollapsed={collapsedScenarios.has(scenario.id)}
-                        onToggleCollapse={toggleScenarioCollapse}
-                        sectionControl={sectionControl}
+
+            {isNotesSplitViewOpen && (
+                <>
+                    <div 
+                        onMouseDown={handleNotesPanelMouseDown}
+                        className="w-1.5 cursor-col-resize bg-brand-primary hover:bg-brand-secondary transition-colors duration-200 flex-shrink-0"
+                        title="Arraste para redimensionar"
                     />
-                ))}
-            </div>
-
-            {filteredScenarios.length === 0 && (
-                <div className="text-center py-16 text-brand-text-muted">
-                    <h3 className="text-xl font-semibold text-brand-text mb-4">{emptyMessages.title}</h3>
-                    {emptyMessages.subtitle && <p className="mb-6">{emptyMessages.subtitle}</p>}
-                    <button
-                        onClick={handleAddNewScenario}
-                        className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 mx-auto text-lg transform hover:scale-105"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" /></svg>
-                        {emptyMessages.button}
-                    </button>
-                </div>
+                    <div style={{ width: `${notesPanelWidth}px` }} className="flex-shrink-0 h-full">
+                        <NotebookNotesEditor
+                            notebookId={activeNotebook.id}
+                            initialContent={activeNotebook.notes || ''}
+                            onSave={handleSaveNotes}
+                            isSplitViewMode={true}
+                        />
+                    </div>
+                </>
             )}
             
             <ConfirmationModal
