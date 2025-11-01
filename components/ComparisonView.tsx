@@ -1,6 +1,6 @@
-
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import type { Scenario } from '../types';
+import { useComparison, CardState, ComparisonLayoutState } from '../contexts/ComparisonContext';
 
 const getScenarioTitle = (scenario: Scenario): string => {
     if (scenario.manualTitle) {
@@ -10,6 +10,10 @@ const getScenarioTitle = (scenario: Scenario): string => {
     const { spotType, gameScenario } = scenario;
     const gsSuffix = gameScenario ? ` [${gameScenario}]` : '';
 
+    if (spotType === 'Stats Analysis') {
+        return `Análise de Stats${gsSuffix}`;
+    }
+
     if (spotType === 'Blind War') {
         const { blindWarPosition, blindWarAction } = scenario;
         if (!blindWarPosition || !blindWarAction) return `Blind War (Incompleto)${gsSuffix}`;
@@ -18,7 +22,7 @@ const getScenarioTitle = (scenario: Scenario): string => {
     
     if (spotType === 'HRC Enviroment') {
         const { rangeAction, raiserPos, heroPos, coldCallerPos, aggressorPos } = scenario;
-        if (!rangeAction) return `HRC Enviroment (Incompleto)${gsSuffix}`;
+        if (!rangeAction) return `GTO Mastered (Incompleto)${gsSuffix}`;
 
         let baseTitle = `${rangeAction}`;
         if (rangeAction === 'RFI' && raiserPos) {
@@ -49,10 +53,11 @@ const getScenarioTitle = (scenario: Scenario): string => {
 
 // --- DraggableZoomModal Component (replaces old RangeZoomModal) ---
 const DraggableZoomModal: React.FC<{ imageSrc: string; onClose: () => void }> = ({ imageSrc, onClose }) => {
-    const [position, setPosition] = useState({ x: window.innerWidth * 0.2, y: window.innerHeight * 0.1 });
-    const [size, setSize] = useState({ width: window.innerWidth * 0.6, height: window.innerHeight * 0.8 });
+    const [position, setPosition] = useState({ x: 0, y: 0 });
+    const [size, setSize] = useState({ width: 0, height: 0 });
     const [scale, setScale] = useState(1);
     const [offset, setOffset] = useState({ x: 0, y: 0 });
+    const [isSized, setIsSized] = useState(false);
 
     const stateRef = useRef({
         isWindowDragging: false,
@@ -70,6 +75,24 @@ const DraggableZoomModal: React.FC<{ imageSrc: string; onClose: () => void }> = 
     const imgRef = useRef<HTMLImageElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                onClose();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [onClose]);
+
+    useEffect(() => {
+        setIsSized(false);
+        setScale(1);
+        setOffset({ x: 0, y: 0 });
+    }, [imageSrc]);
+
     const clampOffset = useCallback((newOffset: {x: number, y: number}, currentScale: number) => {
         if (!imgRef.current || !containerRef.current) return newOffset;
         
@@ -179,11 +202,51 @@ const DraggableZoomModal: React.FC<{ imageSrc: string; onClose: () => void }> = 
     const handleZoomOut = (e: React.MouseEvent) => { e.stopPropagation(); const newScale = Math.max(scale / 1.2, 1); setScale(newScale); setOffset(prev => clampOffset(prev, newScale));};
     const handleZoomReset = (e: React.MouseEvent) => { e.stopPropagation(); setScale(1); setOffset({ x: 0, y: 0 }); };
 
+    const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+        if (isSized || !e.currentTarget) return;
+        const img = e.currentTarget;
+        const { naturalWidth, naturalHeight } = img;
+        
+        const padding = 80;
+        const maxWidth = window.innerWidth - padding;
+        const maxHeight = window.innerHeight - padding;
+        const imageRatio = naturalWidth / naturalHeight;
+        const containerRatio = maxWidth / maxHeight;
+
+        let initialWidth, initialHeight;
+
+        if (imageRatio > containerRatio) {
+            initialWidth = maxWidth;
+            initialHeight = maxWidth / imageRatio;
+        } else {
+            initialHeight = maxHeight;
+            initialWidth = maxHeight * imageRatio;
+        }
+
+        const titleBarHeight = 40;
+        const finalWidth = Math.max(initialWidth, 300);
+        const finalHeight = Math.max(initialHeight, 250) + titleBarHeight;
+
+        setSize({ width: finalWidth, height: finalHeight });
+        setPosition({
+            x: (window.innerWidth - finalWidth) / 2,
+            y: (window.innerHeight - finalHeight) / 2,
+        });
+        setIsSized(true);
+    };
+
     return (
         <div
             ref={nodeRef}
-            className="fixed bg-brand-primary rounded-lg shadow-2xl border-2 border-brand-secondary/50 flex flex-col"
-            style={{ left: position.x, top: position.y, width: size.width, height: size.height, zIndex: 10000 }}
+            className="fixed bg-brand-primary rounded-lg shadow-2xl border-2 border-brand-secondary/50 flex flex-col transition-opacity duration-200"
+            style={{ 
+                left: position.x, 
+                top: position.y, 
+                width: size.width, 
+                height: size.height, 
+                zIndex: 10000,
+                opacity: isSized ? 1 : 0,
+            }}
             onWheel={handleWheel}
         >
             <div
@@ -204,6 +267,7 @@ const DraggableZoomModal: React.FC<{ imageSrc: string; onClose: () => void }> = 
                     ref={imgRef}
                     src={imageSrc}
                     alt="Range ampliado"
+                    onLoad={handleImageLoad}
                     className="max-w-none max-h-none transition-transform duration-100"
                     style={{
                         transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
@@ -227,7 +291,7 @@ const DraggableZoomModal: React.FC<{ imageSrc: string; onClose: () => void }> = 
 };
 
 
-// --- DraggableImageViewer Component ---
+// --- DraggableImageViewer Component (For HRC Modals) ---
 interface DraggableImageViewerProps {
   id: string;
   title: string;
@@ -365,6 +429,138 @@ const DraggableImageViewer: React.FC<DraggableImageViewerProps> = ({ id, title, 
 };
 
 
+// --- FreeDraggableCard Component (For Stats Analysis Canvas) ---
+const FreeDraggableCard: React.FC<{
+  cardState: CardState;
+  scenario: Scenario;
+  onUpdate: (id: string, updates: Partial<Pick<CardState, 'position' | 'size'>>) => void;
+  onBringToFront: (id: string) => void;
+  onZoom: (src: string) => void;
+}> = ({ cardState, scenario, onUpdate, onBringToFront, onZoom }) => {
+    const stateRef = useRef({
+        isDragging: false,
+        isResizing: false,
+        startX: 0,
+        startY: 0,
+        initialX: 0,
+        initialY: 0,
+        initialW: 0,
+        initialH: 0,
+    });
+
+    const handleMouseMove = useCallback((event: MouseEvent) => {
+        if (stateRef.current.isDragging) {
+            const dx = event.clientX - stateRef.current.startX;
+            const dy = event.clientY - stateRef.current.startY;
+            onUpdate(cardState.id, { position: { x: stateRef.current.initialX + dx, y: stateRef.current.initialY + dy } });
+        }
+        if (stateRef.current.isResizing) {
+            const dx = event.clientX - stateRef.current.startX;
+            const dy = event.clientY - stateRef.current.startY;
+            onUpdate(cardState.id, { size: { width: Math.max(300, stateRef.current.initialW + dx), height: Math.max(250, stateRef.current.initialH + dy) } });
+        }
+    }, [onUpdate, cardState.id]);
+
+    const handleMouseUp = useCallback(() => {
+        stateRef.current.isDragging = false;
+        stateRef.current.isResizing = false;
+        document.body.style.cursor = 'default';
+        document.body.style.userSelect = '';
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
+    }, [handleMouseMove]);
+
+    const handleDragMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        onBringToFront(cardState.id);
+        stateRef.current = {
+            ...stateRef.current,
+            isDragging: true,
+            startX: e.clientX,
+            startY: e.clientY,
+            initialX: cardState.position.x,
+            initialY: cardState.position.y,
+        };
+        document.body.style.userSelect = 'none';
+        document.body.style.cursor = 'move';
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+    };
+
+    const handleResizeMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+        e.stopPropagation();
+        e.preventDefault();
+        onBringToFront(cardState.id);
+        stateRef.current = {
+            ...stateRef.current,
+            isResizing: true,
+            startX: e.clientX,
+            startY: e.clientY,
+            initialW: cardState.size.width,
+            initialH: cardState.size.height,
+        };
+        document.body.style.userSelect = 'none';
+        document.body.style.cursor = 'se-resize';
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+    };
+
+    useEffect(() => {
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [handleMouseMove, handleMouseUp]);
+
+    return (
+      <div
+        className="absolute bg-brand-primary rounded-lg shadow-2xl border-2 border-brand-secondary/50 flex flex-col"
+        style={{
+            left: cardState.position.x,
+            top: cardState.position.y,
+            width: cardState.size.width,
+            height: cardState.size.height,
+            zIndex: cardState.zIndex,
+        }}
+        onMouseDown={() => onBringToFront(cardState.id)}
+      >
+        <div 
+          className="bg-brand-bg text-brand-text p-2 rounded-t-lg flex justify-between items-center cursor-move"
+          onMouseDown={handleDragMouseDown}
+        >
+            <h3 className="font-bold text-sm text-center text-brand-text truncate pr-2" title={getScenarioTitle(scenario)}>
+                {getScenarioTitle(scenario)}
+            </h3>
+        </div>
+        <div className="p-2 flex-grow flex items-center justify-center relative overflow-hidden bg-brand-bg/20">
+            {scenario.rangeImage ? (
+                <>
+                    <img src={scenario.rangeImage} alt="Stats Analysis" className="max-w-full max-h-full object-contain"/>
+                    <div
+                        className="absolute inset-0 cursor-zoom-in"
+                        onClick={() => onZoom(scenario.rangeImage!)}
+                        title="Ampliar imagem"
+                    />
+                </>
+            ) : (
+                <span className="text-gray-500 text-sm">Sem Imagem</span>
+            )}
+        </div>
+        <div
+            className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize opacity-50 hover:opacity-100"
+            onMouseDown={handleResizeMouseDown}
+            title="Redimensionar"
+            style={{
+              borderBottom: '4px solid #f5c339',
+              borderRight: '4px solid #f5c339',
+              borderBottomRightRadius: '4px',
+            }}
+         />
+      </div>
+    );
+};
+
+
 // --- ComparisonView Component ---
 interface OpenModal {
   id: string;
@@ -377,6 +573,7 @@ interface OpenModal {
 interface ComparisonViewProps {
     scenarios: Scenario[];
     onBack: () => void;
+    comparisonKey: string;
 }
 
 const getNumCols = (gridElement: HTMLElement | null): number => {
@@ -385,9 +582,6 @@ const getNumCols = (gridElement: HTMLElement | null): number => {
         const gridTemplateColumns = gridComputedStyle.getPropertyValue('grid-template-columns');
         return gridTemplateColumns.split(' ').length;
     }
-    // Fallback based on window width if element isn't available yet.
-    // These breakpoints should match the Tailwind config.
-    // md: 768px, xl: 1280px, 2xl: 1536px
     const width = window.innerWidth;
     if (width >= 1536) return 5;
     if (width >= 1280) return 4;
@@ -405,17 +599,11 @@ const layouts = [
     { type: 'dual', labels: ['3', '5'], layouts: [{ rows: 3, cols: 5 }, { rows: 5, cols: 3 }] },
 ];
 
-// Helper function to determine if a layout button should be enabled
 const isLayoutEnabled = (rows: number, cols: number, count: number): boolean => {
     const totalSlots = rows * cols;
     if (totalSlots === 0) return false;
-    
-    // The rule is: the grid should be mostly full.
-    // For smaller grids (<= 6 slots), allow one empty slot.
-    // For larger grids (> 6 slots), allow up to two empty slots.
     const min = totalSlots <= 6 ? totalSlots - 1 : totalSlots - 2;
     const max = totalSlots;
-    
     return count >= min && count <= max;
 };
 
@@ -426,13 +614,18 @@ const gridColClassMap: { [key: number]: string } = {
     5: 'grid-cols-5',
 };
 
-const SimpleScenarioCard: React.FC<{ scenario: Scenario; onZoom: (src: string) => void }> = ({ scenario, onZoom }) => {
+const SimpleScenarioCard: React.FC<{ 
+    scenario: Scenario; 
+    onZoom: (src: string) => void;
+    onOpenImage: (scenario: Scenario, type: 'printSpotImage' | 'rpImage' | 'tableViewImage' | 'plusInfoImage' | 'evImage') => void;
+}> = ({ scenario, onZoom, onOpenImage }) => {
+    const isStats = scenario.spotType === 'Stats Analysis';
     return (
         <div className="w-full h-full bg-brand-primary rounded-lg p-3 border border-brand-bg flex flex-col">
             <h3 className="font-bold text-center text-brand-text truncate mb-2 flex-shrink-0" title={getScenarioTitle(scenario)}>
                 {getScenarioTitle(scenario)}
             </h3>
-            <div className="bg-brand-bg aspect-square rounded flex items-center justify-center relative flex-shrink-0">
+            <div className={`bg-brand-bg ${isStats ? 'aspect-video' : 'aspect-square'} rounded flex items-center justify-center relative flex-shrink-0`}>
                 {scenario.rangeImage ? (
                     <>
                         <img src={scenario.rangeImage} alt="Range" className="max-w-full max-h-full object-contain"/>
@@ -446,24 +639,34 @@ const SimpleScenarioCard: React.FC<{ scenario: Scenario; onZoom: (src: string) =
                     <span className="text-gray-500 text-sm">Sem Imagem</span>
                 )}
             </div>
-            {scenario.frequenciesImage && (
+            {!isStats && scenario.frequenciesImage && scenario.showFrequenciesInCompare && (
                 <div className="bg-brand-bg aspect-[6/1] rounded flex items-center justify-center relative mt-2 flex-shrink-0">
                     <img src={scenario.frequenciesImage} alt="Frequências" className="max-w-full max-h-full object-contain"/>
                     <div
                         className="absolute inset-0 cursor-zoom-in"
-                        onClick={() => onZoom(scenario.frequenciesImage)}
+                        onClick={() => onZoom(scenario.frequenciesImage!)}
+                        title="Ampliar imagem"
+                    />
+                </div>
+            )}
+             {!isStats && scenario.evImage && scenario.showEvInCompare && (
+                 <div className="bg-brand-bg aspect-square rounded flex items-center justify-center relative mt-2 flex-shrink-0">
+                    <img src={scenario.evImage} alt="EV" className="max-w-full max-h-full object-contain"/>
+                    <div
+                        className="absolute inset-0 cursor-zoom-in"
+                        onClick={() => onZoom(scenario.evImage!)}
                         title="Ampliar imagem"
                     />
                 </div>
             )}
             <div className="mt-auto pt-2 flex-shrink-0">
-                {(scenario.printSpotImage || scenario.rpImage || scenario.tableViewImage || scenario.plusInfoImage || scenario.evImage) && (
+                {!isStats && (scenario.printSpotImage || scenario.rpImage || scenario.tableViewImage || scenario.plusInfoImage || scenario.evImage) && (
                     <div className="flex justify-center flex-wrap gap-1.5">
-                    {scenario.printSpotImage && <button onClick={() => onZoom(scenario.printSpotImage!)} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">HRC Table View</button>}
-                    {scenario.rpImage && <button onClick={() => onZoom(scenario.rpImage!)} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">RP</button>}
-                    {scenario.evImage && <button onClick={() => onZoom(scenario.evImage!)} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">EV</button>}
-                    {scenario.tableViewImage && <button onClick={() => onZoom(scenario.tableViewImage!)} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">Table View</button>}
-                    {scenario.plusInfoImage && <button onClick={() => onZoom(scenario.plusInfoImage!)} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">+Info</button>}
+                    {scenario.printSpotImage && <button onClick={() => onOpenImage(scenario, 'printSpotImage')} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">HRC Table View</button>}
+                    {scenario.rpImage && <button onClick={() => onOpenImage(scenario, 'rpImage')} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">RP</button>}
+                    {scenario.evImage && <button onClick={() => onOpenImage(scenario, 'evImage')} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">EV</button>}
+                    {scenario.tableViewImage && <button onClick={() => onOpenImage(scenario, 'tableViewImage')} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">Table View</button>}
+                    {scenario.plusInfoImage && <button onClick={() => onOpenImage(scenario, 'plusInfoImage')} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">+Info</button>}
                     </div>
                 )}
             </div>
@@ -471,77 +674,267 @@ const SimpleScenarioCard: React.FC<{ scenario: Scenario; onZoom: (src: string) =
     );
 };
 
-const ComparisonView: React.FC<ComparisonViewProps> = ({ scenarios, onBack }) => {
-    const gridRef = useRef<HTMLDivElement>(null);
-    const [openModals, setOpenModals] = useState<OpenModal[]>([]);
-    const [zIndexCounter, setZIndexCounter] = useState(100);
-    const [zoomedImage, setZoomedImage] = useState<string | null>(null);
-    const lastModalPosition = useRef({ x: 50, y: 50 });
 
-    const [orderedScenarios, setOrderedScenarios] = useState<(Scenario | null)[]>([]);
-    const [originalOrder, setOriginalOrder] = useState<Scenario[]>([]);
-    const [history, setHistory] = useState<(Scenario | null)[][]>([]);
+const ComparisonView: React.FC<ComparisonViewProps> = ({ scenarios, onBack, comparisonKey }) => {
+    const gridRef = useRef<HTMLDivElement>(null);
+    const { scenariosToCompare, getLayoutState, setLayoutState } = useComparison();
     
+    const layoutState = getLayoutState(comparisonKey);
+    const { isSimpleMode, orderedScenarios: orderedScenarioIds, gridCols, zoomLevel, cardStates } = layoutState;
+
+    const setLayoutStateForKey = useCallback((updater: React.SetStateAction<ComparisonLayoutState>) => {
+        setLayoutState(comparisonKey, updater);
+    }, [comparisonKey, setLayoutState]);
+
+    // --- Local state (not persisted globally) ---
+    const [zoomedImage, setZoomedImage] = useState<string | null>(null);
+    const [openModals, setOpenModals] = useState<OpenModal[]>([]);
+    const [originalOrder, setOriginalOrder] = useState<Scenario[]>([]);
+    const [history, setHistory] = useState<(string | null)[][]>([]);
     const [draggedId, setDraggedId] = useState<string | null>(null);
     const [dropTarget, setDropTarget] = useState<{ index: number; position: 'top' | 'bottom' | 'left' | 'right' } | null>(null);
     const [isOverEmpty, setIsOverEmpty] = useState<number | null>(null);
+    const [zIndexCounter, setZIndexCounter] = useState(100);
+    const [statsZIndexCounter, setStatsZIndexCounter] = useState(100);
+    const lastModalPosition = useRef({ x: 50, y: 50 });
 
-    const [gridCols, setGridCols] = useState<number | null>(null);
-    const [zoomLevel, setZoomLevel] = useState(1);
+    // --- Memoize scenario map for efficient lookups ---
+    const scenarioMap = useMemo(() => new Map(scenarios.map(s => [s.id, s])), [scenarios]);
+
+    // --- Derive scenario objects from persisted IDs ---
+    const orderedScenarios = useMemo(() => {
+        return orderedScenarioIds.map(id => (id ? scenarioMap.get(id) || null : null));
+    }, [orderedScenarioIds, scenarioMap]);
+
+    // --- Wrapped setters to update global context state ---
+    const handleSetIsSimpleMode = useCallback((value: boolean | ((prevState: boolean) => boolean)) => {
+        setLayoutStateForKey(prev => ({ ...prev, isSimpleMode: typeof value === 'function' ? value(prev.isSimpleMode) : value }));
+    }, [setLayoutStateForKey]);
+
+    const handleSetZoomLevel = useCallback((value: number | ((prevState: number) => number)) => {
+        setLayoutStateForKey(prev => ({ ...prev, zoomLevel: typeof value === 'function' ? value(prev.zoomLevel) : value }));
+    }, [setLayoutStateForKey]);
+
+    const handleSetGridCols = useCallback((value: number | null) => {
+        setLayoutStateForKey(prev => ({...prev, gridCols: value}));
+    }, [setLayoutStateForKey]);
+
+    const handleSetCardStates = useCallback((updater: React.SetStateAction<CardState[]>) => {
+        setLayoutStateForKey(prev => ({ ...prev, cardStates: typeof updater === 'function' ? updater(prev.cardStates) : updater }));
+    }, [setLayoutStateForKey]);
+
+    const handleSetOrderedScenarios = useCallback((newOrder: (Scenario | null)[]) => {
+        setHistory(prev => [...prev.slice(-19), orderedScenarioIds]);
+        setLayoutStateForKey(prev => ({ ...prev, orderedScenarios: newOrder.map(s => (s ? s.id : null)) }));
+    }, [orderedScenarioIds, setLayoutStateForKey]);
+
+
+    const areAllStatsAnalysis = useMemo(() =>
+        scenarios.length > 0 && scenarios.every(s => s.spotType === 'Stats Analysis')
+    , [scenarios]);
     
-    const [isSimpleMode, setIsSimpleMode] = useState(true);
+    const isStatsCanvasMode = areAllStatsAnalysis && !isSimpleMode;
 
-    const handleZoomIn = () => setZoomLevel(prev => Math.min(prev + 0.1, 2));
-    const handleZoomOut = () => setZoomLevel(prev => Math.max(prev - 0.1, 0.5));
+    // --- Initialize or restore state when scenarios change ---
+    useEffect(() => {
+        const currentSignature = [...scenarios.map(s => s.id)].sort().join(',');
+
+        if (layoutState.scenarioIdsSignature !== currentSignature) {
+            const areAllStats = scenarios.length > 0 && scenarios.every(s => s.spotType === 'Stats Analysis');
+            const initialIsSimpleMode = !areAllStats;
+            const isStatsMode = areAllStats && !initialIsSimpleMode;
+
+            const newCardStates = isStatsMode ? scenarios.map((s, i) => ({
+                id: s.id,
+                position: { x: 60 + i * 40, y: 150 + i * 40 },
+                size: { width: 500, height: 400 },
+                zIndex: 100 + i,
+            })) : [];
+            
+            const newOrderedScenarios = isStatsMode ? [] : scenarios.map(s => s.id);
+
+            setLayoutStateForKey({
+                isSimpleMode: initialIsSimpleMode,
+                orderedScenarios: newOrderedScenarios,
+                gridCols: null,
+                zoomLevel: 1,
+                cardStates: newCardStates,
+                scenarioIdsSignature: currentSignature,
+            });
+            
+            setOriginalOrder(scenarios);
+            setHistory([]);
+        } else {
+            setOriginalOrder(scenarios);
+        }
+    }, [scenarios, layoutState.scenarioIdsSignature, setLayoutStateForKey]);
+
+
+    // --- Handlers for Canvas Mode ---
+    const handleUpdateCardState = useCallback((id: string, updates: Partial<Pick<CardState, 'position' | 'size'>>) => {
+        handleSetCardStates(prev => prev.map(card => card.id === id ? { ...card, ...updates } : card));
+    }, [handleSetCardStates]);
+
+    const handleBringCardToFront = useCallback((id: string) => {
+        setStatsZIndexCounter(prev => {
+            const newZIndex = prev + 1;
+            handleSetCardStates(current => current.map(m => m.id === id ? { ...m, zIndex: newZIndex } : m));
+            return newZIndex;
+        });
+    }, [handleSetCardStates]);
+    
+    // --- Handlers for Grid Mode ---
+    const handleUndo = useCallback(() => {
+        if (history.length === 0) return;
+        const lastStateIds = history[history.length - 1];
+        setLayoutStateForKey(prev => ({ ...prev, orderedScenarios: lastStateIds }));
+        setHistory(prev => prev.slice(0, prev.length - 1));
+    }, [history, setLayoutStateForKey]);
+    
+    const handleResetLayout = () => {
+        const originalOrderIds = originalOrder.map(s => s.id);
+        if (JSON.stringify(orderedScenarioIds) !== JSON.stringify(originalOrderIds)) {
+            handleSetOrderedScenarios(originalOrder);
+        }
+        if (zoomLevel !== 1) handleSetZoomLevel(1);
+        handleSetGridCols(null);
+    };
+
+    const handleAdjustLayout = () => {
+        const compacted = orderedScenarios.filter(s => s !== null);
+        if (compacted.length !== orderedScenarios.length) {
+            handleSetOrderedScenarios(compacted);
+        }
+    };
+    
+    const handleExpressLayout = useCallback((rows: number, cols: number) => {
+        const activeScenarios = orderedScenarios.filter((s): s is Scenario => !!s);
+        const newLayout: (Scenario | null)[] = Array(rows * cols).fill(null);
+        activeScenarios.forEach((scenario, index) => {
+            if (index < newLayout.length) newLayout[index] = scenario;
+        });
+        handleSetOrderedScenarios(newLayout);
+        handleSetGridCols(cols);
+    }, [orderedScenarios, handleSetOrderedScenarios, handleSetGridCols]);
+
+    const handleDragStart = (e: React.DragEvent, id: string) => {
+        setDraggedId(id);
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', id);
+    };
+
+    const handleDragEnd = () => {
+        setDraggedId(null);
+        setDropTarget(null);
+        setIsOverEmpty(null);
+    };
+
+    const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!draggedId) { handleDragEnd(); return; }
+    
+        const currentLayout = [...displayItems];
+        const sourceIndex = currentLayout.findIndex(s => s?.id === draggedId);
+        if (sourceIndex === -1) { handleDragEnd(); return; }
+    
+        const draggedItem = currentLayout[sourceIndex];
+        if (!draggedItem) { handleDragEnd(); return; }
+    
+        let newLayout: (Scenario | null)[] = [];
+    
+        if (isOverEmpty === dropIndex) {
+            newLayout = [...currentLayout];
+            newLayout[dropIndex] = draggedItem;
+            newLayout[sourceIndex] = null;
+        } else if (dropTarget?.index === dropIndex) {
+            const targetItem = currentLayout[dropIndex];
+            if(!targetItem) { handleDragEnd(); return; }
+            const compactedItems = orderedScenarios.filter(s => s && s.id !== draggedId);
+            let insertionIndex = compactedItems.findIndex(s => s?.id === targetItem.id);
+            if(insertionIndex === -1) insertionIndex = compactedItems.length;
+            const numCols = getNumCols(gridRef.current);
+            switch (dropTarget.position) {
+                case 'right': insertionIndex += 1; break;
+                case 'bottom': {
+                    let targetCompactIndex = -1, currentCompactIndex = 0;
+                    for(let i=0; i<orderedScenarios.length; i++) {
+                        if (orderedScenarios[i]) {
+                           if (orderedScenarios[i]?.id === targetItem.id) { targetCompactIndex = currentCompactIndex; break; }
+                           currentCompactIndex++;
+                        }
+                    }
+                    if (targetCompactIndex === -1) break;
+                    const targetRow = Math.floor(targetCompactIndex / numCols);
+                    insertionIndex = (targetRow + 1) * numCols;
+                    break;
+                }
+                case 'top': {
+                    let targetCompactIndex = -1, currentCompactIndex = 0;
+                    for(let i=0; i<orderedScenarios.length; i++) {
+                        if (orderedScenarios[i]) {
+                           if (orderedScenarios[i]?.id === targetItem.id) { targetCompactIndex = currentCompactIndex; break; }
+                           currentCompactIndex++;
+                        }
+                    }
+                    if (targetCompactIndex === -1) break;
+                    const targetRow = Math.floor(targetCompactIndex / numCols);
+                    insertionIndex = targetRow * numCols;
+                    break;
+                }
+            }
+            compactedItems.splice(insertionIndex, 0, draggedItem);
+            newLayout = compactedItems;
+        } else { handleDragEnd(); return; }
+    
+        let lastItemIndex = -1;
+        for (let i = newLayout.length - 1; i >= 0; i--) {
+            if (newLayout[i] !== null) { lastItemIndex = i; break; }
+        }
+        
+        const finalState = lastItemIndex === -1 ? [] : newLayout.slice(0, lastItemIndex + 1);
+        handleSetOrderedScenarios(finalState);
+        handleSetGridCols(null);
+        handleDragEnd();
+    };
 
     const displayItems = useMemo(() => {
         const items = [...orderedScenarios];
         const numCols = gridCols ?? getNumCols(gridRef.current);
-        if (numCols === 0) return items; // Avoid division by zero on initial render
-
-        // Calculate rows needed for content
-        // The effective length is the index of the last non-null item + 1
+        if (numCols === 0) return items;
         let effectiveLength = 0;
         for (let i = items.length - 1; i >= 0; i--) {
-            if (items[i]) {
-                effectiveLength = i + 1;
-                break;
-            }
+            if (items[i]) { effectiveLength = i + 1; break; }
         }
-
         const contentRows = effectiveLength > 0 ? Math.ceil(effectiveLength / numCols) : 0;
-        
-        // Add a few extra rows to provide ample drop space
         const extraRows = 3;
         const totalRows = contentRows + extraRows;
         const desiredLength = totalRows * numCols;
-
-        // Pad the array with nulls to fill the grid
-        while (items.length < desiredLength) {
-            items.push(null);
-        }
+        while (items.length < desiredLength) items.push(null);
         return items;
     }, [orderedScenarios, gridCols]);
 
-    useEffect(() => {
-        const initial = [...scenarios];
-        setOrderedScenarios(initial);
-        setOriginalOrder(initial);
-        setHistory([]);
-    }, [scenarios]);
+    const handleDragOver = (e: React.DragEvent, index: number) => {
+        e.preventDefault(); e.stopPropagation();
+        const scenarioAtTarget = displayItems[index];
+        if (scenarioAtTarget && scenarioAtTarget.id !== draggedId) {
+            setIsOverEmpty(null);
+            const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+            const relX = e.clientX - rect.left, relY = e.clientY - rect.top;
+            const pV = Math.abs(relY - rect.height / 2) / (rect.height / 2);
+            const pH = Math.abs(relX - rect.width / 2) / (rect.width / 2);
+            let pos: 'top' | 'bottom' | 'left' | 'right' = pV > pH ? (relY < rect.height / 2 ? 'top' : 'bottom') : (relX < rect.width / 2 ? 'left' : 'right');
+            if (!dropTarget || dropTarget.index !== index || dropTarget.position !== pos) setDropTarget({ index, position: pos });
+        } else if (!scenarioAtTarget) {
+            setDropTarget(null);
+            if (isOverEmpty !== index) setIsOverEmpty(index);
+        }
+    };
 
-
-    const pushToHistory = useCallback((currentState: (Scenario | null)[]) => {
-        setHistory(prev => [...prev.slice(-19), currentState]);
-    }, []);
-
-    const handleUndo = useCallback(() => {
-        if (history.length === 0) return;
-        const lastState = history[history.length - 1];
-        setOrderedScenarios(lastState);
-        setHistory(prev => prev.slice(0, prev.length - 1));
-    }, [history]);
-
+    const handleDragLeave = (e: React.DragEvent) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node)) { setDropTarget(null); setIsOverEmpty(null); }
+    };
+    
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
             if ((event.ctrlKey || event.metaKey) && event.key === 'z') {
@@ -552,241 +945,16 @@ const ComparisonView: React.FC<ComparisonViewProps> = ({ scenarios, onBack }) =>
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [handleUndo]);
-
-    const handleResetLayout = () => {
-        if (JSON.stringify(orderedScenarios) !== JSON.stringify(originalOrder)) {
-            pushToHistory(orderedScenarios);
-            setOrderedScenarios([...originalOrder]);
-        }
-        if (zoomLevel !== 1) {
-            setZoomLevel(1);
-        }
-        setGridCols(null);
-    };
-
-    const handleAdjustLayout = () => {
-        const compacted = orderedScenarios.filter(s => s !== null);
-        if (compacted.length !== orderedScenarios.length) {
-            pushToHistory(orderedScenarios);
-            setOrderedScenarios(compacted);
-        }
-    };
     
-    const handleExpressLayout = useCallback((rows: number, cols: number) => {
-        const activeScenarios = orderedScenarios.filter((s): s is Scenario => !!s);
-        
-        const newLayout: (Scenario | null)[] = Array(rows * cols).fill(null);
-        
-        activeScenarios.forEach((scenario, index) => {
-            if (index < newLayout.length) {
-                newLayout[index] = scenario;
-            }
-        });
-
-        pushToHistory(orderedScenarios);
-        setOrderedScenarios(newLayout);
-        setGridCols(cols);
-    }, [orderedScenarios, pushToHistory]);
-
-    const handleDragStart = (e: React.DragEvent, id: string) => {
-        setDraggedId(id);
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', id); // Necessary for Firefox
-    };
-
-    const handleDragOver = (e: React.DragEvent, index: number) => {
-        e.preventDefault();
-        e.stopPropagation();
-
-        const targetEl = e.currentTarget as HTMLDivElement;
-        const scenarioAtTarget = displayItems[index];
-        
-        if (scenarioAtTarget && scenarioAtTarget.id !== draggedId) {
-            setIsOverEmpty(null);
-            const rect = targetEl.getBoundingClientRect();
-            
-            const relX = e.clientX - rect.left;
-            const relY = e.clientY - rect.top;
-
-            const proximityToV = Math.abs(relY - rect.height / 2) / (rect.height / 2);
-            const proximityToH = Math.abs(relX - rect.width / 2) / (rect.width / 2);
-
-            let position: 'top' | 'bottom' | 'left' | 'right';
-
-            if (proximityToV > proximityToH) {
-                 position = relY < rect.height / 2 ? 'top' : 'bottom';
-            } else {
-                 position = relX < rect.width / 2 ? 'left' : 'right';
-            }
-
-            if (!dropTarget || dropTarget.index !== index || dropTarget.position !== position) {
-                setDropTarget({ index, position });
-            }
-        } else if (!scenarioAtTarget) { // It's an empty slot
-            setDropTarget(null);
-            if (isOverEmpty !== index) {
-                setIsOverEmpty(index);
-            }
-        }
-    };
-
-
-    const handleDragLeave = (e: React.DragEvent) => {
-        if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-             setDropTarget(null);
-             setIsOverEmpty(null);
-        }
-    };
-
-    const handleDragEnd = () => {
-        setDraggedId(null);
-        setDropTarget(null);
-        setIsOverEmpty(null);
-    };
-    
-    const handleDrop = (e: React.DragEvent, dropIndex: number) => {
-        e.preventDefault();
-        e.stopPropagation();
-    
-        if (!draggedId) {
-            handleDragEnd();
-            return;
-        }
-    
-        // The array that is currently rendered on screen.
-        const currentLayout = [...displayItems];
-        const sourceIndex = currentLayout.findIndex(s => s?.id === draggedId);
-        
-        // Ensure the dragged item is found and it's not dropped on itself.
-        if (sourceIndex === -1) { // Removed sourceIndex === dropIndex check to allow re-ordering into same cell for compaction
-            handleDragEnd();
-            return;
-        }
-    
-        pushToHistory(orderedScenarios);
-        const draggedItem = currentLayout[sourceIndex];
-        if (!draggedItem) {
-            handleDragEnd();
-            return;
-        }
-    
-        let newLayout: (Scenario | null)[] = [];
-    
-        // --- Determine action: MOVE or INSERT ---
-        
-        // MOVE: If dropping on an empty slot.
-        if (isOverEmpty === dropIndex) {
-            newLayout = [...currentLayout];
-            // Swap the item and the empty slot.
-            newLayout[dropIndex] = draggedItem;
-            newLayout[sourceIndex] = null;
-        } 
-        // INSERT: If dropping on an existing item.
-        else if (dropTarget?.index === dropIndex) {
-            const targetItem = currentLayout[dropIndex];
-            if(!targetItem) {
-                handleDragEnd();
-                return;
-            }
-    
-            // Create a new compact array without the dragged item to calculate insertion point.
-            const compactedItems = orderedScenarios.filter(s => s && s.id !== draggedId);
-            
-            // Find where to insert relative to the target item in the compacted list.
-            let insertionIndex = compactedItems.findIndex(s => s?.id === targetItem.id);
-            if(insertionIndex === -1) insertionIndex = compactedItems.length; // Failsafe
-    
-            const numCols = getNumCols(gridRef.current);
-            switch (dropTarget.position) {
-                case 'right':
-                    insertionIndex += 1;
-                    break;
-                case 'left':
-                    // Splice will insert before, which is correct.
-                    break;
-                case 'bottom': {
-                     // Find the effective index of the target in a "compacted" grid view
-                    let targetCompactIndex = -1;
-                    let currentCompactIndex = 0;
-                    for(let i=0; i<orderedScenarios.length; i++) {
-                        if (orderedScenarios[i]) {
-                           if (orderedScenarios[i]?.id === targetItem.id) {
-                                targetCompactIndex = currentCompactIndex;
-                                break;
-                           }
-                           currentCompactIndex++;
-                        }
-                    }
-                    if (targetCompactIndex === -1) break; // Failsafe
-                    
-                    const targetRow = Math.floor(targetCompactIndex / numCols);
-                    // Insert at the start of the next row.
-                    insertionIndex = (targetRow + 1) * numCols;
-                    break;
-                }
-                case 'top': {
-                     // Find the effective index of the target in a "compacted" grid view
-                    let targetCompactIndex = -1;
-                    let currentCompactIndex = 0;
-                    for(let i=0; i<orderedScenarios.length; i++) {
-                        if (orderedScenarios[i]) {
-                           if (orderedScenarios[i]?.id === targetItem.id) {
-                                targetCompactIndex = currentCompactIndex;
-                                break;
-                           }
-                           currentCompactIndex++;
-                        }
-                    }
-                    if (targetCompactIndex === -1) break; // Failsafe
-
-                    const targetRow = Math.floor(targetCompactIndex / numCols);
-                    // Insert at the start of the current row.
-                    insertionIndex = targetRow * numCols;
-                    break;
-                }
-            }
-            
-            compactedItems.splice(insertionIndex, 0, draggedItem);
-            newLayout = compactedItems;
-        } else {
-            // Invalid drop, do nothing.
-            handleDragEnd();
-            return;
-        }
-    
-        // --- Finalize state update ---
-    
-        // Trim trailing nulls from the new layout before saving to state.
-        // This keeps the `orderedScenarios` state clean.
-        let lastItemIndex = -1;
-        for (let i = newLayout.length - 1; i >= 0; i--) {
-            if (newLayout[i] !== null) {
-                lastItemIndex = i;
-                break;
-            }
-        }
-        
-        const finalState = lastItemIndex === -1 ? [] : newLayout.slice(0, lastItemIndex + 1);
-        setOrderedScenarios(finalState);
-        setGridCols(null); // Revert to responsive layout after manual drag/drop
-    
-        handleDragEnd();
-    };
-    
-    
+    // HRC Modals handlers
     const handleOpenImage = (scenario: Scenario, type: 'printSpotImage' | 'rpImage' | 'tableViewImage' | 'plusInfoImage' | 'evImage') => {
         const modalId = `${scenario.id}-${type}`;
-        const existingModal = openModals.find(m => m.id === modalId);
-
         const newZIndex = zIndexCounter + 1;
         setZIndexCounter(newZIndex);
-
-        if (existingModal) {
-            handleBringToFront(modalId);
+        if (openModals.find(m => m.id === modalId)) {
+            handleBringToFrontModal(modalId);
         } else {
-            const imageSrc = scenario[type];
-            if (!imageSrc) return;
-
+            const imageSrc = scenario[type]; if (!imageSrc) return;
             let buttonLabel = '';
             switch(type) {
                 case 'printSpotImage': buttonLabel = 'HRC Table View'; break;
@@ -795,303 +963,140 @@ const ComparisonView: React.FC<ComparisonViewProps> = ({ scenarios, onBack }) =>
                 case 'tableViewImage': buttonLabel = 'Table View'; break;
                 case 'plusInfoImage': buttonLabel = '+Info'; break;
             }
-
             const title = `${getScenarioTitle(scenario)} - ${buttonLabel}`;
-            
-            const newPos = { 
-                x: lastModalPosition.current.x + 30, 
-                y: lastModalPosition.current.y + 30 
-            };
-            
+            const newPos = { x: lastModalPosition.current.x + 30, y: lastModalPosition.current.y + 30 };
             if (newPos.x > window.innerWidth - 400 || newPos.y > window.innerHeight - 400) {
                 lastModalPosition.current = { x: 50, y: 50 };
                 newPos.x = lastModalPosition.current.x + 30;
                 newPos.y = lastModalPosition.current.y + 30;
             }
             lastModalPosition.current = newPos;
-
             setOpenModals(current => [...current, { id: modalId, title, imageSrc, zIndex: newZIndex, position: newPos }]);
         }
     };
-    
-    const handleCloseImage = (id: string) => {
-        setOpenModals(current => current.filter(m => m.id !== id));
-    };
-
-    const handleBringToFront = (id: string) => {
+    const handleCloseImage = (id: string) => setOpenModals(current => current.filter(m => m.id !== id));
+    const handleBringToFrontModal = (id: string) => {
         const newZIndex = zIndexCounter + 1;
         setZIndexCounter(newZIndex);
-        setOpenModals(current => 
-            current.map(m => m.id === id ? { ...m, zIndex: newZIndex } : m)
-        );
+        setOpenModals(current => current.map(m => m.id === id ? { ...m, zIndex: newZIndex } : m));
     };
-
     const handleCloseAll = () => setOpenModals([]);
-    
     const numActiveScenarios = useMemo(() => orderedScenarios.filter(s => !!s).length, [orderedScenarios]);
-    
     const imageAspectRatioClass = useMemo(() => {
-        if (gridCols && gridCols >= 4) {
-            // For wide, fixed layouts (e.g., 2x4, 2x5), use a wider aspect ratio
-            // to make cards shorter and fit more rows vertically.
-            return 'aspect-video';
-        }
-        if (!gridCols) { // For responsive layout
-            // Match the aspect ratio change to the responsive grid column change.
-            // `xl:` corresponds to when the grid becomes 4 columns wide.
-            return 'aspect-square xl:aspect-video';
-        }
-        // Default for narrower layouts (2 or 3 columns)
+        if (gridCols && gridCols >= 4) return 'aspect-video';
+        if (!gridCols) return 'aspect-square xl:aspect-video';
         return 'aspect-square';
     }, [gridCols]);
+    const gridClassName = gridCols ? gridColClassMap[gridCols] ?? 'grid-cols-4' : 'grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5';
 
-    const gridClassName = gridCols 
-        ? gridColClassMap[gridCols] ?? 'grid-cols-4' 
-        : 'grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5';
-    
     return (
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col h-full bg-brand-bg">
             <div className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-x-6 gap-y-4 p-6 bg-brand-primary border-b border-brand-bg">
-                {/* Left side: Title */}
                 <div className="flex items-center gap-4 flex-shrink-0">
                     <h2 className="text-2xl font-bold text-brand-text">Análises/Comparações:</h2>
                 </div>
-
-                {/* Middle section: All controls, centered */}
                 <div className="flex-grow flex flex-wrap items-center justify-center gap-x-6 gap-y-3">
-                    {/* Advanced controls - only show in advanced mode */}
-                    {!isSimpleMode && (
+                    {!isStatsCanvasMode && !isSimpleMode && (
                         <>
-                            {/* Control buttons */}
                             <div className="flex flex-wrap items-center gap-2">
                                 <span className="text-sm font-semibold text-brand-text-muted mr-2">Controles:</span>
-                                <button 
-                                    onClick={handleAdjustLayout}
-                                    disabled={!orderedScenarios.some(s => s === null)}
-                                    className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-2 px-3 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                                    title="Remover espaços vazios e ajustar o grid"
-                                >
-                                    Ajustar
-                                </button>
-                                <button 
-                                    onClick={handleUndo} 
-                                    disabled={history.length === 0}
-                                    className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-2 px-3 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center justify-center gap-2"
-                                    title="Desfazer (Ctrl+Z)"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" /></svg>
-                                    Desfazer
-                                </button>
-                                <button 
-                                    onClick={handleResetLayout}
-                                    className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-2 px-3 rounded-md transition-colors text-sm"
-                                >
-                                    Layout Original
-                                </button>
+                                <button onClick={handleAdjustLayout} disabled={!orderedScenarios.some(s => s === null)} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-2 px-3 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm">Ajustar</button>
+                                <button onClick={handleUndo} disabled={history.length === 0} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-2 px-3 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center justify-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" /></svg>Desfazer</button>
+                                <button onClick={handleResetLayout} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-2 px-3 rounded-md transition-colors text-sm">Layout Original</button>
                             </div>
-
-                            {/* Express layout buttons */}
                             <div className="flex flex-wrap items-center gap-2">
                                 <span className="text-sm font-semibold text-brand-text-muted mr-2">Layouts:</span>
                                 {layouts.map((layout) => {
                                     if (layout.type === 'single') {
                                         const enabled = isLayoutEnabled(layout.rows, layout.cols, numActiveScenarios);
-                                        return (
-                                            <button
-                                                key={layout.label}
-                                                onClick={() => handleExpressLayout(layout.rows, layout.cols)}
-                                                disabled={!enabled}
-                                                className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1.5 px-3 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                                                title={enabled ? `Organizar em ${layout.label}` : `Requer um número diferente de cenários`}
-                                            >
-                                                {layout.label}
-                                            </button>
-                                        );
+                                        return <button key={layout.label} onClick={() => handleExpressLayout(layout.rows, layout.cols)} disabled={!enabled} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1.5 px-3 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm">{layout.label}</button>;
                                     }
-
                                     if (layout.type === 'dual') {
-                                        const enabled1 = isLayoutEnabled(layout.layouts[0].rows, layout.layouts[0].cols, numActiveScenarios);
-                                        const enabled2 = isLayoutEnabled(layout.layouts[1].rows, layout.layouts[1].cols, numActiveScenarios);
-                                        
-                                        const title1 = enabled1 ? `Organizar em ${layout.layouts[0].rows}x${layout.layouts[0].cols}` : 'Requer um número diferente de cenários';
-                                        const title2 = enabled2 ? `Organizar em ${layout.layouts[1].rows}x${layout.layouts[1].cols}` : 'Requer um número diferente de cenários';
-                                        
-                                        return (
-                                            <div
-                                                key={`${layout.labels[0]}x${layout.labels[1]}`}
-                                                className={`flex items-center justify-center bg-brand-bg text-brand-text font-semibold rounded-md transition-colors text-sm ${(!enabled1 && !enabled2) ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                            >
-                                                <span
-                                                    onClick={(e) => {
-                                                        if (enabled1) {
-                                                            e.stopPropagation();
-                                                            handleExpressLayout(layout.layouts[0].rows, layout.layouts[0].cols);
-                                                        }
-                                                    }}
-                                                    className={`py-1.5 px-3 rounded-l-md ${enabled1 ? 'hover:bg-brand-primary cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}
-                                                    title={title1}
-                                                >
-                                                    {layout.labels[0]}
-                                                </span>
-                                                <span className="text-brand-text-muted text-xs select-none">x</span>
-                                                <span
-                                                    onClick={(e) => {
-                                                        if (enabled2) {
-                                                            e.stopPropagation();
-                                                            handleExpressLayout(layout.layouts[1].rows, layout.layouts[1].cols);
-                                                        }
-                                                    }}
-                                                    className={`py-1.5 px-3 rounded-r-md ${enabled2 ? 'hover:bg-brand-primary cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}
-                                                    title={title2}
-                                                >
-                                                    {layout.labels[1]}
-                                                </span>
-                                            </div>
-                                        );
+                                        const e1 = isLayoutEnabled(layout.layouts[0].rows, layout.layouts[0].cols, numActiveScenarios), e2 = isLayoutEnabled(layout.layouts[1].rows, layout.layouts[1].cols, numActiveScenarios);
+                                        return <div key={`${layout.labels[0]}x${layout.labels[1]}`} className={`flex items-center justify-center bg-brand-bg text-brand-text font-semibold rounded-md transition-colors text-sm ${(!e1 && !e2) ? 'opacity-50 cursor-not-allowed' : ''}`}><span onClick={(e) => { if (e1) { e.stopPropagation(); handleExpressLayout(layout.layouts[0].rows, layout.layouts[0].cols); } }} className={`py-1.5 px-3 rounded-l-md ${e1 ? 'hover:bg-brand-primary cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}>{layout.labels[0]}</span><span className="text-brand-text-muted text-xs select-none">x</span><span onClick={(e) => { if (e2) { e.stopPropagation(); handleExpressLayout(layout.layouts[1].rows, layout.layouts[1].cols); } }} className={`py-1.5 px-3 rounded-r-md ${e2 ? 'hover:bg-brand-primary cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}>{layout.labels[1]}</span></div>;
                                     }
                                     return null;
                                 })}
                             </div>
-                            
-                            {/* Zoom Controls */}
-                            <div className="flex flex-wrap items-center gap-2">
-                                <span className="text-sm font-semibold text-brand-text-muted mr-2">Zoom:</span>
-                                <button
-                                    onClick={handleZoomOut}
-                                    className="bg-brand-bg hover:brightness-125 text-brand-text font-bold w-8 h-8 rounded-md transition-colors text-lg flex items-center justify-center"
-                                    title="Diminuir zoom"
-                                >
-                                    -
-                                </button>
-                                <input
-                                    type="range"
-                                    min="0.5"
-                                    max="2"
-                                    step="0.01"
-                                    value={zoomLevel}
-                                    onChange={(e) => setZoomLevel(parseFloat(e.target.value))}
-                                    className="w-32 h-2 bg-brand-bg rounded-lg appearance-none cursor-pointer accent-brand-secondary"
-                                    title={`Zoom: ${Math.round(zoomLevel * 100)}%`}
-                                />
-                                <button
-                                    onClick={handleZoomIn}
-                                    className="bg-brand-bg hover:brightness-125 text-brand-text font-bold w-8 h-8 rounded-md transition-colors text-lg flex items-center justify-center"
-                                    title="Aumentar zoom"
-                                >
-                                    +
-                                </button>
-                            </div>
                         </>
                     )}
+                     <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-semibold text-brand-text-muted mr-2">Zoom:</span>
+                        <button onClick={() => handleSetZoomLevel(p => Math.max(p / 1.1, 0.5))} className="bg-brand-bg hover:brightness-125 text-brand-text font-bold w-8 h-8 rounded-md transition-colors text-lg flex items-center justify-center">-</button>
+                        <input type="range" min="0.5" max="2" step="0.01" value={zoomLevel} onChange={(e) => handleSetZoomLevel(parseFloat(e.target.value))} className="w-32 h-2 bg-brand-bg rounded-lg appearance-none cursor-pointer accent-brand-secondary"/>
+                        <button onClick={() => handleSetZoomLevel(p => Math.min(p * 1.1, 2))} className="bg-brand-bg hover:brightness-125 text-brand-text font-bold w-8 h-8 rounded-md transition-colors text-lg flex items-center justify-center">+</button>
+                    </div>
                 </div>
-
-                {/* Right side: Back button & Mode Toggle */}
                 <div className="flex items-center flex-shrink-0 gap-4">
-                    <button onClick={() => setIsSimpleMode(p => !p)} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm">
-                        {isSimpleMode ? 'Modo Avançado' : 'Modo Simples'}
-                    </button>
-                    {!isSimpleMode && openModals.length > 1 && (
-                        <button 
-                            onClick={handleCloseAll}
-                            className="bg-red-700 hover:bg-red-800 text-white font-bold py-2 px-4 rounded-md shadow-lg transition-transform hover:scale-105"
-                        >
-                            Fechar Tudo
-                        </button>
+                    {!areAllStatsAnalysis && (
+                        <button onClick={() => handleSetIsSimpleMode(p => !p)} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-2 px-4 rounded-md transition-colors text-sm">{isSimpleMode ? 'Modo Avançado' : 'Modo Simples'}</button>
                     )}
-                    <button onClick={onBack} className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors flex items-center justify-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" /></svg>
-                        Voltar
-                    </button>
+                    {!isSimpleMode && !isStatsCanvasMode && openModals.length > 1 && ( <button onClick={handleCloseAll} className="bg-red-700 hover:bg-red-800 text-white font-bold py-2 px-4 rounded-md shadow-lg transition-transform hover:scale-105">Fechar Tudo</button> )}
+                    <button onClick={onBack} className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold py-2 px-4 rounded-md transition-colors flex items-center justify-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" /></svg>Voltar</button>
                 </div>
             </div>
             
-            <div className="flex-grow p-6 overflow-y-auto">
+            <div className="flex-grow p-6 overflow-auto">
                 {scenarios.length < 2 ? (
-                     <div className="text-center py-12 text-brand-text-muted">
-                        <p>Selecione 2 ou mais cenários para comparar.</p>
-                    </div>
-                ) : isSimpleMode ? (
-                    // --- SIMPLE MODE ---
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
-                        {scenarios.map(scenario => (
-                            <SimpleScenarioCard key={scenario.id} scenario={scenario} onZoom={(src) => setZoomedImage(src)} />
-                        ))}
-                    </div>
-                ) : (
-                    // --- ADVANCED MODE ---
-                    <div
-                        style={{
+                     <div className="text-center py-12 text-brand-text-muted"><p>Selecione 2 ou mais cenários para comparar.</p></div>
+                ) : isStatsCanvasMode ? (
+                    <div 
+                        className="relative" 
+                        style={{ 
+                            width: '400vw',
+                            height: '400vh',
                             transform: `scale(${zoomLevel})`,
                             transformOrigin: 'top left',
-                            transition: 'transform 0.2s ease-out',
+                            transition: 'transform 0.2s ease-out'
                         }}
                     >
-                        <div
-                            ref={gridRef}
-                            className={`grid ${gridClassName} gap-4`}
-                            onDragEnd={handleDragEnd}
-                        >
+                        {scenarios.map(scenario => {
+                            const cardState = cardStates.find(cs => cs.id === scenario.id);
+                            if (!cardState) return null;
+                            return <FreeDraggableCard key={scenario.id} cardState={cardState} scenario={scenario} onUpdate={handleUpdateCardState} onBringToFront={handleBringCardToFront} onZoom={(src) => setZoomedImage(src)} />;
+                        })}
+                    </div>
+                ) : isSimpleMode ? (
+                     <div style={{ transform: `scale(${zoomLevel})`, transformOrigin: 'top left', transition: 'transform 0.2s ease-out' }}>
+                        {areAllStatsAnalysis ? (
+                            <div className="flex flex-col items-center gap-8 max-w-5xl mx-auto">
+                                {scenarios.map(scenario => (
+                                    <div key={scenario.id} className="w-full bg-brand-primary rounded-lg p-3 border border-brand-bg flex flex-col">
+                                        <h3 className="font-bold text-center text-brand-text truncate mb-2 flex-shrink-0" title={getScenarioTitle(scenario)}>{getScenarioTitle(scenario)}</h3>
+                                        <div className="bg-brand-bg rounded flex items-center justify-center relative">
+                                            {scenario.rangeImage ? ( <> <img src={scenario.rangeImage} alt="Stats Analysis" className="max-w-full h-auto object-contain rounded"/> <div className="absolute inset-0 cursor-zoom-in" onClick={() => scenario.rangeImage && setZoomedImage(scenario.rangeImage)} /> </> ) : ( <div className="w-full aspect-video flex items-center justify-center"><span className="text-gray-500 text-sm">Sem Imagem</span></div> )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : ( <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">{scenarios.map(scenario => <SimpleScenarioCard key={scenario.id} scenario={scenario} onZoom={(src) => setZoomedImage(src)} onOpenImage={handleOpenImage} />)}</div> )}
+                    </div>
+                ) : (
+                    <div style={{ transform: `scale(${zoomLevel})`, transformOrigin: 'top left', transition: 'transform 0.2s ease-out' }}>
+                        <div ref={gridRef} className={`grid ${gridClassName} gap-4`} onDragEnd={handleDragEnd}>
                             {displayItems.map((scenario, index) => {
-                                const isBeingDragged = draggedId === scenario?.id;
-                                
-                                // RENDER CARD
                                 if (scenario) {
                                     return (
-                                        <div
-                                            key={scenario.id}
-                                            className="relative"
-                                            onDragOver={(e) => handleDragOver(e, index)}
-                                            onDrop={(e) => handleDrop(e, index)}
-                                            onDragLeave={handleDragLeave}
-                                        >
+                                        <div key={scenario.id} className="relative" onDragOver={(e) => handleDragOver(e, index)} onDrop={(e) => handleDrop(e, index)} onDragLeave={handleDragLeave}>
                                             <div className={`absolute -top-1 left-0 right-0 h-2 bg-brand-secondary rounded-full transition-transform duration-150 origin-center z-10 ${dropTarget?.index === index && dropTarget.position === 'top' ? 'scale-x-100' : 'scale-x-0'}`} />
                                             <div className={`absolute -bottom-1 left-0 right-0 h-2 bg-brand-secondary rounded-full transition-transform duration-150 origin-center z-10 ${dropTarget?.index === index && dropTarget.position === 'bottom' ? 'scale-x-100' : 'scale-x-0'}`} />
                                             <div className={`absolute -left-1 top-0 bottom-0 w-2 bg-brand-secondary rounded-full transition-transform duration-150 origin-center z-10 ${dropTarget?.index === index && dropTarget.position === 'left' ? 'scale-y-100' : 'scale-y-0'}`} />
                                             <div className={`absolute -right-1 top-0 bottom-0 w-2 bg-brand-secondary rounded-full transition-transform duration-150 origin-center z-10 ${dropTarget?.index === index && dropTarget.position === 'right' ? 'scale-y-100' : 'scale-y-0'}`} />
-                                            
-                                            <div
-                                                draggable
-                                                onDragStart={(e) => handleDragStart(e, scenario.id)}
-                                                className={`w-full h-full bg-brand-primary rounded-lg p-3 border border-brand-bg cursor-move transition-opacity flex flex-col ${isBeingDragged ? 'opacity-20' : ''}`}
-                                            >
-                                                <h3 className="font-bold text-center text-brand-text truncate mb-2 flex-shrink-0" title={getScenarioTitle(scenario)}>
-                                                    {getScenarioTitle(scenario)}
-                                                </h3>
-                                                
+                                            <div draggable onDragStart={(e) => handleDragStart(e, scenario.id)} className={`w-full h-full bg-brand-primary rounded-lg p-3 border border-brand-bg cursor-move transition-opacity flex flex-col relative ${draggedId === scenario?.id ? 'opacity-20' : ''}`}>
+                                                <h3 className="font-bold text-center text-brand-text truncate mb-2 flex-shrink-0" title={getScenarioTitle(scenario)}>{getScenarioTitle(scenario)}</h3>
                                                 <div className={`bg-brand-bg ${imageAspectRatioClass} rounded flex items-center justify-center relative flex-shrink-0`}>
-                                                    {scenario.rangeImage ? (
-                                                    <>
-                                                        <img src={scenario.rangeImage} alt="Range" className="max-w-full max-h-full object-contain"/>
-                                                        <div
-                                                        className="absolute inset-0 cursor-zoom-in"
-                                                        onClick={() => scenario.rangeImage && setZoomedImage(scenario.rangeImage)}
-                                                        title="Ampliar imagem"
-                                                        />
-                                                    </>
-                                                    ) : (
-                                                    <span className="text-gray-500 text-sm">Sem Imagem</span>
-                                                    )}
+                                                    {scenario.rangeImage ? ( <> <img src={scenario.rangeImage} alt="Range" className="max-w-full max-h-full object-contain"/> <div className="absolute inset-0 cursor-zoom-in" onClick={() => scenario.rangeImage && setZoomedImage(scenario.rangeImage)} /> </> ) : ( <span className="text-gray-500 text-sm">Sem Imagem</span> )}
                                                 </div>
-                                                
-                                                {scenario.frequenciesImage && (
-                                                    <div className="bg-brand-bg aspect-[6/1] rounded flex items-center justify-center relative mt-2 flex-shrink-0">
-                                                    <img src={scenario.frequenciesImage} alt="Frequências" className="max-w-full max-h-full object-contain"/>
-                                                    <div
-                                                        className="absolute inset-0 cursor-zoom-in"
-                                                        onClick={() => setZoomedImage(scenario.frequenciesImage)}
-                                                        title="Ampliar imagem"
-                                                    />
-                                                    </div>
-                                                )}
-    
+                                                {scenario.frequenciesImage && scenario.showFrequenciesInCompare && <div className="bg-brand-bg aspect-[6/1] rounded flex items-center justify-center relative mt-2 flex-shrink-0"><img src={scenario.frequenciesImage} alt="Frequências" className="max-w-full max-h-full object-contain"/><div className="absolute inset-0 cursor-zoom-in" onClick={() => setZoomedImage(scenario.frequenciesImage!)}/></div>}
+                                                {scenario.evImage && scenario.showEvInCompare && <div className={`bg-brand-bg ${imageAspectRatioClass} rounded flex items-center justify-center relative mt-2 flex-shrink-0`}><img src={scenario.evImage} alt="EV" className="max-w-full max-h-full object-contain"/><div className="absolute inset-0 cursor-zoom-in" onClick={() => setZoomedImage(scenario.evImage!)}/></div>}
                                                 <div className="mt-auto pt-2 flex-shrink-0">
                                                     {(scenario.printSpotImage || scenario.rpImage || scenario.tableViewImage || scenario.plusInfoImage || scenario.evImage) && (
                                                         <div className="flex justify-center flex-wrap gap-1.5">
-                                                        {scenario.printSpotImage && <button onClick={() => handleOpenImage(scenario, 'printSpotImage')} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">HRC Table View</button>}
-                                                        {scenario.rpImage && <button onClick={() => handleOpenImage(scenario, 'rpImage')} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">RP</button>}
-                                                        {scenario.evImage && <button onClick={() => handleOpenImage(scenario, 'evImage')} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">EV</button>}
-                                                        {scenario.tableViewImage && <button onClick={() => handleOpenImage(scenario, 'tableViewImage')} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">Table View</button>}
-                                                        {scenario.plusInfoImage && <button onClick={() => handleOpenImage(scenario, 'plusInfoImage')} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">+Info</button>}
+                                                            {scenario.printSpotImage && <button onClick={() => handleOpenImage(scenario, 'printSpotImage')} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">HRC Table View</button>}
+                                                            {scenario.rpImage && <button onClick={() => handleOpenImage(scenario, 'rpImage')} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">RP</button>}
+                                                            {scenario.evImage && <button onClick={() => handleOpenImage(scenario, 'evImage')} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">EV</button>}
+                                                            {scenario.tableViewImage && <button onClick={() => handleOpenImage(scenario, 'tableViewImage')} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">Table View</button>}
+                                                            {scenario.plusInfoImage && <button onClick={() => handleOpenImage(scenario, 'plusInfoImage')} className="bg-brand-bg hover:brightness-125 text-brand-text font-semibold py-1 px-2 rounded-md transition-colors text-xs">+Info</button>}
                                                         </div>
                                                     )}
                                                 </div>
@@ -1099,17 +1104,7 @@ const ComparisonView: React.FC<ComparisonViewProps> = ({ scenarios, onBack }) =>
                                         </div>
                                     )
                                 }
-                                
-                                // RENDER EMPTY CELL
-                                return (
-                                    <div
-                                        key={`empty-${index}`}
-                                        className={`w-full min-h-[250px] rounded-lg transition-colors duration-150 ${isOverEmpty === index ? 'bg-brand-secondary/10 border-2 border-dashed border-brand-secondary' : ''}`}
-                                        onDragOver={(e) => handleDragOver(e, index)}
-                                        onDrop={(e) => handleDrop(e, index)}
-                                        onDragLeave={handleDragLeave}
-                                    />
-                                )
+                                return <div key={`empty-${index}`} className={`w-full min-h-[250px] rounded-lg transition-colors duration-150 ${isOverEmpty === index ? 'bg-brand-secondary/10 border-2 border-dashed border-brand-secondary' : ''}`} onDragOver={(e) => handleDragOver(e, index)} onDrop={(e) => handleDrop(e, index)} onDragLeave={handleDragLeave}/>
                             })}
                         </div>
                     </div>
@@ -1117,16 +1112,7 @@ const ComparisonView: React.FC<ComparisonViewProps> = ({ scenarios, onBack }) =>
             </div>
             
             {!isSimpleMode && openModals.map(modal => (
-                <DraggableImageViewer
-                    key={modal.id}
-                    id={modal.id}
-                    title={modal.title}
-                    imageSrc={modal.imageSrc}
-                    zIndex={modal.zIndex}
-                    initialPosition={modal.position}
-                    onClose={handleCloseImage}
-                    onBringToFront={handleBringToFront}
-                />
+                <DraggableImageViewer key={modal.id} id={modal.id} title={modal.title} imageSrc={modal.imageSrc} zIndex={modal.zIndex} initialPosition={modal.position} onClose={handleCloseImage} onBringToFront={handleBringToFrontModal} />
             ))}
             {zoomedImage && (
                 <DraggableZoomModal imageSrc={zoomedImage} onClose={() => setZoomedImage(null)} />

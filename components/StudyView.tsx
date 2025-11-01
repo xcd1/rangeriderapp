@@ -124,6 +124,22 @@ const StudyView: React.FC = () => {
 
     const [collapsedScenarios, setCollapsedScenarios] = useState<Set<string>>(initialCollapsedState);
     
+    const contentIndicators = useMemo(() => {
+        if (!activeNotebook) {
+            return {
+                spots: new Set<SpotType>(),
+                hasNotes: false,
+            };
+        }
+        // A simple check for content in notes, stripping basic HTML tags.
+        const hasNotesContent = !!(activeNotebook.notes && activeNotebook.notes.replace(/<[^>]*>?/gm, '').trim());
+
+        return {
+            spots: new Set(activeNotebook.scenarios.map(s => s.spotType)),
+            hasNotes: hasNotesContent,
+        };
+    }, [activeNotebook]);
+    
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (expandDropdownRef.current && !expandDropdownRef.current.contains(event.target as Node)) {
@@ -186,7 +202,6 @@ const StudyView: React.FC = () => {
             rpImage: null,
             tableViewImage: null,
             plusInfoImage: null,
-            // FIX: The 'evImage' property was missing but is required by the Scenario type. Initializing to null.
             evImage: null,
             rangeImage: null,
             frequenciesImage: null,
@@ -223,7 +238,6 @@ const StudyView: React.FC = () => {
             rpImage: null,
             tableViewImage: null,
             plusInfoImage: null,
-            // FIX: The 'evImage' property was missing but is required by the Scenario type. Initializing to null.
             evImage: null,
             gameScenario: null,
             rangeImage: null,
@@ -320,7 +334,7 @@ const StudyView: React.FC = () => {
         // Update intelligent compare
         removeMultipleIntelligentCompare(scenarioIdsToDelete);
 
-        // FIX: Explicitly define the generic type for `new Set()` as `<string>` to match the state's type `Set<string>`. This prevents a type inference issue where an empty Set was being typed as `Set<unknown>`, causing downstream errors.
+// FIX: Explicitly specify the generic type for new Set() to resolve a TypeScript type inference error where an empty set was being typed as Set<unknown>. This was causing Array.from to produce unknown[], leading to type errors in downstream functions.
         setScenariosToCompare(new Set<string>());
         setIsDeleteSelectionModalOpen(false);
 
@@ -331,7 +345,7 @@ const StudyView: React.FC = () => {
     };
 
     const toggleCompare = (scenarioId: string) => {
-        // FIX: Explicitly type `prev` to avoid it being inferred as `unknown` in some TypeScript configurations, which was causing type pollution.
+// FIX: Explicitly type `prev` to avoid it being inferred as `unknown` in some TypeScript configurations, which was causing type pollution.
         setScenariosToCompare((prev: Set<string>) => {
             const newSet = new Set(prev);
             if (newSet.has(scenarioId)) {
@@ -344,7 +358,7 @@ const StudyView: React.FC = () => {
     };
     
     const toggleScenarioCollapse = (scenarioId: string) => {
-        // FIX: Explicitly type `prev` to avoid it being inferred as `unknown` in some TypeScript configurations.
+// FIX: Explicitly type `prev` to avoid it being inferred as `unknown` in some TypeScript configurations.
         setCollapsedScenarios((prev: Set<string>) => {
             const newSet = new Set(prev);
             if (newSet.has(scenarioId)) {
@@ -357,7 +371,7 @@ const StudyView: React.FC = () => {
     };
 
     const handleClearCompare = () => {
-        // FIX: Explicitly specify the type for the new Set to avoid type inference issues.
+// FIX: Explicitly specify the type for the new Set to avoid type inference issues.
         setScenariosToCompare(new Set<string>());
         if (activeNotebookId && uid) {
             setComparisonState(uid, activeNotebookId, [], null);
@@ -369,14 +383,22 @@ const StudyView: React.FC = () => {
         setScenariosToCompare(allScenarioIds);
     };
 
-    const scenariosForComparisonView = activeNotebook?.scenarios?.filter(s => scenariosToCompare.has(s.id)) || [];
+    const scenariosForComparisonView = useMemo(() => {
+        if (!activeNotebook) return [];
+        // Create a map for efficient lookup.
+        const scenarioMap = new Map(activeNotebook.scenarios.map(s => [s.id, s]));
+        // Array.from(Set) preserves insertion order. Map over it to get scenarios in selection order.
+        return Array.from(scenariosToCompare)
+            .map(id => scenarioMap.get(id))
+            .filter((s): s is Scenario => !!s);
+    }, [activeNotebook, scenariosToCompare]);
     
     const handleSelectSpot = (spot: SpotType) => {
         if (activeNotebook) {
             updateNotebook(activeNotebook.id, { defaultSpot: spot });
         }
         setActiveSpot(spot);
-        // FIX: Explicitly specify the generic type for new Set() to resolve a TypeScript type inference error.
+// FIX: Explicitly specify the generic type for new Set() to resolve a TypeScript type inference error.
         setScenariosToCompare(new Set<string>());
     };
 
@@ -386,6 +408,7 @@ const StudyView: React.FC = () => {
         }
         setActiveSpot(spot);
         setView('spots');
+// FIX: Explicitly specify the generic type for new Set() to resolve a TypeScript type inference error.
         setScenariosToCompare(new Set<string>());
     };
 
@@ -415,7 +438,7 @@ const StudyView: React.FC = () => {
             setView('spots');
         }
        
-        // FIX: Explicitly specify the generic type for new Set() to resolve a TypeScript type inference error.
+// FIX: Explicitly specify the generic type for new Set() to resolve a TypeScript type inference error.
         setScenariosToCompare(new Set<string>());
         if (activeNotebookId && uid) {
             setComparisonState(uid, activeNotebookId, [], null);
@@ -481,7 +504,11 @@ const StudyView: React.FC = () => {
     }
 
     if (isComparing) {
-        return <ComparisonView scenarios={scenariosForComparisonView} onBack={handleBackFromComparison} />;
+        return <ComparisonView 
+            scenarios={scenariosForComparisonView} 
+            onBack={handleBackFromComparison} 
+            comparisonKey={activeNotebook.id}
+        />;
     }
 
     if (view === 'notes') {
@@ -545,44 +572,62 @@ const StudyView: React.FC = () => {
                         <InfoTooltip text="Spots são situações de poker comuns. Escolha uma categoria para começar a adicionar seus cenários de estudo." />
                     </div>
                     <div className="flex justify-center gap-8">
-                        {['Rfi', 'Facing 2bet', 'Blind War'].map(spot => (
-                            <button key={spot} onClick={() => handleSelectSpot(spot as SpotType)} className="group relative bg-brand-primary hover:bg-brand-bg text-brand-text font-bold py-6 px-4 rounded-lg text-xl transition-all transform hover:-translate-y-1 shadow-lg w-52">
-                                {spot}
-                                <span className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-72 text-sm font-normal text-brand-text-muted opacity-0 group-hover:opacity-100 transition-opacity whitespace-normal bg-brand-primary border border-brand-bg p-3 rounded shadow-lg z-20">
-                                  {JARGON_DEFINITIONS[spot]}
-                                </span>
-                            </button>
-                        ))}
+                        {['Rfi', 'Facing 2bet', 'Blind War'].map(spot => {
+                            const hasContent = contentIndicators.spots.has(spot as SpotType);
+                            return (
+                                <button key={spot} onClick={() => handleSelectSpot(spot as SpotType)} className={`group relative ${hasContent ? 'bg-brand-secondary text-brand-primary hover:brightness-110' : 'bg-brand-primary hover:bg-brand-bg text-brand-text'} font-bold py-6 px-4 rounded-lg text-xl transition-all transform hover:-translate-y-1 shadow-lg w-52`}>
+                                    {spot}
+                                    <span className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-72 text-sm font-normal text-brand-text-muted opacity-0 group-hover:opacity-100 transition-opacity whitespace-normal bg-brand-primary border border-brand-bg p-3 rounded shadow-lg z-20">
+                                      {JARGON_DEFINITIONS[spot]}
+                                    </span>
+                                </button>
+                            );
+                        })}
                     </div>
                 </div>
         
                 <div className="w-full max-w-4xl mx-auto mb-12">
                     <p className="text-lg text-brand-text-muted mb-6">GTO Factory</p>
                     <div className="flex justify-center gap-8">
-                         <button key={'HRC Enviroment'} onClick={() => handleSelectSpot('HRC Enviroment')} className="group relative bg-brand-primary hover:bg-brand-bg text-brand-text font-bold py-6 px-4 rounded-lg text-xl transition-all transform hover:-translate-y-1 shadow-lg w-52">
-                            HRC Enviroment
-                            <span className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-72 text-sm font-normal text-brand-text-muted opacity-0 group-hover:opacity-100 transition-opacity whitespace-normal bg-brand-primary border border-brand-bg p-3 rounded shadow-lg z-20">
-                              {JARGON_DEFINITIONS['HRC Enviroment']}
-                            </span>
-                        </button>
+                         {(() => {
+                            const hasContent = contentIndicators.spots.has('HRC Enviroment');
+                            return (
+                                <button key={'HRC Enviroment'} onClick={() => handleSelectSpot('HRC Enviroment')} className={`group relative ${hasContent ? 'bg-brand-secondary text-brand-primary hover:brightness-110' : 'bg-brand-primary hover:bg-brand-bg text-brand-text'} font-bold py-6 px-4 rounded-lg text-xl transition-all transform hover:-translate-y-1 shadow-lg w-52`}>
+                                    GTO Mastered
+                                    <span className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-72 text-sm font-normal text-brand-text-muted opacity-0 group-hover:opacity-100 transition-opacity whitespace-normal bg-brand-primary border border-brand-bg p-3 rounded shadow-lg z-20">
+                                      {JARGON_DEFINITIONS['HRC Enviroment']}
+                                    </span>
+                                </button>
+                            );
+                         })()}
                     </div>
                 </div>
 
                 <div className="w-full max-w-4xl mx-auto mb-12">
                     <p className="text-lg text-brand-text-muted mb-6">Performance</p>
                     <div className="flex justify-center">
-                        <button onClick={handleSelectPerformanceView} className="bg-brand-primary hover:bg-brand-bg text-brand-text font-bold py-8 px-4 rounded-lg text-xl transition-all transform hover:-translate-y-1 shadow-lg w-52">
-                            Performance Analysis
-                        </button>
+                        {(() => {
+                            const hasContent = contentIndicators.spots.has('Stats Analysis');
+                            return (
+                                <button onClick={handleSelectPerformanceView} className={`${hasContent ? 'bg-brand-secondary text-brand-primary hover:brightness-110' : 'bg-brand-primary hover:bg-brand-bg text-brand-text'} font-bold py-8 px-4 rounded-lg text-xl transition-all transform hover:-translate-y-1 shadow-lg w-52`}>
+                                    Performance Analysis
+                                </button>
+                            );
+                        })()}
                     </div>
                 </div>
                 
                 <div className="w-full max-w-4xl mx-auto">
                     <p className="text-lg text-brand-text-muted mb-6">Notes Section</p>
                     <div className="flex justify-center">
-                        <button onClick={handleSelectNotesView} className="bg-brand-primary hover:bg-brand-bg text-brand-text font-bold py-8 px-4 rounded-lg text-xl transition-all transform hover:-translate-y-1 shadow-lg w-52">
-                            Notes
-                        </button>
+                         {(() => {
+                            const hasContent = contentIndicators.hasNotes;
+                            return (
+                                <button onClick={handleSelectNotesView} className={`${hasContent ? 'bg-brand-secondary text-brand-primary hover:brightness-110' : 'bg-brand-primary hover:bg-brand-bg text-brand-text'} font-bold py-8 px-4 rounded-lg text-xl transition-all transform hover:-translate-y-1 shadow-lg w-52`}>
+                                    Notes
+                                </button>
+                            );
+                        })()}
                     </div>
                 </div>
                 <TemplateModal isOpen={isTemplateModalOpen} onClose={() => setIsTemplateModalOpen(false)} onSelect={handleCreateScenarioFromTemplate} />
@@ -594,7 +639,7 @@ const StudyView: React.FC = () => {
         'Stats Analysis': {
             title: isNotebookEmpty ? 'Crie sua primeira análise de stats com o range rider' : 'Sem análises.',
             subtitle: isNotebookEmpty ? '' : 'Adicione sua primeira análise para começar a estudar.',
-            button: isNotebookEmpty ? '+ Adicionar Nova Análise de Stats' : 'Adicionar Análise'
+            button: 'Nova Análise'
         },
         default: {
             title: isNotebookEmpty ? 'Crie seu primeiro estudo com o range rider' : 'Este spot está vazio.',
@@ -610,6 +655,7 @@ const StudyView: React.FC = () => {
         ? "grid-cols-1"
         : "grid-cols-1 md:grid-cols-2";
 
+    const displaySpot = activeSpot === 'HRC Enviroment' ? 'GTO Mastered' : activeSpot;
 
     // --- MAIN VIEW (WITH SCENARIOS) ---
     return (
@@ -621,7 +667,7 @@ const StudyView: React.FC = () => {
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" /></svg>
                            Voltar
                         </button>
-                        <h2 className="text-2xl font-bold text-brand-text">{activeNotebook.name} / {activeSpot}</h2>
+                        <h2 className="text-2xl font-bold text-brand-text">{activeNotebook.name} / {displaySpot}</h2>
                     </div>
                 </div>
                 

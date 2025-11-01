@@ -1,5 +1,3 @@
-
-
 import React, { useContext, useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { AppContext } from '../App';
 import ConfirmationModal from './ConfirmationModal';
@@ -96,6 +94,9 @@ interface NotebookItemProps {
     onDragStart: (e: React.DragEvent) => void;
     onDragEnd: (e: React.DragEvent) => void;
     onMove: (direction: 'up' | 'down') => void;
+    onMouseDown: (e: React.MouseEvent) => void;
+    onMouseUp: (e: React.MouseEvent) => void;
+    onMouseLeave: (e: React.MouseEvent) => void;
     isFirst: boolean;
     isLast: boolean;
 }
@@ -103,7 +104,7 @@ interface NotebookItemProps {
 const NotebookItem: React.FC<NotebookItemProps> = ({
     notebook, isActive, isDeleting, isEditing, isAnyItemBeingEdited, editedName,
     onSelect, onStartEditing, onCancelEditing, onSaveName, onNameChange, onNameKeyDown, onPromptDelete, onDuplicate,
-    onDragStart, onDragEnd, onMove, isFirst, isLast
+    onDragStart, onDragEnd, onMove, onMouseDown, onMouseUp, onMouseLeave, isFirst, isLast
 }) => {
     return (
         <li 
@@ -131,11 +132,13 @@ const NotebookItem: React.FC<NotebookItemProps> = ({
                 <>
                     <div
                         onClick={onSelect}
+                        onMouseDown={onMouseDown}
+                        onMouseUp={onMouseUp}
+                        onMouseLeave={onMouseLeave}
                         className={`flex items-center flex-grow truncate ${isDeleting ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                     >
-                         <svg xmlns="http://www.w3.org/2000/svg" className="h-[18px] w-[18px] mr-2 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                            <path d="M9 2a2 2 0 00-2 2v8a2 2 0 002 2h6a2 2 0 002-2V6.414A2 2 0 0016.414 5L14 2.586A2 2 0 0012.586 2H9z" />
-                            <path d="M3 8a2 2 0 012-2v8a2 2 0 01-2 2H3a2 2 0 01-2-2v-4a2 2 0 012-2h1z" />
+                         <svg xmlns="http://www.w3.org/2000/svg" className="h-[18px] w-[18px] mr-2 flex-shrink-0 text-brand-secondary" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M3 5a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V5zm2 1h10v1H5V6zm0 3h10v1H5V9zm0 3h6v1H5v-1z" clipRule="evenodd" />
                         </svg>
                         <span className="truncate pr-2" title={notebook.name}>{notebook.name}</span>
                     </div>
@@ -209,6 +212,8 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
   const [editedFolderName, setEditedFolderName] = useState('');
   const [folderToDelete, setFolderToDelete] = useState<Folder | null>(null);
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set());
+  const [creatingSubfolderIn, setCreatingSubfolderIn] = useState<string | null>(null);
+  const [newSubfolderName, setNewSubfolderName] = useState('');
   
   // Drag & Drop states
   const [draggedItem, setDraggedItem] = useState<{ id: string, type: 'notebook' | 'folder' } | null>(null);
@@ -216,8 +221,9 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
 
   // Modal State
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
-
-  const isAnyItemBeingEdited = !!editingNotebookId || !!editingFolderId;
+  
+  const longPressTimerRef = useRef<number | null>(null);
+  const isAnyItemBeingEdited = !!editingNotebookId || !!editingFolderId || !!creatingSubfolderIn;
   const isStateLoaded = useRef(false);
 
 
@@ -351,7 +357,7 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
       });
       folderNameToAdd = `Pasta ${maxNumber + 1}`;
     }
-    await addFolder(folderNameToAdd);
+    await addFolder(folderNameToAdd, null);
     setNewFolderName('');
   };
 
@@ -400,6 +406,43 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
     setCollapsedFolders(new Set());
   };
 
+  const handleStartCreatingSubfolder = (parentId: string) => {
+      setCollapsedFolders(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(parentId); // Ensure parent is expanded
+          return newSet;
+      });
+      setCreatingSubfolderIn(parentId);
+      setNewSubfolderName('');
+      // Cancel any other editing/creating actions
+      setEditingFolderId(null);
+      setEditingNotebookId(null);
+  };
+
+  const handleCancelCreatingSubfolder = () => {
+      setCreatingSubfolderIn(null);
+      setNewSubfolderName('');
+  };
+
+  const handleSaveNewSubfolder = async () => {
+      if (!creatingSubfolderIn) return;
+
+      let folderNameToAdd = newSubfolderName.trim();
+      if (folderNameToAdd === '') {
+          const siblings = folders.filter(f => f.parentId === creatingSubfolderIn);
+          let maxNumber = 0;
+          siblings.forEach(folder => {
+              const match = folder.name.match(/^Nova Pasta (\d+)$/);
+              if (match) maxNumber = Math.max(maxNumber, parseInt(match[1], 10));
+          });
+          folderNameToAdd = `Nova Pasta ${maxNumber + 1}`;
+      }
+
+      await addFolder(folderNameToAdd, creatingSubfolderIn);
+      handleCancelCreatingSubfolder();
+  };
+
+
   const handleMoveItem = useCallback(async (
       itemId: string, 
       type: 'notebook' | 'folder', 
@@ -437,9 +480,17 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
           { id: itemToSwapWith.id, type, createdAt: itemToSwapWith.createdAt }
       );
   }, [notebooks, folders, rootNotebooks, notebooksByFolder, rootFolders, foldersByParent, swapItemsOrder]);
+  
+    const cancelLongPress = () => {
+        if (longPressTimerRef.current) {
+            clearTimeout(longPressTimerRef.current);
+            longPressTimerRef.current = null;
+        }
+    };
 
   // --- Drag & Drop Handlers ---
   const handleDragStart = (e: React.DragEvent, id: string, type: 'notebook' | 'folder') => {
+    cancelLongPress();
     setDraggedItem({ id, type });
     e.dataTransfer.effectAllowed = 'move';
   };
@@ -508,6 +559,15 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
         onDragStart={(e) => handleDragStart(e, notebook.id, 'notebook')}
         onDragEnd={handleDragEnd}
         onMove={(direction) => handleMoveItem(notebook.id, 'notebook', direction)}
+        onMouseDown={() => {
+            cancelLongPress();
+            if (isAnyItemBeingEdited) return;
+            longPressTimerRef.current = window.setTimeout(() => {
+                handleStartEditingNotebook(notebook);
+            }, 1000);
+        }}
+        onMouseUp={cancelLongPress}
+        onMouseLeave={cancelLongPress}
         isFirst={index === 0}
         isLast={index === list.length - 1}
       />
@@ -541,7 +601,19 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
                     </>
                 ) : (
                     <>
-                        <div className="flex items-center truncate flex-grow cursor-pointer" onClick={() => toggleFolderCollapse(folder.id)}>
+                        <div 
+                            className="flex items-center truncate flex-grow cursor-pointer" 
+                            onClick={() => toggleFolderCollapse(folder.id)}
+                            onMouseDown={() => {
+                                cancelLongPress();
+                                if (isAnyItemBeingEdited) return;
+                                longPressTimerRef.current = window.setTimeout(() => {
+                                    handleStartEditingFolder(folder);
+                                }, 1000);
+                            }}
+                            onMouseUp={cancelLongPress}
+                            onMouseLeave={cancelLongPress}
+                        >
                              <div className="w-5 h-5 flex items-center justify-center mr-2">
                                 {isCollapsed ? (
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-[18px] w-[18px] flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
@@ -578,6 +650,10 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
                                     Renomear
                                 </ActionMenuItem>
+                                <ActionMenuItem onClick={(e) => { e.stopPropagation(); handleStartCreatingSubfolder(folder.id); }}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" /></svg>
+                                    Nova Subpasta
+                                </ActionMenuItem>
                                 {folder.parentId && (
                                     <ActionMenuItem 
                                         onClick={(e) => {
@@ -609,7 +685,31 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
                 <ul className="pl-4 ml-2 border-l border-brand-bg/30">
                     {childFolders.map((subFolder, i, arr) => renderFolderTree(subFolder, level + 1, i, arr))}
                     {notebooksInFolder.map((nb, i, arr) => renderNotebook(nb, i, arr))}
-                    {notebooksInFolder.length === 0 && childFolders.length === 0 && <li className="text-xs text-brand-text-muted p-2 italic" style={{ paddingLeft: `8px` }}>Pasta vazia</li>}
+                    {creatingSubfolderIn === folder.id && (
+                        <li>
+                            <div className="flex items-center p-2 text-sm">
+                                 <div className="w-5 h-5 flex items-center justify-center mr-2">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-[18px] w-[18px] flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                                        <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
+                                    </svg>
+                                 </div>
+                                <input
+                                    type="text"
+                                    value={newSubfolderName}
+                                    onChange={(e) => setNewSubfolderName(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') handleSaveNewSubfolder();
+                                        if (e.key === 'Escape') handleCancelCreatingSubfolder();
+                                    }}
+                                    onBlur={handleSaveNewSubfolder}
+                                    placeholder="Nome da subpasta..."
+                                    autoFocus
+                                    className="flex-grow bg-brand-bg text-brand-text rounded-md px-2 py-0.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-secondary w-full"
+                                />
+                            </div>
+                        </li>
+                    )}
+                    {notebooksInFolder.length === 0 && childFolders.length === 0 && creatingSubfolderIn !== folder.id && <li className="text-xs text-brand-text-muted p-2 italic" style={{ paddingLeft: `8px` }}>Pasta vazia</li>}
                 </ul>
             )}
         </li>

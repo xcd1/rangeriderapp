@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useLayoutEffect } from 'react';
+import React, { useRef, useEffect, useState, useLayoutEffect, useCallback, useMemo } from 'react';
 import type { Scenario, Position, GameScenario, RangeAction } from '../types';
 import { POSITIONS, GAME_SCENARIOS, FACING_2BET_ACTIONS, HRC_ACTIONS, POSITION_ORDER, BLIND_WAR_ACTIONS, BLIND_WAR_POSITIONS, JARGON_DEFINITIONS, STATS_ANALYSIS_SCENARIOS } from '../constants';
 import ImageUploader from './ImageUploader';
@@ -115,6 +115,18 @@ interface ImageViewerModalProps {
 }
 
 const ImageViewerModal: React.FC<ImageViewerModalProps> = ({ imageSrc, onClose, onDelete }) => {
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                onClose();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [onClose]);
+
     if (!imageSrc) return null;
 
     return (
@@ -153,80 +165,239 @@ const ImageViewerModal: React.FC<ImageViewerModalProps> = ({ imageSrc, onClose, 
     );
 };
 
-interface RangeZoomModalProps {
-    imageSrc: string | null;
+interface DraggableZoomModalProps {
+    imageSrc: string;
     onClose: () => void;
     onDelete?: () => void;
 }
 
-const RangeZoomModal: React.FC<RangeZoomModalProps> = ({ imageSrc, onClose, onDelete }) => {
+const DraggableZoomModal: React.FC<DraggableZoomModalProps> = ({ imageSrc, onClose, onDelete }) => {
+    const [position, setPosition] = useState({ x: 0, y: 0 });
+    const [size, setSize] = useState({ width: 0, height: 0 });
     const [scale, setScale] = useState(1);
     const [offset, setOffset] = useState({ x: 0, y: 0 });
+    const [isSized, setIsSized] = useState(false);
+
+    const stateRef = useRef({
+        isWindowDragging: false,
+        isImagePanning: false,
+        isResizing: false,
+        startX: 0,
+        startY: 0,
+        initialX: 0,
+        initialY: 0,
+        initialW: 0,
+        initialH: 0,
+    });
+    
+    const nodeRef = useRef<HTMLDivElement>(null);
     const imgRef = useRef<HTMLImageElement>(null);
-    const dragInfo = useRef({ isDragging: false, startX: 0, startY: 0, initialX: 0, initialY: 0 });
-    const [imgBounds, setImgBounds] = useState<DOMRect | null>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+    
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                onClose();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [onClose]);
 
     useEffect(() => {
-        // Reset zoom and pan when image changes or modal is reopened
+        setIsSized(false);
         setScale(1);
         setOffset({ x: 0, y: 0 });
     }, [imageSrc]);
 
-    useLayoutEffect(() => {
-        if (imgRef.current) {
-            setImgBounds(imgRef.current.getBoundingClientRect());
+    const clampOffset = useCallback((newOffset: {x: number, y: number}, currentScale: number) => {
+        if (!imgRef.current || !containerRef.current) return newOffset;
+        
+        const scaledWidth = imgRef.current.naturalWidth * currentScale;
+        const scaledHeight = imgRef.current.naturalHeight * currentScale;
+        const containerWidth = containerRef.current.clientWidth;
+        const containerHeight = containerRef.current.clientHeight;
+
+        const maxOffsetX = Math.max(0, (scaledWidth - containerWidth) / 2);
+        const maxOffsetY = Math.max(0, (scaledHeight - containerHeight) / 2);
+
+        return {
+            x: Math.max(-maxOffsetX, Math.min(maxOffsetX, newOffset.x)),
+            y: Math.max(-maxOffsetY, Math.min(maxOffsetY, newOffset.y)),
+        };
+    }, []);
+
+    const handleMouseMove = useCallback((e: MouseEvent) => {
+        if (stateRef.current.isWindowDragging) {
+            const dx = e.clientX - stateRef.current.startX;
+            const dy = e.clientY - stateRef.current.startY;
+            setPosition({ x: stateRef.current.initialX + dx, y: stateRef.current.initialY + dy });
+        } else if (stateRef.current.isImagePanning) {
+            const dx = e.clientX - stateRef.current.startX;
+            const dy = e.clientY - stateRef.current.startY;
+            const newOffset = { x: stateRef.current.initialX + dx, y: stateRef.current.initialY + dy };
+            setOffset(clampOffset(newOffset, scale));
+        } else if (stateRef.current.isResizing) {
+            const dx = e.clientX - stateRef.current.startX;
+            const dy = e.clientY - stateRef.current.startY;
+            setSize({
+                width: Math.max(300, stateRef.current.initialW + dx),
+                height: Math.max(250, stateRef.current.initialH + dy),
+            });
         }
-    }, [scale, offset, imageSrc]);
+    }, [scale, clampOffset]);
 
-    if (!imageSrc) return null;
+    const handleMouseUp = useCallback(() => {
+        if (nodeRef.current && stateRef.current.isImagePanning) {
+            const img = nodeRef.current.querySelector('img');
+            if(img) img.style.cursor = 'grab';
+        }
+        stateRef.current.isWindowDragging = false;
+        stateRef.current.isImagePanning = false;
+        stateRef.current.isResizing = false;
+        document.body.style.cursor = 'default';
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
+    }, [handleMouseMove]);
 
-    const handleZoomIn = () => setScale(s => Math.min(s * 1.2, 5));
-    const handleZoomOut = () => setScale(s => Math.max(s / 1.2, 1));
-    const handleZoomReset = () => { setScale(1); setOffset({ x: 0, y: 0 }); };
+    const handleWindowDragStart = (e: React.MouseEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        stateRef.current = {
+            ...stateRef.current,
+            isWindowDragging: true,
+            startX: e.clientX,
+            startY: e.clientY,
+            initialX: position.x,
+            initialY: position.y,
+        };
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+    };
 
-    const handleMouseDown = (e: React.MouseEvent<HTMLImageElement>) => {
+    const handleImagePanStart = (e: React.MouseEvent<HTMLImageElement>) => {
         if (scale <= 1) return;
-        dragInfo.current = { isDragging: true, startX: e.clientX, startY: e.clientY, initialX: offset.x, initialY: offset.y };
+        e.preventDefault();
+        stateRef.current = {
+            ...stateRef.current,
+            isImagePanning: true,
+            startX: e.clientX,
+            startY: e.clientY,
+            initialX: offset.x,
+            initialY: offset.y,
+        };
         e.currentTarget.style.cursor = 'grabbing';
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
     };
-
-    const handleMouseUp = (e: React.MouseEvent<HTMLImageElement>) => {
-        dragInfo.current.isDragging = false;
-        if (scale > 1) {
-            e.currentTarget.style.cursor = 'grab';
-        }
-    };
-
-    const handleMouseMove = (e: React.MouseEvent<HTMLImageElement>) => {
-        if (!dragInfo.current.isDragging) return;
-        const dx = e.clientX - dragInfo.current.startX;
-        const dy = e.clientY - dragInfo.current.startY;
-        setOffset({ x: dragInfo.current.initialX + dx, y: dragInfo.current.initialY + dy });
+    
+    const handleResizeStart = (e: React.MouseEvent<HTMLDivElement>) => {
+        e.stopPropagation();
+        e.preventDefault();
+        stateRef.current = {
+            ...stateRef.current,
+            isResizing: true,
+            startX: e.clientX,
+            startY: e.clientY,
+            initialW: size.width,
+            initialH: size.height,
+        };
+        document.body.style.cursor = 'se-resize';
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
     };
     
     const handleWheel = (e: React.WheelEvent) => {
         e.preventDefault();
-        if (e.deltaY < 0) handleZoomIn();
-        else handleZoomOut();
+        e.stopPropagation();
+        const newScale = e.deltaY < 0 ? scale * 1.1 : scale / 1.1;
+        const clampedScale = Math.max(1, Math.min(newScale, 10));
+        setScale(clampedScale);
+        setOffset(prev => clampOffset(prev, clampedScale));
+    };
+
+    const handleZoomIn = (e: React.MouseEvent) => { e.stopPropagation(); const newScale = Math.min(scale * 1.2, 10); setScale(newScale); setOffset(prev => clampOffset(prev, newScale)); };
+    const handleZoomOut = (e: React.MouseEvent) => { e.stopPropagation(); const newScale = Math.max(scale / 1.2, 1); setScale(newScale); setOffset(prev => clampOffset(prev, newScale));};
+    const handleZoomReset = (e: React.MouseEvent) => { e.stopPropagation(); setScale(1); setOffset({ x: 0, y: 0 }); };
+    
+    const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+        if (isSized || !e.currentTarget) return;
+        const img = e.currentTarget;
+        const { naturalWidth, naturalHeight } = img;
+        
+        const padding = 80;
+        const maxWidth = window.innerWidth - padding;
+        const maxHeight = window.innerHeight - padding;
+        const imageRatio = naturalWidth / naturalHeight;
+        const containerRatio = maxWidth / maxHeight;
+
+        let initialWidth, initialHeight;
+
+        if (imageRatio > containerRatio) {
+            initialWidth = maxWidth;
+            initialHeight = maxWidth / imageRatio;
+        } else {
+            initialHeight = maxHeight;
+            initialWidth = maxHeight * imageRatio;
+        }
+
+        const titleBarHeight = 40;
+        const finalWidth = Math.max(initialWidth, 300);
+        const finalHeight = Math.max(initialHeight, 250) + titleBarHeight;
+
+        setSize({ width: finalWidth, height: finalHeight });
+        setPosition({
+            x: (window.innerWidth - finalWidth) / 2,
+            y: (window.innerHeight - finalHeight) / 2,
+        });
+        setIsSized(true);
     };
 
     return (
-        <div className="fixed inset-0 flex flex-col justify-center items-center z-[60]" onClick={onClose}>
-            <div className="absolute top-4 right-4 z-[62] flex items-center gap-2 bg-brand-bg p-2 rounded-lg">
-                <button onClick={(e) => { e.stopPropagation(); handleZoomOut(); }} className="w-8 h-8 rounded-md bg-brand-primary text-lg font-bold flex items-center justify-center">-</button>
-                <button onClick={(e) => { e.stopPropagation(); handleZoomIn(); }} className="w-8 h-8 rounded-md bg-brand-primary text-lg font-bold flex items-center justify-center">+</button>
-                <button onClick={(e) => { e.stopPropagation(); handleZoomReset(); }} className="h-8 px-3 rounded-md bg-brand-primary text-sm">Reset</button>
-                <button onClick={onClose} className="w-8 h-8 rounded-md bg-brand-primary text-lg font-bold flex items-center justify-center">
+        <div
+            ref={nodeRef}
+            className="fixed bg-brand-primary rounded-lg shadow-2xl border-2 border-brand-secondary/50 flex flex-col transition-opacity duration-200"
+            style={{ 
+                left: position.x, 
+                top: position.y, 
+                width: size.width, 
+                height: size.height, 
+                zIndex: 10000,
+                opacity: isSized ? 1 : 0,
+            }}
+            onWheel={handleWheel}
+        >
+            <div
+                className="bg-brand-bg text-brand-text p-2 rounded-t-lg flex justify-between items-center cursor-move"
+                onMouseDown={handleWindowDragStart}
+            >
+                <div className="flex items-center gap-2">
+                    <button onClick={handleZoomOut} className="w-6 h-6 rounded-md bg-brand-primary text-lg font-bold flex items-center justify-center">-</button>
+                    <button onClick={handleZoomIn} className="w-6 h-6 rounded-md bg-brand-primary text-lg font-bold flex items-center justify-center">+</button>
+                    <button onClick={handleZoomReset} className="h-6 px-2 rounded-md bg-brand-primary text-xs">Reset</button>
+                </div>
+                <button onClick={onClose} className="text-white bg-red-600 hover:bg-red-700 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
                 </button>
             </div>
-            {onDelete && imgBounds && (
-                <button
-                    className="absolute text-white bg-black/50 hover:bg-red-700 px-3 py-1 text-sm rounded-full shadow-lg z-[61] transition-all hover:scale-105 flex items-center justify-center gap-1.5"
+            <div ref={containerRef} className="p-2 flex-grow flex items-center justify-center relative overflow-hidden bg-brand-bg/20">
+                <img
+                    ref={imgRef}
+                    src={imageSrc}
+                    alt="Range ampliado"
+                    onLoad={handleImageLoad}
+                    className="max-w-none max-h-none transition-transform duration-100"
                     style={{
-                        top: `${Math.max(imgBounds.top, 0) + 8}px`,
-                        left: `${Math.max(imgBounds.left, 0) + 8}px`,
+                        transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
+                        cursor: scale > 1 ? 'grab' : 'default',
                     }}
+                    onMouseDown={handleImagePanStart}
+                />
+            </div>
+             {onDelete && (
+                <button
+                    className="absolute top-14 left-4 text-white bg-black/50 hover:bg-red-700 px-3 py-1 text-sm rounded-full shadow-lg z-10 transition-all hover:scale-105 flex items-center justify-center gap-1.5"
                     onClick={(e) => {
                         e.stopPropagation();
                         onDelete();
@@ -237,23 +408,16 @@ const RangeZoomModal: React.FC<RangeZoomModalProps> = ({ imageSrc, onClose, onDe
                     Excluir
                 </button>
             )}
-            <div className="w-[90vw] h-[90vh] flex items-center justify-center overflow-hidden" onWheel={handleWheel}>
-                <img
-                    ref={imgRef}
-                    src={imageSrc}
-                    alt="Range ampliado"
-                    className="max-w-none max-h-none transition-transform duration-100"
-                    style={{ 
-                        transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
-                        cursor: scale > 1 ? 'grab' : 'default'
-                    }}
-                    onMouseDown={handleMouseDown}
-                    onMouseUp={handleMouseUp}
-                    onMouseMove={handleMouseMove}
-                    onMouseLeave={handleMouseUp}
-                    onClick={(e) => e.stopPropagation()}
-                />
-            </div>
+            <div
+                className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize opacity-50 hover:opacity-100"
+                onMouseDown={handleResizeStart}
+                title="Redimensionar"
+                style={{
+                  borderBottom: '4px solid #f5c339',
+                  borderRight: '4px solid #f5c339',
+                  borderBottomRightRadius: '4px',
+                }}
+             />
         </div>
     );
 };
@@ -274,8 +438,7 @@ const CollapsibleSection: React.FC<{
                 aria-expanded={isOpen}
             >
                 <span className="font-semibold">{title}</span>
-                <span className="text-xs font-semibold flex items-center justify-center gap-2">
-                    {isOpen ? 'Recolher' : 'Expandir'}
+                <span className="text-xs font-semibold flex items-center justify-center">
                     <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transform transition-transform ${isOpen ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" /></svg>
                 </span>
             </button>
@@ -322,6 +485,7 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
     const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
     const clearMenuRef = useRef<HTMLDivElement>(null);
     const actionMenuRef = useRef<HTMLDivElement>(null);
+    const longPressTimerRef = useRef<number | null>(null);
     
     const isSelectedForIntelligentCompare = intelligentScenarios.includes(scenario.id);
 
@@ -396,6 +560,29 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
             return newSet;
         });
     };
+
+    const getAvailableSections = useCallback(() => {
+        const sections = ['params', 'media', 'notes'];
+        if (scenario.spotType !== 'Stats Analysis') {
+            sections.push('textData');
+        }
+        return sections;
+    }, [scenario.spotType]);
+
+    const areAllCollapsed = useMemo(() => {
+        const availableSections = getAvailableSections();
+        if (availableSections.length === 0) return true;
+        return !availableSections.some(s => openSections.has(s));
+    }, [openSections, getAvailableSections]);
+
+    const handleToggleAllSections = () => {
+        if (areAllCollapsed) {
+            setOpenSections(new Set(getAvailableSections()));
+        } else {
+            setOpenSections(new Set());
+        }
+        setIsActionMenuOpen(false);
+    };
     
     const getAutoGeneratedTitle = (s: Scenario): string => {
         const { spotType, gameScenario } = s;
@@ -425,7 +612,7 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
         
         if (spotType === 'HRC Enviroment') {
             const { rangeAction, raiserPos, heroPos, coldCallerPos, aggressorPos } = s;
-            if (!rangeAction) return "Novo Cenário (HRC Enviroment)";
+            if (!rangeAction) return "Novo Cenário (GTO Mastered)";
 
             let baseTitle = `Novo Cenário (${rangeAction})`;
             if (rangeAction === 'RFI' && raiserPos) {
@@ -483,6 +670,22 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
         if (scenario.manualTitle !== manualTitleInput) {
             handleUpdateWithHistory({ ...scenario, manualTitle: manualTitleInput.trim() });
         }
+    };
+    
+    const cancelLongPress = () => {
+        if (longPressTimerRef.current) {
+            clearTimeout(longPressTimerRef.current);
+            longPressTimerRef.current = null;
+        }
+    };
+
+    const handleTitleMouseDown = () => {
+        cancelLongPress();
+        longPressTimerRef.current = window.setTimeout(() => {
+            if (!isManualMode) {
+                handleToggleManualMode();
+            }
+        }, 1000); // 1 second
     };
     
     const handleToggleIntelligentCompare = (e: React.MouseEvent) => {
@@ -572,11 +775,20 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
         handleUpdateWithHistory(newScenario);
     };
     
-    const handleBountyUpdate = (count: number) => {
+    const handleBountyUpdate = (count: number | null) => {
+        if (count !== null && isNaN(count)) return;
         handleUpdate('startingBounties', count);
     };
+
+    const handleBountyBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+        const value = parseFloat(e.target.value);
+        if (isNaN(value) || value < 1) {
+            handleUpdate('startingBounties', 1);
+        }
+    };
     
-    const handleStacksUpdate = (count: number) => {
+    const handleStacksUpdate = (count: number | null) => {
+        if (count !== null && isNaN(count)) return;
         handleUpdate('startingStacks', count);
     };
 
@@ -717,6 +929,34 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
                     +Info {scenario.plusInfoImage && <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
                 </button>
             </div>
+            <div className="flex justify-center gap-4 mt-3 pt-3 border-t border-brand-bg/50">
+                <div className="flex items-center gap-2">
+                    <input
+                        type="checkbox"
+                        id={`showFrequencies-${scenario.id}`}
+                        checked={!!scenario.showFrequenciesInCompare}
+                        onChange={e => handleUpdate('showFrequenciesInCompare', e.target.checked)}
+                        className="h-4 w-4 rounded bg-brand-bg text-brand-secondary focus:ring-brand-secondary border-brand-primary"
+                    />
+                    <label htmlFor={`showFrequencies-${scenario.id}`} className="text-sm font-medium text-brand-text-muted">
+                        Inserir Frequências
+                    </label>
+                    <InfoTooltip text="inserir imagem das frequências do Range na janela de 'Análises/Comparações'" />
+                </div>
+                <div className="flex items-center gap-2">
+                    <input
+                        type="checkbox"
+                        id={`showEv-${scenario.id}`}
+                        checked={!!scenario.showEvInCompare}
+                        onChange={e => handleUpdate('showEvInCompare', e.target.checked)}
+                        className="h-4 w-4 rounded bg-brand-bg text-brand-secondary focus:ring-brand-secondary border-brand-primary"
+                    />
+                    <label htmlFor={`showEv-${scenario.id}`} className="text-sm font-medium text-brand-text-muted">
+                        Inserir EV
+                    </label>
+                    <InfoTooltip text="inserir imagem do EV do Range na janela de 'Análises/Comparações'" />
+                </div>
+            </div>
         </div>
     );
     
@@ -742,7 +982,13 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
                             className="text-lg font-bold text-brand-text bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-brand-secondary rounded px-1 -ml-1 w-full"
                          />
                     ) : (
-                        <h3 className="text-lg font-bold text-brand-text truncate" title={scenarioTitle}>
+                        <h3 
+                          className="text-lg font-bold text-brand-text truncate cursor-pointer" 
+                          title={scenarioTitle}
+                          onMouseDown={handleTitleMouseDown}
+                          onMouseUp={cancelLongPress}
+                          onMouseLeave={cancelLongPress}
+                        >
                             {scenarioTitle}
                         </h3>
                     )}
@@ -752,7 +998,7 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
                      <button
                         onClick={handleToggleIntelligentCompare}
                         className={`px-3 py-1 rounded-md text-sm font-bold transition-colors ${isSelectedForIntelligentCompare ? 'bg-brand-secondary text-brand-primary' : 'bg-brand-bg text-brand-text-muted hover:text-brand-text'}`}
-                        title={isSelectedForIntelligentCompare ? 'Remover da Comparação Inteligente' : 'Adicionar à Comparação Inteligente'}
+                        title="Compare cenários de diferentes cadernos."
                     >
                         iCompare
                     </button>
@@ -769,8 +1015,9 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
                         {isActionMenuOpen && (
                            <div className="absolute top-full right-0 mt-2 w-56 bg-brand-bg rounded-md shadow-lg z-10 border border-brand-primary overflow-hidden">
                                 <ul className="text-sm text-brand-text">
-                                    <li><button onClick={() => { onDuplicate(scenario.id); setIsActionMenuOpen(false); }} className="w-full text-left px-4 py-2 hover:bg-brand-primary flex items-center gap-2">Duplicar Cenário</button></li>
-                                    <li><button onClick={handleToggleManualMode} className="w-full text-left px-4 py-2 hover:bg-brand-primary flex items-center gap-2">{isManualMode ? 'Usar Título Automático' : 'Renomear Manualmente'}</button></li>
+                                    <li><button onClick={() => { onDuplicate(scenario.id); setIsActionMenuOpen(false); }} className="w-full text-left px-4 py-2 hover:bg-brand-primary flex items-center gap-2">Duplicar</button></li>
+                                    <li><button onClick={handleToggleManualMode} className="w-full text-left px-4 py-2 hover:bg-brand-primary flex items-center gap-2">{isManualMode ? 'Usar Título Automático' : 'Renomear'}</button></li>
+                                    <li><button onClick={handleToggleAllSections} className="w-full text-left px-4 py-2 hover:bg-brand-primary flex items-center gap-2">{areAllCollapsed ? 'Expandir Tudo' : 'Recolher Tudo'}</button></li>
                                     <li><button onClick={(e) => { e.stopPropagation(); setIsClearMenuOpen(p => !p); }} className="w-full text-left px-4 py-2 hover:bg-brand-primary flex items-center gap-2">Limpar...</button></li>
                                     <li><button onClick={(e) => { onDelete(scenario.id); setIsActionMenuOpen(false); }} className="w-full text-left px-4 py-2 hover:bg-red-800/50 text-red-400 flex items-center gap-2">Excluir Cenário</button></li>
                                 </ul>
@@ -888,11 +1135,11 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
                                       <div className="flex items-center gap-4">
                                           <div>
                                               <label className="text-xs text-brand-text-muted">Bounties:</label>
-                                              <input type="number" value={scenario.startingBounties || ''} onChange={e => handleBountyUpdate(parseInt(e.target.value, 10))} className="w-20 bg-brand-bg text-sm rounded-md p-1 focus:ring-brand-secondary focus:outline-none" />
+                                              <input type="number" step="0.5" min="1" value={scenario.startingBounties ?? ''} onChange={e => handleBountyUpdate(e.target.value === '' ? null : parseFloat(e.target.value))} onBlur={handleBountyBlur} className="w-20 bg-brand-bg text-sm rounded-md p-1 focus:ring-brand-secondary focus:outline-none" />
                                           </div>
                                           <div>
                                               <label className="text-xs text-brand-text-muted">Stacks:</label>
-                                              <input type="number" value={scenario.startingStacks || ''} onChange={e => handleStacksUpdate(parseInt(e.target.value, 10))} className="w-20 bg-brand-bg text-sm rounded-md p-1 focus:ring-brand-secondary focus:outline-none" />
+                                              <input type="number" step="0.5" min="0.5" value={scenario.startingStacks ?? ''} onChange={e => handleStacksUpdate(e.target.value === '' ? null : parseFloat(e.target.value))} className="w-20 bg-brand-bg text-sm rounded-md p-1 focus:ring-brand-secondary focus:outline-none" />
                                           </div>
                                            {dropEquity !== null && <div className="text-sm font-bold text-brand-secondary">DE: {dropEquity.toFixed(1)}%</div>}
                                       </div>
@@ -900,7 +1147,7 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
                                 </div>
                             )}
                             
-                            {scenario.spotType === 'HRC Enviroment' && renderInserirButtons()}
+                            {(scenario.spotType === 'HRC Enviroment' || scenario.spotType === 'Rfi') && renderInserirButtons()}
 
                         </div>
                     </CollapsibleSection>
@@ -951,7 +1198,7 @@ const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
                 onDelete={() => setIsConfirmingDeleteImage(true)}
             />
             {zoomedImage && (
-                <RangeZoomModal
+                <DraggableZoomModal
                     imageSrc={zoomedImage.src}
                     onClose={() => setZoomedImage(null)}
                     onDelete={() => setIsConfirmingDeleteZoomedImage(true)}

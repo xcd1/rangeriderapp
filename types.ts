@@ -1,9 +1,7 @@
 
 
-
-
 export type Position = 'UTG' | 'EP' | 'LJ' | 'HJ' | 'CO' | 'BTN' | 'SB' | 'BB';
-export type GameScenario = 'CEv' | 'Bounty CVD' | 'Bounty CVN' | 'Vanilla CVD' | 'Vanilla CVN' | 'Turbo' | 'Hyper' | 'Mistery' | 'KO' | 'NON KO' | 'ALL';
+export type GameScenario = 'CEv' | 'Bounty CVD' | 'Bounty CVN' | 'Vanilla CVD' | 'Vanilla CVN' | 'Turbo' | 'Hyper' | 'Mistery' | 'KO' | 'NON KO' | 'ALL' | 'Ideal Frequencies';
 export type SpotType = 'Blind War' | 'Facing 2bet' | 'HRC Enviroment' | 'Rfi' | 'Stats Analysis';
 export type RangeAction = 'RFI' | 'F2bet' | 'F3bet' | 'F4bet' | 'F5bet' | 'FCC' | 'FSQZ';
 export type BlindWarAction = 'vs. Limp' | 'vs. raise' | 'em Gap' | 'vs. ISO' | 'vs. 3bet';
@@ -49,6 +47,8 @@ export interface Scenario {
   callText: string;
   notes: string;
   createdAt: number;
+  showFrequenciesInCompare?: boolean;
+  showEvInCompare?: boolean;
 }
 
 export interface Folder {

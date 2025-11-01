@@ -1,5 +1,9 @@
 
 
+
+
+
+
 import React, { useState, createContext, useMemo, useCallback, ReactNode, useContext, useEffect, useRef } from 'react';
 import type { Notebook, Scenario, Folder, UserProfile } from './types';
 import type { User } from 'firebase/auth';
@@ -105,7 +109,7 @@ interface AppContextType {
   deleteNotebook: (notebookId: string) => Promise<void>;
   updateNotebook: (notebookId: string, updates: Partial<Pick<Notebook, 'name' | 'folderId'>>) => Promise<void>;
   duplicateNotebook: (notebookId: string) => Promise<void>;
-  addFolder: (name: string) => Promise<void>;
+  addFolder: (name: string, parentId?: string | null) => Promise<void>;
   deleteFolder: (folderId: string) => Promise<void>;
   updateFolder: (folderId: string, updates: Partial<Pick<Folder, 'name' | 'parentId'>>) => Promise<void>;
   addScenario: (notebookId: string, scenario: Scenario) => Promise<void>;
@@ -301,6 +305,7 @@ const AppContent: React.FC = () => {
             <ComparisonView 
                 scenarios={scenariosForGlobalComparison}
                 onBack={() => setIsGlobalComparing(false)}
+                comparisonKey="global"
             />
           </div>
       )

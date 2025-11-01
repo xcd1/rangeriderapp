@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { db } from '../firebase';
 import {
@@ -24,7 +23,7 @@ interface FirestoreNotebooksResult {
     deleteNotebook: (notebookId: string) => Promise<void>;
     updateNotebook: (notebookId: string, updates: Partial<Pick<Notebook, 'name' | 'folderId' | 'notes' | 'defaultSpot'>>) => Promise<void>;
     duplicateNotebook: (notebookId: string) => Promise<void>;
-    addFolder: (name: string) => Promise<void>;
+    addFolder: (name: string, parentId?: string | null) => Promise<void>;
     deleteFolder: (folderId: string) => Promise<void>;
     updateFolder: (folderId: string, updates: Partial<Pick<Folder, 'name' | 'parentId'>>) => Promise<void>;
     addScenario: (notebookId: string, scenario: Scenario) => Promise<void>;
@@ -72,6 +71,8 @@ const cleanScenario = (scenario: any): Scenario => {
         callText: typeof s.callText === 'string' ? s.callText : '',
         notes: typeof s.notes === 'string' ? s.notes : '',
         createdAt: typeof s.createdAt === 'number' ? s.createdAt : Date.now(),
+        showFrequenciesInCompare: typeof s.showFrequenciesInCompare === 'boolean' ? s.showFrequenciesInCompare : false,
+        showEvInCompare: typeof s.showEvInCompare === 'boolean' ? s.showEvInCompare : false,
     };
 };
 
@@ -245,9 +246,9 @@ const useFirestoreNotebooks = (uid: string | undefined): Omit<FirestoreNotebooks
         }
     }, [uid]);
 
-    const addFolder = useCallback(async (name: string) => {
+    const addFolder = useCallback(async (name: string, parentId: string | null = null) => {
         if (!uid) throw new Error("User not authenticated");
-        await addDoc(collection(db, 'users', uid, 'folders'), { name, parentId: null, createdAt: Date.now() });
+        await addDoc(collection(db, 'users', uid, 'folders'), { name, parentId: parentId || null, createdAt: Date.now() });
     }, [uid]);
     
     const updateFolder = useCallback(async (folderId: string, updates: Partial<Pick<Folder, 'name' | 'parentId'>>) => {
