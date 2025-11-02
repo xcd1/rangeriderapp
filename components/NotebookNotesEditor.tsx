@@ -4,9 +4,10 @@ interface ToolbarButtonProps {
     onClick: (e: React.MouseEvent) => void;
     children: React.ReactNode;
     title: string;
+    disabled?: boolean;
 }
-const ToolbarButton: React.FC<ToolbarButtonProps> = ({ onClick, children, title }) => (
-    <button onMouseDown={onClick} title={title} className="w-8 h-8 flex items-center justify-center rounded hover:bg-brand-secondary/20 transition-colors">
+const ToolbarButton: React.FC<ToolbarButtonProps> = ({ onClick, children, title, disabled = false }) => (
+    <button onMouseDown={onClick} title={title} disabled={disabled} className="w-8 h-8 flex items-center justify-center rounded hover:bg-brand-secondary/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
         {children}
     </button>
 );
@@ -49,11 +50,31 @@ interface NotebookNotesEditorProps {
 const fonts = ['Arial', 'Verdana', 'Times New Roman', 'Courier New', 'Georgia', 'Palatino', 'Garamond', 'Comic Sans MS', 'Trebuchet MS'];
 const fontSizes = [8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48, 72];
 
+const imageEditorStyles = `
+    .resizable-image-container {
+        outline: 2px solid transparent;
+        transition: outline-color 0.2s;
+        /* Fix for weird selection behavior in Firefox */
+        -moz-user-select: none;
+    }
+    .resizable-image-container.selected {
+        outline-color: #f5c339; /* brand-secondary */
+    }
+    .resizable-image-container .resize-handle {
+        display: none;
+    }
+    .resizable-image-container.selected .resize-handle {
+        display: block;
+    }
+`;
+
 export const NotebookNotesEditor: React.FC<NotebookNotesEditorProps> = ({ notebookId, initialContent, onSave, onBack, isSplitViewMode = false }) => {
     const [saveStatus, setSaveStatus] = useState<'salvo' | 'salvando' | 'não salvo'>('salvo');
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+    const [selectedImage, setSelectedImage] = useState<HTMLDivElement | null>(null);
     
     const editorRef = useRef<HTMLDivElement>(null);
+    const imageInputRef = useRef<HTMLInputElement>(null);
     const contentRef = useRef(initialContent);
     const saveTimeoutRef = useRef<number | null>(null);
     const lastSavedContent = useRef(initialContent);
@@ -67,44 +88,40 @@ export const NotebookNotesEditor: React.FC<NotebookNotesEditorProps> = ({ notebo
         lastSavedContent.current = initialContent;
     }, [initialContent]);
 
+    const triggerSave = useCallback(() => {
+        setSaveStatus('salvando');
+        onSave(notebookId, { notes: contentRef.current }).then(() => {
+            setSaveStatus('salvo');
+            lastSavedContent.current = contentRef.current;
+        });
+    }, [notebookId, onSave]);
 
     // Auto-save logic
     useEffect(() => {
-        if (contentRef.current === lastSavedContent.current) return;
+        if (saveStatus !== 'não salvo') return;
         
-        setSaveStatus('não salvo');
-
         if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
 
-        saveTimeoutRef.current = window.setTimeout(() => {
-            setSaveStatus('salvando');
-            onSave(notebookId, { notes: contentRef.current }).then(() => {
-                setSaveStatus('salvo');
-                lastSavedContent.current = contentRef.current;
-            });
-        }, 5000);
+        saveTimeoutRef.current = window.setTimeout(triggerSave, 2000); // 2-second debounce
 
         return () => {
             if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
         };
-    }, [contentRef.current, notebookId, onSave]);
+    }, [saveStatus, triggerSave]);
 
     const handleManualSave = useCallback(() => {
         if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
         if (saveStatus !== 'salvo') {
-            setSaveStatus('salvando');
-            onSave(notebookId, { notes: contentRef.current }).then(() => {
-                setSaveStatus('salvo');
-                lastSavedContent.current = contentRef.current;
-            });
+            triggerSave();
         }
-    }, [notebookId, onSave, saveStatus]);
+    }, [triggerSave, saveStatus]);
 
 
     const handleContentChange = (e: React.FormEvent<HTMLDivElement>) => {
         contentRef.current = e.currentTarget.innerHTML;
-        // Trigger a re-render to update save status, but don't re-render editor content
-        setSaveStatus(prev => prev === 'salvo' ? 'não salvo' : prev);
+        if (contentRef.current !== lastSavedContent.current) {
+            setSaveStatus('não salvo');
+        }
     };
     
     const handleCommand = (e: React.MouseEvent | React.ChangeEvent<HTMLSelectElement>, command: string, value?: string) => {
@@ -112,8 +129,7 @@ export const NotebookNotesEditor: React.FC<NotebookNotesEditorProps> = ({ notebo
         document.execCommand(command, false, value);
         editorRef.current?.focus();
         if (editorRef.current) {
-            contentRef.current = editorRef.current.innerHTML;
-            setSaveStatus(prev => prev === 'salvo' ? 'não salvo' : prev);
+            handleContentChange({ currentTarget: editorRef.current } as React.FormEvent<HTMLDivElement>);
         }
     };
     
@@ -121,26 +137,20 @@ export const NotebookNotesEditor: React.FC<NotebookNotesEditorProps> = ({ notebo
         const size = e.target.value;
         if (!size) return;
         e.preventDefault();
-
-        // This is a common hack to apply custom styles like specific font sizes.
-        // 1. Ensure spans are used.
         document.execCommand('styleWithCSS', false, 'true');
-        // 2. Apply a temporary, unique style that we can find. `fontSize: 0` is unlikely to be used.
-        const uniqueStyle = '0px';
-        document.execCommand('fontSize', false, uniqueStyle);
-
-        // 3. Find all elements with that unique style and replace it with the desired size.
-        const elements = editorRef.current?.querySelectorAll<HTMLElement>('span[style*="font-size: 0px"]');
-        if (elements) {
-            elements.forEach(el => {
-                el.style.fontSize = `${size}px`;
-            });
+        document.execCommand('fontSize', false, '1'); // Use a placeholder size
+        const fontElements = editorRef.current?.getElementsByTagName('font');
+        if (fontElements) {
+            for (let i = 0; i < fontElements.length; i++) {
+                if (fontElements[i].size === "1") {
+                    fontElements[i].removeAttribute("size");
+                    fontElements[i].style.fontSize = size + "px";
+                }
+            }
         }
-        
         editorRef.current?.focus();
         if (editorRef.current) {
-            contentRef.current = editorRef.current.innerHTML;
-            setSaveStatus(prev => prev === 'salvo' ? 'não salvo' : prev);
+           handleContentChange({ currentTarget: editorRef.current } as React.FormEvent<HTMLDivElement>);
         }
     };
     
@@ -165,6 +175,117 @@ export const NotebookNotesEditor: React.FC<NotebookNotesEditorProps> = ({ notebo
         }
     };
 
+     const insertImageHTML = (dataUrl: string) => {
+        const html = `
+            <div class="resizable-image-container" style="position: relative; display: inline-block; width: 50%;" contenteditable="false">
+                <img src="${dataUrl}" style="width: 100%; height: auto; display: block;" />
+                <div class="resize-handle" style="position: absolute; width: 12px; height: 12px; background: #2c5a6d; border: 2px solid #f5c339; bottom: -6px; right: -6px; cursor: se-resize; z-index: 10;"></div>
+            </div>&nbsp;
+        `;
+        document.execCommand('insertHTML', false, html);
+    };
+
+    const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const dataUrl = event.target?.result as string;
+                insertImageHTML(dataUrl);
+            };
+            reader.readAsDataURL(file);
+        }
+        if (imageInputRef.current) imageInputRef.current.value = "";
+    };
+
+    const handlePaste = useCallback((e: React.ClipboardEvent<HTMLDivElement>) => {
+        const items = e.clipboardData.items;
+        for (const item of Array.from(items)) {
+            // FIX: Cast clipboard item to DataTransferItem to access its properties, resolving 'property does not exist on type unknown' errors.
+            if ((item as DataTransferItem).type.startsWith('image/')) {
+                e.preventDefault();
+                // FIX: Cast clipboard item to DataTransferItem to access its properties.
+                const file = (item as DataTransferItem).getAsFile();
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        const dataUrl = event.target?.result as string;
+                        insertImageHTML(dataUrl);
+                    };
+                    reader.readAsDataURL(file);
+                }
+                return;
+            }
+        }
+    }, []);
+
+    const handleImageAlignment = (align: 'left' | 'right' | 'none') => {
+        if (!selectedImage) return;
+
+        selectedImage.style.float = align === 'none' ? 'none' : align;
+        selectedImage.style.margin = align === 'none' ? '' : (align === 'left' ? '0.5em 1em 0.5em 0' : '0.5em 0 0.5em 1em');
+        
+        if (editorRef.current) {
+            handleContentChange({ currentTarget: editorRef.current } as React.FormEvent<HTMLDivElement>);
+        }
+        editorRef.current?.focus();
+    };
+
+    useEffect(() => {
+        const resizeHandle = selectedImage?.querySelector('.resize-handle') as HTMLDivElement;
+        if (!resizeHandle || !selectedImage) return;
+
+        const onMouseDown = (e: MouseEvent) => {
+            e.preventDefault();
+            const startX = e.clientX;
+            const startWidth = selectedImage.offsetWidth;
+
+            const onMouseMove = (moveEvent: MouseEvent) => {
+                const newWidth = startWidth + (moveEvent.clientX - startX);
+                if (newWidth > 50) { // Minimum width
+                    selectedImage.style.width = `${newWidth}px`;
+                }
+            };
+
+            const onMouseUp = () => {
+                window.removeEventListener('mousemove', onMouseMove);
+                window.removeEventListener('mouseup', onMouseUp);
+                if (editorRef.current) {
+                    handleContentChange({ currentTarget: editorRef.current } as React.FormEvent<HTMLDivElement>);
+                }
+            };
+
+            window.addEventListener('mousemove', onMouseMove);
+            window.addEventListener('mouseup', onMouseUp);
+        };
+
+        resizeHandle.addEventListener('mousedown', onMouseDown);
+        return () => resizeHandle.removeEventListener('mousedown', onMouseDown);
+    }, [selectedImage]);
+
+    const handleEditorClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+        const target = e.target as HTMLElement;
+        const wrapper = target.closest('.resizable-image-container') as HTMLDivElement | null;
+        
+        if (selectedImage && selectedImage !== wrapper) {
+            selectedImage.classList.remove('selected');
+        }
+
+        if (wrapper && wrapper !== selectedImage) {
+            wrapper.classList.add('selected');
+            setSelectedImage(wrapper);
+        } else if (!wrapper) {
+            setSelectedImage(null);
+        }
+    }, [selectedImage]);
+
+    useEffect(() => {
+        if (!selectedImage) {
+            editorRef.current?.querySelectorAll('.resizable-image-container.selected').forEach(el => el.classList.remove('selected'));
+        }
+    }, [selectedImage]);
+
+
     const getSaveStatusText = () => {
         switch (saveStatus) {
             case 'salvo': return 'Salvo.';
@@ -172,11 +293,11 @@ export const NotebookNotesEditor: React.FC<NotebookNotesEditorProps> = ({ notebo
             case 'não salvo': return 'Alterações pendentes.';
         }
     };
-    
-    const rulerMarkings = Array.from({ length: 15 }, (_, i) => i); // For decorative rulers
 
     return (
         <div className="flex flex-col h-full bg-brand-bg p-1">
+            <style>{imageEditorStyles}</style>
+            <input type="file" accept="image/*" ref={imageInputRef} onChange={handleImageFileChange} style={{ display: 'none' }} />
             <div className="flex items-center justify-between mb-4 flex-shrink-0 px-1">
                 {!isSplitViewMode && onBack ? (
                     <button onClick={onBack} className="text-sm font-bold text-brand-secondary hover:underline inline-flex items-center p-2 rounded-md hover:bg-brand-primary gap-2">
@@ -186,7 +307,7 @@ export const NotebookNotesEditor: React.FC<NotebookNotesEditorProps> = ({ notebo
                 ) : <div />}
                 <div className="flex items-center gap-4">
                      <span className="text-sm text-brand-text-muted">{getSaveStatusText()}</span>
-                     <button onClick={handleManualSave} disabled={saveStatus === 'salvo'} title="Salvar Agora" className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold p-2 rounded-md transition-colors text-sm flex items-center justify-center w-8 h-8 disabled:opacity-50 disabled:cursor-not-allowed">
+                     <button onClick={handleManualSave} disabled={saveStatus !== 'não salvo'} title="Salvar Agora" className="bg-brand-secondary hover:brightness-110 text-brand-primary font-bold p-2 rounded-md transition-colors text-sm flex items-center justify-center w-8 h-8 disabled:opacity-50 disabled:cursor-not-allowed">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-[19px] w-[19px]" viewBox="0 0 20 20" fill="currentColor"><path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v12a2 2 0 01-2 2H7a2 2 0 01-2-2V4zm3 0h4v3H8V4zm2 11a1 1 0 100-2 1 1 0 000 2z"/></svg>
                     </button>
                     <button onClick={handlePrint} title="Imprimir/Exportar PDF" className="p-2 rounded hover:bg-brand-primary text-brand-text-muted hover:text-brand-text flex items-center justify-center w-8 h-8">
@@ -220,14 +341,29 @@ export const NotebookNotesEditor: React.FC<NotebookNotesEditorProps> = ({ notebo
                     <ToolbarButton title="Alinhar à Esquerda" onClick={(e) => handleCommand(e, 'justifyLeft')}><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" /></svg></ToolbarButton>
                     <ToolbarButton title="Centralizar" onClick={(e) => handleCommand(e, 'justifyCenter')}><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h6a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" /></svg></ToolbarButton>
                     <ToolbarButton title="Alinhar à Direita" onClick={(e) => handleCommand(e, 'justifyRight')}><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM9 10a1 1 0 011-1h6a1 1 0 110 2h-6a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" /></svg></ToolbarButton>
-                    <div className="w-px h-6 bg-brand-bg mx-2"></div>
                     <ToolbarButton title="Aumentar Recuo" onClick={(e) => handleCommand(e, 'indent')}><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM11.707 9.293a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 01-1.414-1.414L13.586 11H11a1 1 0 110-2h2.586l-1.293-1.293a1 1 0 010-1.414z" clipRule="evenodd" /></svg></ToolbarButton>
+                    <div className="w-px h-6 bg-brand-bg mx-2"></div>
+                    <ToolbarButton title="Inserir Imagem" onClick={() => imageInputRef.current?.click()}>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" /></svg>
+                    </ToolbarButton>
+                    <div className="w-px h-6 bg-brand-bg mx-2"></div>
+                    <ToolbarButton title="Alinhar Imagem à Esquerda" onClick={() => handleImageAlignment('left')} disabled={!selectedImage}>
+                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M5 3a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2H5zm0 2h4v4H5V5zm6 0h4v2h-4V5zm0 4h4v2h-4V9zm0 4h4v2h-4v-2z" /></svg>
+                    </ToolbarButton>
+                    <ToolbarButton title="Remover Alinhamento da Imagem" onClick={() => handleImageAlignment('none')} disabled={!selectedImage}>
+                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
+                    </ToolbarButton>
+                     <ToolbarButton title="Alinhar Imagem à Direita" onClick={() => handleImageAlignment('right')} disabled={!selectedImage}>
+                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M5 3a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2H5zm10 2v4h-4V5h4zM5 5h4v2H5V5zm0 4h4v2H5V9zm0 4h4v2H5v-2z" /></svg>
+                    </ToolbarButton>
                 </div>
                 <div
                     ref={editorRef}
                     contentEditable
                     onInput={handleContentChange}
                     onBlur={handleManualSave}
+                    onClick={handleEditorClick}
+                    onPaste={handlePaste}
                     className="p-6 flex-grow overflow-y-auto focus:outline-none bg-white text-gray-800 rounded-b-md shadow-inner"
                     style={{ whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}
                 />

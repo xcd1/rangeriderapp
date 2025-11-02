@@ -138,9 +138,11 @@ const NotebookItem: React.FC<NotebookItemProps> = ({
                         onMouseLeave={onMouseLeave}
                         className={`flex items-center flex-grow truncate ${isDeleting ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                     >
-                         <svg xmlns="http://www.w3.org/2000/svg" className="h-[18px] w-[18px] mr-2 flex-shrink-0 text-brand-secondary" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M3 5a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V5zm2 1h10v1H5V6zm0 3h10v1H5V9zm0 3h6v1H5v-1z" clipRule="evenodd" />
-                        </svg>
+                        <div className="w-5 h-5 flex items-center justify-center mr-2 flex-shrink-0">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-[18px] w-[18px] text-brand-secondary" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M3 5a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V5zm2 1h10v1H5V6zm0 3h10v1H5V9zm0 3h6v1H5v-1z" clipRule="evenodd" />
+                            </svg>
+                        </div>
                         <span className="truncate pr-2" title={notebook.name}>{notebook.name}</span>
                     </div>
                     
@@ -663,6 +665,7 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
     const isEditing = editingFolderId === folder.id;
     const isFirst = index === 0;
     const isLast = index === list.length - 1;
+    const iconSizeClass = level > 0 ? 'h-[15px] w-[15px]' : 'h-[18px] w-[18px]';
 
     return (
         <li key={folder.id} 
@@ -698,11 +701,11 @@ const Sidebar: React.FC<SidebarProps> = ({ width }) => {
                         >
                              <div className="w-5 h-5 flex items-center justify-center mr-2">
                                 {isCollapsed ? (
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-[18px] w-[18px] flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className={`${iconSizeClass} flex-shrink-0`} viewBox="0 0 20 20" fill="currentColor">
                                         <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
                                     </svg>
                                 ) : (
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-[18px] w-[18px] flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className={`${iconSizeClass} flex-shrink-0`} viewBox="0 0 20 20" fill="currentColor">
                                         <path d="M5 12a2 2 0 100 4h10a2 2 0 100-4H5z" />
                                         <path fillRule="evenodd" d="M3 4a2 2 0 012-2h6l2 2h4a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V4zm2 1v1h12V5H5z" clipRule="evenodd" />
                                     </svg>

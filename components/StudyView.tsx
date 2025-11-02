@@ -324,8 +324,8 @@ const StudyView: React.FC = () => {
                 redo: () => deleteScenario(activeNotebook.id, scenarioId),
             });
             // Update quick compare
-            // FIX: Explicitly type the `prev` parameter in the state setter to prevent type pollution.
-            // Untyped `prev` can be inferred as `unknown`, causing downstream type errors.
+// FIX: Explicitly type the `prev` parameter in the state setter to prevent type pollution.
+// Untyped `prev` can be inferred as `unknown`, causing downstream type errors.
             setScenariosToCompare((prev: Set<string>) => {
                 const newSet = new Set(prev);
                 newSet.delete(scenarioId);
